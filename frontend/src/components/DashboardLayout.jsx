@@ -238,7 +238,7 @@ export default function DashboardLayout({
         {/* 3. Main Dashboard Workspace Content Area */}
         <main className="flex-1 overflow-y-auto bg-slate-50 focus:outline-none p-6">
           <div className="max-w-7xl mx-auto">
-            {children}
+            {React.cloneElement(children, { onNavigate })}
           </div>
         </main>
 

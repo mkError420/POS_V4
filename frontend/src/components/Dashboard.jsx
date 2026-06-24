@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate = () => {} }) {
   const userObj = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = userObj.role === 'super_admin';
 
@@ -355,15 +355,15 @@ export default function Dashboard() {
             <h3 className="text-lg font-bold text-slate-800">Quick Administrator Links</h3>
             <div className="space-y-3">
               <a
-                href="/shops"
-                onClick={(e) => { e.preventDefault(); window.location.pathname = '/shops'; }}
+                href="#"
+                onClick={(e) => { e.preventDefault(); onNavigate('/shops'); }}
                 className="w-full flex items-center justify-center space-x-2 bg-slate-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow transition-colors text-center"
               >
                 <span>Manage Tenant Shops</span>
               </a>
               <a
-                href="/users"
-                onClick={(e) => { e.preventDefault(); window.location.pathname = '/users'; }}
+                href="#"
+                onClick={(e) => { e.preventDefault(); onNavigate('/users'); }}
                 className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow transition-colors text-center"
               >
                 <span>Manage System Users</span>
@@ -705,8 +705,8 @@ export default function Dashboard() {
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Actions</h4>
             <a
-              href="/checkout"
-              onClick={(e) => { e.preventDefault(); window.location.pathname = '/checkout'; }}
+              href="#"
+              onClick={(e) => { e.preventDefault(); onNavigate('/checkout'); }}
               className="w-full flex items-center justify-center space-x-2 bg-slate-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -26,11 +26,6 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
   const [saleTabs, setSaleTabs] = useState([createNewSaleTab(1)]);
   const [activeTabId, setActiveTabId] = useState(saleTabs[0].id);
   const [search, setSearch] = useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [syncToDirectory, setSyncToDirectory] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [taxRate, setTaxRate] = useState(0.10); // Dynamic Tax Rate (default 10%)
 
@@ -69,30 +64,21 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
 
   // When active tab changes, sync its details to the local form state
   useEffect(() => {
-    if (activeTab) {
-      setSelectedCustomerId(activeTab.selectedCustomerId);
-      setCustomerName(activeTab.customerName);
-      setCustomerPhone(activeTab.customerPhone);
-      setCustomerAddress(activeTab.customerAddress);
-      setSyncToDirectory(activeTab.syncToDirectory);
-      setReduceDueAmount(activeTab.reduceDueAmount);
-    }
+    // This effect is no longer needed as we bind directly to activeTab state.
+    // Kept for historical context, can be removed.
   }, [activeTabId, saleTabs]);
 
   // Sync details input form fields when selection dropdown changes
   useEffect(() => {
-    const selected = customers.find(c => c.id === parseInt(selectedCustomerId));
+    if (!activeTab) return;
+    const selected = customers.find(c => c.id === parseInt(activeTab.selectedCustomerId));
     if (selected) {
       updateActiveTabState('customerName', selected.name || '');
       updateActiveTabState('customerPhone', selected.phone || '');
       updateActiveTabState('customerAddress', selected.address || '');
       updateActiveTabState('syncToDirectory', false);
-    } else {
-      updateActiveTabState('customerName', '');
-      updateActiveTabState('customerPhone', '');
-      updateActiveTabState('customerAddress', '');
     }
-  }, [selectedCustomerId, customers]);
+  }, [activeTab?.selectedCustomerId, customers]);
 
   // --- API FETCH LOGIC ---
   
@@ -313,14 +299,14 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
   };
 
   // Financial Calculators
-  const getSubtotal = () => activeTab.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const getSubtotal = () => activeTab?.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
   const getTax = () => getSubtotal() * taxRate;
-  const getDiscountAmount = () => getSubtotal() * (parseFloat(activeTab.discountPercent || 0) / 100);
-  const getFinalTotal = () => (getSubtotal() - getDiscountAmount()) + getTax() + parseFloat(reduceDueAmount || 0);
+  const getDiscountAmount = () => getSubtotal() * (parseFloat(activeTab?.discountPercent || 0) / 100);
+  const getFinalTotal = () => (getSubtotal() - getDiscountAmount()) + getTax() + parseFloat(activeTab?.reduceDueAmount || 0);
 
   // --- SUBMIT CHECKOUT ---
   const handleCheckout = async () => {
-    if (activeTab.cart.length === 0 && parseFloat(reduceDueAmount || 0) <= 0) {
+    if (activeTab.cart.length === 0 && parseFloat(activeTab.reduceDueAmount || 0) <= 0) {
       triggerAlert('error', 'Checkout cart is empty.');
       return;
     }
@@ -349,9 +335,9 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
 
       // 1. Sync Customer Details to Customer Directory if requested
       if (activeTab.syncToDirectory && (activeTab.customerName.trim() !== '' || activeTab.selectedCustomerId !== '')) {
-        if (selectedCustomerId === '') {
+        if (activeTab.selectedCustomerId === '') {
           // Add new customer profile
-          if (!customerName.trim()) {
+          if (!activeTab.customerName.trim()) {
             throw new Error('Customer Name is required to save profile to directory.');
           }
           const customerRes = await fetch(`${API_BASE_URL}/customers`, {
@@ -373,10 +359,10 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
           finalCustomerId = customerData.id;
         } else {
           // Update existing customer profile
-          if (!customerName.trim()) {
+          if (!activeTab.customerName.trim()) {
             throw new Error('Customer Name cannot be empty.');
           }
-          const customerRes = await fetch(`${API_BASE_URL}/customers/${selectedCustomerId}`, {
+          const customerRes = await fetch(`${API_BASE_URL}/customers/${activeTab.selectedCustomerId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -403,9 +389,8 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
         customer_id: finalCustomerId,
         discount: getDiscountAmount(),
         tax: getTax(),
-        payment_method: activeTab.paymentMethod,
-        paid_amount: parsedPaid,
-        reduce_due_amount: parseFloat(reduceDueAmount || 0),
+        payment_method: activeTab.paymentMethod, // This was already correct, but good to confirm
+        paid_amount: parsedPaid,        reduce_due_amount: parseFloat(activeTab.reduceDueAmount || 0),
         items: activeTab.cart.map(item => ({
           product_id: item.id,
           quantity: item.quantity
@@ -443,14 +428,14 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
         payment_method: activeTab.paymentMethod,
         created_at: new Date().toLocaleString(),
         customer_name: activeTab.customerName.trim() || 'Walk-in Customer',
-        customer_phone: customerPhone.trim() || '',
-        customer_address: customerAddress.trim() || '',
+        customer_phone: activeTab.customerPhone.trim() || '',
+        customer_address: activeTab.customerAddress.trim() || '',
         shop_name: currentUser?.shop_name || 'Boutique POS',
         shop_phone: currentUser?.shop_phone || '',
         shop_address: currentUser?.shop_address || '',
-        shop_email: currentUser?.shop_email || '',
+        shop_email: currentUser?.email || '',
         staff_name: currentUser?.name || 'Cashier',
-        reduce_due_amount: parseFloat(reduceDueAmount || 0),
+        reduce_due_amount: parseFloat(activeTab.reduceDueAmount || 0),
         paid_amount: paid,
         due_amount: outstandingDue > 0 ? outstandingDue : 0
       });
@@ -503,9 +488,9 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
       const payload = {
         customer_id: finalCustomerId,
         customer_name: activeTab.customerName.trim() || null,
-        customer_phone: customerPhone.trim() || null,
-        customer_address: customerAddress.trim() || null,
-        discount_percent: discountPercent,
+        customer_phone: activeTab.customerPhone.trim() || null,
+        customer_address: activeTab.customerAddress.trim() || null,
+        discount_percent: activeTab.discountPercent,
         notes: holdNotes.trim(),
         items: payloadItems
       };
@@ -864,7 +849,7 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
         <div>
           <p className="text-xs text-slate-400 font-medium">Active Cart</p>
           <p className="text-lg font-bold text-slate-800">
-            {activeTab.cart.reduce((sum, item) => sum + item.quantity, 0)} Items - <span className="text-indigo-600">৳{getFinalTotal().toFixed(2)}</span>
+            {activeTab?.cart.reduce((sum, item) => sum + item.quantity, 0) || 0} Items - <span className="text-indigo-600">৳{getFinalTotal().toFixed(2)}</span>
           </p>
         </div>
         <button
@@ -1414,10 +1399,10 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
                   <span>Subtotal Amount:</span>
                   <span>৳{getSubtotal().toFixed(2)}</span>
                 </div>
-                {selectedCustomerId && (
+                {activeTab.selectedCustomerId && (
                   <div className="flex justify-between">
                     <span>Customer: </span>
-                    <span>{customerName}</span>
+                    <span>{activeTab.customerName}</span>
                   </div>
                 )}
               </div>
@@ -1572,6 +1557,8 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
 
   // --- SUB-COMPONENT: CART PANEL DETAILS ---
   function renderCartPanelContent() {
+    if (!activeTab) return null; // Guard against rendering when activeTab is undefined
+
     return (
       <div className="flex flex-col h-full overflow-hidden">
 
@@ -1581,9 +1568,9 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               Select Customer
             </label>
-            <select 
-              value={selectedCustomerId}
-              onChange={(e) => setSelectedCustomerId(e.target.value)}
+            <select
+              value={activeTab.selectedCustomerId}
+              onChange={(e) => updateActiveTabState('selectedCustomerId', e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">Walk-in Customer</option>
@@ -1605,7 +1592,7 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
             </h4>
 
             {activeTab.selectedCustomerId && (() => {
-              const selected = customers.find(c => c.id === parseInt(selectedCustomerId));
+              const selected = customers.find(c => c.id === parseInt(activeTab.selectedCustomerId));
               const balance = parseFloat(selected?.due_balance || 0);
               if (balance > 0) {
                 return (
@@ -1623,8 +1610,8 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
                 <input
                   type="text"
                   placeholder="Customer Name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
+                  value={activeTab.customerName}
+                  onChange={(e) => updateActiveTabState('customerName', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg p-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -1633,20 +1620,20 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
                 <input
                   type="text"
                   placeholder="Phone Number"
-                  value={customerPhone}
+                  value={activeTab.customerPhone}
                   onChange={(e) => {
-                    setCustomerPhone(e.target.value);
+                    updateActiveTabState('customerPhone', e.target.value);
                     if (activeTab.selectedCustomerId !== '') {
-                      setSelectedCustomerId('');
+                      updateActiveTabState('selectedCustomerId', '');
                     }
                   }}
                   className="w-full bg-white border border-slate-200 rounded-lg p-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
 
                 {/* Autocomplete Customer Suggestions */}
-                {activeTab.selectedCustomerId === '' && customerPhone.trim() !== '' && (() => {
-                  const query = customerPhone.replace(/[^0-9]/g, '');
-                  const suggestions = customers.filter(c => 
+                {activeTab.selectedCustomerId === '' && activeTab.customerPhone.trim() !== '' && (() => {
+                  const query = activeTab.customerPhone.replace(/[^0-9]/g, '');
+                  const suggestions = customers.filter(c =>
                     c.phone && c.phone.replace(/[^0-9]/g, '').includes(query)
                   );
                   if (suggestions.length === 0) return null;
@@ -1654,10 +1641,7 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto divide-y divide-slate-100">
                       {suggestions.map(c => (
                         <div
-                          key={c.id}
-                          onClick={() => {
-                            setSelectedCustomerId(c.id);
-                          }}
+                          key={c.id}                          onClick={() => updateActiveTabState('selectedCustomerId', c.id)}
                           className="p-2 px-3 hover:bg-indigo-50 cursor-pointer text-left transition-colors"
                         >
                           <div className="text-xs font-semibold text-slate-800">{c.name}</div>
@@ -1676,30 +1660,30 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
                 <input
                   type="text"
                   placeholder="Address"
-                  value={customerAddress}
-                  onChange={(e) => setCustomerAddress(e.target.value)}
+                  value={activeTab.customerAddress}
+                  onChange={(e) => updateActiveTabState('customerAddress', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg p-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
 
             {/* Checkbox for saving / syncing to database */}
-            {((activeTab.selectedCustomerId === '' && customerName.trim() !== '') ||
+            {((activeTab.selectedCustomerId === '' && activeTab.customerName.trim() !== '') ||
               (activeTab.selectedCustomerId !== '' && (
                 (() => {
                   const selected = customers.find(c => c.id === parseInt(activeTab.selectedCustomerId));
                   return selected && (
-                    customerName !== (selected.name || '') ||
-                    customerPhone !== (selected.phone || '') ||
-                    customerAddress !== (selected.address || '')
+                    activeTab.customerName !== (selected.name || '') ||
+                    activeTab.customerPhone !== (selected.phone || '') ||
+                    activeTab.customerAddress !== (selected.address || '')
                   );
                 })()
               ))) && (
               <label className="flex items-center space-x-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={syncToDirectory}
-                  onChange={(e) => setSyncToDirectory(e.target.checked)}
+                  checked={activeTab.syncToDirectory}
+                  onChange={(e) => updateActiveTabState('syncToDirectory', e.target.checked)}
                   className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                 />
                 <span className="text-xs text-indigo-600 font-medium">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-export default function Settings() {
+export default function Settings({ onNavigate = () => {} }) {
   const userObj = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = userObj.role === 'super_admin';
 
