@@ -50,6 +50,13 @@ const pool = mysql.createPool({
       console.log("Migration: Added 'payment_basis' column to 'purchase_orders' table.");
     }
 
+    // Check if expiry_date column exists on purchase_order_items table
+    const [poiExpiryCol] = await connection.query("SHOW COLUMNS FROM `purchase_order_items` LIKE 'expiry_date'");
+    if (poiExpiryCol.length === 0) {
+      await connection.query("ALTER TABLE `purchase_order_items` ADD COLUMN `expiry_date` DATE NULL");
+      console.log("Migration: Added 'expiry_date' column to 'purchase_order_items' table.");
+    }
+
     // Check if paid_amount column exists on purchase_orders table
     const [poPaidCol] = await connection.query("SHOW COLUMNS FROM `purchase_orders` LIKE 'paid_amount'");
     if (poPaidCol.length === 0) {

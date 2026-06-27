@@ -488,7 +488,8 @@ export default function Suppliers() {
       quantity_ordered: item.quantity_ordered,
       quantity_received: item.quantity_ordered, // Default match ordered qty
       cost_price: parseFloat(item.cost_price),
-      selling_price: parseFloat(item.selling_price || 0)
+      selling_price: parseFloat(item.selling_price || 0),
+      expiry_date: item.expiry_date ? item.expiry_date.split('T')[0] : ''
     })));
     setReceiveNotes('');
     setShowReceiveModal(true);
@@ -512,7 +513,8 @@ export default function Suppliers() {
             product_id: item.product_id,
             quantity_received: parseInt(item.quantity_received || 0),
             cost_price: parseFloat(item.cost_price || 0),
-            selling_price: parseFloat(item.selling_price || 0)
+            selling_price: parseFloat(item.selling_price || 0),
+            expiry_date: item.expiry_date || null
           }))
         })
       });
@@ -567,6 +569,12 @@ export default function Suppliers() {
   const handleReceivedSaleChange = (idx, val) => {
     const updated = [...receiveItems];
     updated[idx].selling_price = parseFloat(val) || 0.00;
+    setReceiveItems(updated);
+  };
+
+  const handleReceivedExpiryChange = (idx, val) => {
+    const updated = [...receiveItems];
+    updated[idx].expiry_date = val || '';
     setReceiveItems(updated);
   };
 
@@ -2170,6 +2178,7 @@ export default function Suppliers() {
                       <th className="p-3">Sale Price</th>
                       <th className="p-3">Qty Ordered</th>
                       <th className="p-3">Qty Received</th>
+                      <th className="p-3">Expiry Date</th>
                       <th className="p-3 text-right">Subtotal</th>
                       {['draft', 'ordered'].includes(selectedPo.status) && (
                         <th className="p-3 text-center">Action</th>
@@ -2191,6 +2200,15 @@ export default function Suppliers() {
                             </span>
                           ) : (
                             <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {item.expiry_date ? (
+                            <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-amber-100">
+                              {new Date(item.expiry_date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-medium">-</span>
                           )}
                         </td>
                         <td className="p-3 text-right font-extrabold text-slate-800">
@@ -2326,7 +2344,7 @@ export default function Suppliers() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                         Quantity Received
@@ -2365,6 +2383,17 @@ export default function Suppliers() {
                         value={item.selling_price || 0.00}
                         onChange={(e) => handleReceivedSaleChange(idx, e.target.value)}
                         required
+                        className="w-full border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Expire Date
+                      </label>
+                      <input
+                        type="date"
+                        value={item.expiry_date || ''}
+                        onChange={(e) => handleReceivedExpiryChange(idx, e.target.value)}
                         className="w-full border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                       />
                     </div>

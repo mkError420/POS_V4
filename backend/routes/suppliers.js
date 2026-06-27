@@ -406,13 +406,14 @@ router.put('/purchase-orders/:id/status', authorize(['shop_admin']), async (req,
       }
 
       for (const item of items) {
-        const { product_id, quantity_received, cost_price, selling_price } = item;
+        const { product_id, quantity_received, cost_price, selling_price, expiry_date } = item;
+        const finalExpiry = expiry_date && expiry_date.trim() !== '' ? expiry_date : null;
 
         await conn.query(
           `UPDATE purchase_order_items 
-           SET quantity_received = ?, cost_price = ?, selling_price = ?
+           SET quantity_received = ?, cost_price = ?, selling_price = ?, expiry_date = ?
            WHERE purchase_order_id = ? AND product_id = ? AND shop_id = ?`,
-          [quantity_received, cost_price, selling_price || 0.00, poId, product_id, shopId]
+          [quantity_received, cost_price, selling_price || 0.00, finalExpiry, poId, product_id, shopId]
         );
 
         const [prodRows] = await conn.query(
@@ -433,9 +434,9 @@ router.put('/purchase-orders/:id/status', authorize(['shop_admin']), async (req,
 
           await conn.query(
             `UPDATE products 
-             SET stock_quantity = stock_quantity + ?, cost_price = ?, price = ? 
+             SET stock_quantity = stock_quantity + ?, cost_price = ?, price = ?, expiry_date = ? 
              WHERE id = ? AND shop_id = ?`,
-            [quantity_received, newCost, selling_price || newCost, product_id, shopId]
+            [quantity_received, newCost, selling_price || newCost, finalExpiry, product_id, shopId]
           );
         }
       }
