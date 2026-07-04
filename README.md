@@ -1,6 +1,6 @@
 #  Multi-Tenant Point of Sale System
 
-A full-stack, web-based **Multi-Tenant POS System** built with React + Node.js + MySQL. Each tenant shop operates in complete isolation — managed centrally by a Super Admin.
+A full-stack, web-based **Multi-Tenant POS System** built with React + PHP + MySQL. Each tenant shop operates in complete isolation — managed centrally by a Super Admin.
 
 ---
 
@@ -9,9 +9,9 @@ A full-stack, web-based **Multi-Tenant POS System** built with React + Node.js +
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 18, Vite, TailwindCSS |
-| Backend | Node.js, Express |
+| Backend | PHP 8.2+ (PDO, Custom Router) |
 | Database | MySQL 8 |
-| Auth | JWT (JSON Web Tokens), bcryptjs |
+| Auth | JWT (JSON Web Tokens), bcrypt |
 
 ---
 
@@ -55,20 +55,19 @@ A full-stack, web-based **Multi-Tenant POS System** built with React + Node.js +
 ```
 MK/
 ├── backend/
-│   ├── config/db.js          # MySQL connection pool
-│   ├── middleware/auth.js     # JWT authenticate + authorize
-│   ├── routes/
-│   │   ├── auth.js           # Login, /me, register-shop
-│   │   ├── shops.js          # Shop CRUD + user management
-│   │   ├── products.js
-│   │   ├── sales.js
-│   │   ├── customers.js
-│   │   ├── suppliers.js
-│   │   ├── users.js          # Staff management
-│   │   └── analytics.js
-│   ├── server.js
-│   ├── seed.js               # Demo data seeder
-│   └── .env                  # (not committed — see below)
+│   ├── config/db.php          # PHP PDO DB connection & auto-migrations
+│   ├── middleware/auth.php    # Native JWT authentication & tenant isolation
+│   ├── controllers/           # Modular endpoint handlers
+│   │   ├── AuthController.php
+│   │   ├── ProductController.php
+│   │   ├── CustomerController.php
+│   │   ├── SupplierController.php
+│   │   ├── SaleController.php
+│   │   ├── AnalyticsController.php
+│   │   ├── HeldBillController.php
+│   │   ├── ManualOrderController.php
+│   │   └── OtherController.php
+│   └── index.php              # Entrypoint Front Controller & Router
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx           # Auth flow + routing
@@ -109,8 +108,6 @@ mysql -u root -p < database/schema.sql
 ### 3. Backend
 ```bash
 cd backend
-npm install
-
 # Create .env file
 cp .env.example .env
 # Fill in your DB credentials and JWT secret
@@ -127,12 +124,10 @@ JWT_SECRET=your_jwt_secret_here
 JWT_EXPIRE=8h
 ```
 
+To run the backend, simply double-click the **`run-php.bat`** file in the project root directory, or run:
 ```bash
-# Seed demo data (optional)
-node seed.js
-
-# Start backend
-npm run dev
+# From project root directory
+C:\xampp\php\php.exe -S localhost:5000 -t backend
 ```
 
 ### 4. Frontend
