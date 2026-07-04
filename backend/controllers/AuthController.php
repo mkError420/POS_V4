@@ -28,7 +28,7 @@ class AuthController {
             $user = $stmt->fetch();
 
             if (!$user) {
-                Auth::jsonError('Invalid credentials.', 401);
+                Auth::jsonError('Invalid mail or password', 401);
             }
 
             // Check user status
@@ -44,7 +44,7 @@ class AuthController {
             // Compare passwords using password_verify (compatible with Node's bcryptjs)
             // Wait, Node's seed hash starts with $2a$. password_verify supports this.
             if (!password_verify($password, $user['password_hash'])) {
-                Auth::jsonError('Invalid credentials.', 401);
+                Auth::jsonError('Invalid mail or password', 401);
             }
 
             // Generate JWT

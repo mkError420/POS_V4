@@ -180,7 +180,7 @@ export default function Login({ onLoginSuccess }) {
                 className="flex items-center gap-3 w-full text-left bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl px-3 py-2.5 transition-colors group"
               >
                 <span className="text-xs font-bold bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full shrink-0">SUPER ADMIN</span>
-                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors truncate">mk.rabbani.cse@gmail.com · 123456789</span>
+                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors truncate">mk.rabbani.cse@gmail.com ****(Rest..)</span>
               </button>
               <button
                 type="button"
