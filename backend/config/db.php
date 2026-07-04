@@ -150,7 +150,7 @@ class DB {
 
             // Check if allowed_sections column exists on users table
             if ($tableExists('users') && !$columnExists('users', 'allowed_sections')) {
-                $pdo->exec("ALTER TABLE `users` ADD COLUMN `allowed_sections` JSON NULL");
+                $pdo->exec("ALTER TABLE `users` ADD COLUMN `allowed_sections` TEXT NULL");
             }
 
             // Check if unit column exists on products table

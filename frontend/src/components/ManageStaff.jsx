@@ -74,6 +74,11 @@ export default function ManageStaff() {
       return;
     }
 
+    if (formData.role === 'shop_staff' && (!formData.allowed_sections || formData.allowed_sections.length === 0)) {
+      triggerAlert('error', 'Please select at least one allowed section for staff access control.');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/users/staff`, {
@@ -118,6 +123,11 @@ export default function ManageStaff() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    if (formData.role === 'shop_staff' && (!formData.allowed_sections || formData.allowed_sections.length === 0)) {
+      triggerAlert('error', 'Please select at least one allowed section for staff access control.');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const payload = {
