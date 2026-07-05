@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../config';
 
-export default function Dashboard({ onNavigate = () => {} }) {
+export default function Dashboard({ onNavigate = () => { } }) {
   const userObj = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = userObj.role === 'super_admin';
 
@@ -39,7 +39,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
       if (!response.ok) throw new Error('Failed to fetch analytics.');
       const data = await response.json();
-      
+
       if (data.metrics) {
         setMetrics(data.metrics);
       }
@@ -92,7 +92,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
   if (isSuperAdmin) {
     return (
       <div className="space-y-6">
-        
+
         {/* 1. Header Row */}
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Global System Analytics</h2>
@@ -101,7 +101,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
         {/* 2. Key Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          
+
           {/* Global Revenue */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex items-center space-x-4">
             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -163,25 +163,23 @@ export default function Dashboard({ onNavigate = () => {} }) {
               <h3 className="text-lg font-bold text-slate-800">Shop Performance Breakdown</h3>
               <p className="text-xs text-slate-500">Comparing transaction counts and gross revenues across all tenant shops</p>
             </div>
-            
+
             <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/60 self-end sm:self-auto">
               <button
                 onClick={() => setChartType('revenue')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  chartType === 'revenue'
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'revenue'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+                  }`}
               >
                 Revenue (৳)
               </button>
               <button
                 onClick={() => setChartType('sales')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  chartType === 'sales'
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'sales'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+                  }`}
               >
                 Transactions
               </button>
@@ -195,8 +193,8 @@ export default function Dashboard({ onNavigate = () => {} }) {
           ) : (
             <div className="relative w-full h-[220px]">
               {/* SVG Plot */}
-              <svg 
-                viewBox="0 0 600 220" 
+              <svg
+                viewBox="0 0 600 220"
                 className="w-full h-full overflow-visible"
                 preserveAspectRatio="none"
               >
@@ -214,18 +212,18 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
                   return (
                     <g key={idx}>
-                      <line 
-                        x1={paddingLeft} 
-                        y1={y} 
-                        x2={600 - paddingRight} 
-                        y2={y} 
-                        stroke="#f1f5f9" 
+                      <line
+                        x1={paddingLeft}
+                        y1={y}
+                        x2={600 - paddingRight}
+                        y2={y}
+                        stroke="#f1f5f9"
                         strokeWidth="1.5"
                       />
-                      <text 
-                        x={paddingLeft - 12} 
-                        y={y + 4} 
-                        textAnchor="end" 
+                      <text
+                        x={paddingLeft - 12}
+                        y={y + 4}
+                        textAnchor="end"
                         className="text-[10px] font-bold text-slate-400 fill-current font-sans"
                       >
                         {chartType === 'revenue' ? `৳${Math.round(labelVal)}` : Math.round(labelVal)}
@@ -254,7 +252,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
                   return tenantBreakdown.map((d, index) => {
                     const val = chartType === 'revenue' ? parseFloat(d.shop_revenue || 0) : parseInt(d.sales_count || 0);
                     const barHeight = (val / maxVal) * (svgHeight - paddingTop - paddingBottom);
-                    
+
                     const x = paddingLeft + (index * gap) + (gap - barWidth) / 2;
                     const y = svgHeight - paddingBottom - barHeight;
 
@@ -325,7 +323,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
         {/* 3. Detailed Data Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* Left Col: Shop Breakdown (Span 2) */}
           <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col">
             <h3 className="text-lg font-bold text-slate-800 mb-4">Tenant Shops Breakdown</h3>
@@ -390,7 +388,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
   return (
     <div className="space-y-6">
-      
+
       {/* 1. Header Row */}
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Shop Overview</h2>
@@ -399,7 +397,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
       {/* 2. Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
+
         {/* Total Revenue */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex items-center space-x-4">
           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -461,25 +459,23 @@ export default function Dashboard({ onNavigate = () => {} }) {
             <h3 className="text-lg font-bold text-slate-800">Sales Performance Trend</h3>
             <p className="text-xs text-slate-500">Daily business transaction volume and gross revenues over the last 7 days</p>
           </div>
-          
+
           <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/60 self-end sm:self-auto">
             <button
               onClick={() => setChartType('revenue')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                chartType === 'revenue'
-                  ? 'bg-white text-indigo-650 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'revenue'
+                ? 'bg-white text-indigo-650 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+                }`}
             >
               Revenue (৳)
             </button>
             <button
               onClick={() => setChartType('sales')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                chartType === 'sales'
-                  ? 'bg-white text-indigo-650 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'sales'
+                ? 'bg-white text-indigo-650 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+                }`}
             >
               Transactions
             </button>
@@ -493,8 +489,8 @@ export default function Dashboard({ onNavigate = () => {} }) {
         ) : (
           <div className="relative w-full h-[220px]">
             {/* SVG Plot */}
-            <svg 
-              viewBox="0 0 600 220" 
+            <svg
+              viewBox="0 0 600 220"
               className="w-full h-full overflow-visible"
               preserveAspectRatio="none"
             >
@@ -519,18 +515,18 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
                 return (
                   <g key={idx}>
-                    <line 
-                      x1={paddingLeft} 
-                      y1={y} 
-                      x2={600 - paddingRight} 
-                      y2={y} 
-                      stroke="#f1f5f9" 
+                    <line
+                      x1={paddingLeft}
+                      y1={y}
+                      x2={600 - paddingRight}
+                      y2={y}
+                      stroke="#f1f5f9"
                       strokeWidth="1.5"
                     />
-                    <text 
-                      x={paddingLeft - 12} 
-                      y={y + 4} 
-                      textAnchor="end" 
+                    <text
+                      x={paddingLeft - 12}
+                      y={y + 4}
+                      textAnchor="end"
                       className="text-[10px] font-bold text-slate-400 fill-current font-sans"
                     >
                       {chartType === 'revenue' ? `৳${Math.round(labelVal)}` : Math.round(labelVal)}
@@ -570,13 +566,13 @@ export default function Dashboard({ onNavigate = () => {} }) {
                     <path d={areaPath} fill="url(#chartAreaGradient)" />
 
                     {/* Stroke line */}
-                    <path 
-                      d={linePath} 
-                      fill="none" 
-                      stroke="#4f46e5" 
-                      strokeWidth="3" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
+                    <path
+                      d={linePath}
+                      fill="none"
+                      stroke="#4f46e5"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
 
                     {/* Interactive points */}
@@ -650,7 +646,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
 
       {/* 3. Detailed Data Section */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        
+
         {/* Left Col: Recent Transactions (Span 2) */}
         <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Transactions</h3>
@@ -710,7 +706,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
                     {(() => {
                       const totalValue = paymentBreakdown.reduce((sum, item) => sum + parseFloat(item.total), 0);
                       let accumulated = 0;
-                      const colors = ['#4f46e5', '#10b981', '#f59e0b', '#8b5cf6'];
+                      const colors = ['#eb2276ff', '#10b981', '#f59e0b', '#8b5cf6'];
 
                       return paymentBreakdown.map((item, index) => {
                         const percentage = (item.total / totalValue) * 100;
@@ -778,7 +774,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
                 </span>
               </div>
             </div>
-            
+
             <div className="space-y-2.5 pt-2">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Actions</h4>
               <a
@@ -807,14 +803,14 @@ export default function Dashboard({ onNavigate = () => {} }) {
                 <h3 className="text-lg font-bold text-slate-800">Top-Selling Products</h3>
                 <p className="text-xs text-slate-500">Products with the highest sales volume</p>
               </div>
-              <span className="bg-indigo-50 text-indigo-750 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-indigo-100 uppercase tracking-wider">
+              <span className="bg-yellow-50 text-yellow-750 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-yellow-100 uppercase tracking-wider">
                 Fast Moving
               </span>
             </div>
-            
+
             <div className="flex-1">
               {topSelling.length === 0 ? (
-                <div className="h-48 flex flex-col items-center justify-center text-slate-400 text-sm bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                <div className="h-48 flex flex-col items-center justify-center text-slate-400 text-sm bg-yellow-50/50 rounded-xl border border-dashed border-yellow-200">
                   <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
@@ -825,7 +821,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
                   {topSelling.map((prod, idx) => {
                     const maxSold = topSelling[0]?.total_sold || 1;
                     const pct = (prod.total_sold / maxSold) * 100;
-                    
+
                     return (
                       <div key={prod.id} className="space-y-1">
                         <div className="flex justify-between text-sm font-semibold text-slate-800">
@@ -841,11 +837,11 @@ export default function Dashboard({ onNavigate = () => {} }) {
                             <span className="text-[10px] text-slate-400 block font-normal">৳{parseFloat(prod.total_revenue).toFixed(2)}</span>
                           </div>
                         </div>
-                        
+
                         {/* Progress Bar */}
                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
+                          <div
+                            className="bg-indigo-500 h-full rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
                           ></div>
                         </div>
@@ -868,7 +864,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
                 Unsold Stock
               </span>
             </div>
-            
+
             <div className="flex-1">
               {deadStock.length === 0 ? (
                 <div className="h-48 flex flex-col items-center justify-center text-slate-400 text-sm bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
@@ -892,7 +888,7 @@ export default function Dashboard({ onNavigate = () => {} }) {
                     <tbody className="divide-y divide-slate-100">
                       {deadStock.map((prod) => {
                         const tiedUpValue = prod.stock_quantity * parseFloat(prod.price);
-                        
+
                         return (
                           <tr key={prod.id} className="hover:bg-rose-50/20 transition-colors">
                             <td className="p-2.5 pl-3 font-semibold text-slate-700 max-w-[130px] truncate" title={prod.name}>

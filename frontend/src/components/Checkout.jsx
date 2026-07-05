@@ -1379,9 +1379,10 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
                       )}
                     </div>
 
-                    <div className="text-center mt-6 pt-3 border-t border-dashed border-slate-300">
+                    <div className="text-center mt-6 pt-3 border-t border-dashed border-slate-300 relative">
                       <p className="text-[10px] text-slate-600 uppercase font-semibold">Payment: {receipt.payment_method.replace('_', ' ')}</p>
                       <p className="text-[10px] font-bold text-slate-800 tracking-wider mt-2">*** THANK YOU ***</p>
+                      <p className="text-[8px] text-slate-500 mt-4 text-right">Bring this receipt, if you return product</p>
                     </div>
                   </div>
                 ) : (
@@ -1703,6 +1704,7 @@ export default function Checkout({ onHeldBillsChange = () => {}, resumedHeldBill
             <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '9px' }}>
               <p style={{ margin: '0 0 2px 0' }}>Payment: {receipt.payment_method.toUpperCase()}</p>
               <p style={{ margin: '0', fontWeight: 'bold' }}>*** THANK YOU ***</p>
+              <p style={{ margin: '8px 0 0 0', textAlign: 'right', fontSize: '8px', color: '#64748b' }}>Bring this receipt, if you return product</p>
             </div>
           </div>
 
