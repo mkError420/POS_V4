@@ -26,7 +26,10 @@ export default function Inventory() {
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCsvUploadModal, setShowCsvUploadModal] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [csvFile, setCsvFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
  
   // Form states
   const [formData, setFormData] = useState({
@@ -285,6 +288,48 @@ export default function Inventory() {
     document.body.removeChild(link);
     triggerAlert('success', 'Catalog exported successfully!');
   };
+
+  const handleCsvUpload = async (e) => {
+    e.preventDefault();
+    if (!csvFile) {
+      triggerAlert('error', 'Please select a CSV file.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('csv_file', csvFile);
+
+      const response = await fetch(`${API_BASE_URL}/products/bulk-upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Failed to upload CSV.');
+
+      // Show detailed error messages if there are failures
+      if (resData.error_count > 0 && resData.errors && resData.errors.length > 0) {
+        const errorMsg = `${resData.message}\n\nErrors:\n${resData.errors.join('\n')}`;
+        triggerAlert('warning', errorMsg);
+      } else {
+        triggerAlert('success', resData.message || 'Products uploaded successfully!');
+      }
+      
+      setShowCsvUploadModal(false);
+      setCsvFile(null);
+      fetchProducts();
+    } catch (err) {
+      triggerAlert('error', err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
   const totalPages = Math.ceil(products.length / itemsPerPage);
   const indexOfLastProduct = currentPage * itemsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
@@ -336,6 +381,15 @@ export default function Inventory() {
               <p className="text-sm text-slate-500">Manage shop items, monitor levels, and set restock alerts</p>
             </div>
             <div className="flex items-center space-x-3 w-full sm:w-auto">
+              <button
+                onClick={() => setShowCsvUploadModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span>Import CSV</span>
+              </button>
               <button
                 onClick={exportToCSV}
                 className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
@@ -994,6 +1048,89 @@ export default function Inventory() {
                   className="px-5 py-2 bg-slate-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CSV UPLOAD MODAL --- */}
+      {showCsvUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">Import Products from CSV</h3>
+              <button onClick={() => setShowCsvUploadModal(false)} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleCsvUpload} className="mt-4 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h4 className="text-sm font-bold text-slate-700 mb-2">CSV Format Requirements:</h4>
+                <p className="text-xs text-slate-500 mb-2">The CSV file must contain the following columns (case-insensitive):</p>
+                <code className="text-xs bg-white px-2 py-1 rounded border border-slate-200 block mb-2">
+                  Product Name, SKU, Cost Price, Sale Price
+                </code>
+                <p className="text-xs text-slate-500 mb-2">Optional columns:</p>
+                <code className="text-xs bg-white px-2 py-1 rounded border border-slate-200 block">
+                  Stock Quantity, Low Stock Threshold, Expiry Date, Supplier ID, Unit
+                </code>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select CSV File *</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setCsvFile(e.target.files[0])}
+                  required
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+              </div>
+
+              {csvFile && (
+                <div className="bg-indigo-50 rounded-lg p-3 flex items-center space-x-3">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="text-sm text-indigo-700 font-medium truncate">{csvFile.name}</span>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-slate-100 flex space-x-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCsvUploadModal(false);
+                    setCsvFile(null);
+                  }}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+                  disabled={uploading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span>Upload CSV</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

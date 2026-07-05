@@ -210,9 +210,10 @@ export default function Login({ onLoginSuccess }) {
           </div>
         </div>
 
-        <p className="text-center text-slate-600 text-xs mt-6">
-          Multi-Tenant Point of Sale System &copy; 2026
-        </p>
+       <p className="text-center text-slate-600 text-xs mt-6">
+  Multi-Tenant Point of Sale System &copy; {new Date().getFullYear()}
+  developed by <a href="https://its-mk.netlify.app/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-400 transition-colors">MK</a>
+</p>
       </div>
     </div>
   );

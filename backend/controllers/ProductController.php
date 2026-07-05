@@ -275,4 +275,243 @@ class ProductController {
             Auth::jsonError('Server error deleting product.', 500);
         }
     }
+
+    public static function bulkUploadProducts() {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin']);
+
+        $shopId = Auth::$shopId;
+
+        $forcedSupplierId = null;
+        if (isset($_GET['supplier_id']) && $_GET['supplier_id'] !== '') {
+            $forcedSupplierId = intval($_GET['supplier_id']);
+            // Verify supplier exists and belongs to this shop
+            $stmt = DB::query('SELECT id FROM suppliers WHERE id = ? AND shop_id = ?', [$forcedSupplierId, $shopId]);
+            if (!$stmt->fetch()) {
+                Auth::jsonError('Supplier not found or access denied.', 404);
+            }
+        }
+
+        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            Auth::jsonError('No file uploaded or upload error.', 400);
+        }
+
+        $file = $_FILES['csv_file'];
+        $filePath = $file['tmp_name'];
+        
+        // Validate file type
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($fileExtension !== 'csv') {
+            Auth::jsonError('Only CSV files are allowed.', 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $handle = fopen($filePath, 'r');
+            if ($handle === false) {
+                throw new \Exception('Failed to open CSV file.');
+            }
+
+            // Read header row
+            $headers = fgetcsv($handle);
+            if ($headers === false) {
+                throw new \Exception('Failed to read CSV header.');
+            }
+
+            // Normalize headers
+            $headers = array_map('strtolower', array_map('trim', $headers));
+            
+            // Expected columns (case-insensitive) - matching user's CSV format
+            $columnMap = [
+                'name' => self::findColumn(['product name', 'name'], $headers),
+                'sku' => self::findColumn(['sku'], $headers),
+                'price' => self::findColumn(['sale price', 'price'], $headers),
+                'cost_price' => self::findColumn(['cost price', 'cost_price'], $headers),
+                'stock_quantity' => self::findColumn(['stock quantity', 'quantity', 'stock'], $headers),
+                'low_stock_threshold' => self::findColumn(['low stock threshold', 'low_stock_threshold'], $headers),
+                'expiry_date' => self::findColumn(['expiry date', 'expiry_date'], $headers),
+                'supplier_id' => self::findColumn(['supplier id', 'supplier_id'], $headers),
+                'unit' => self::findColumn(['unit'], $headers)
+            ];
+
+            // Debug: log found columns
+            error_log('CSV Headers: ' . implode(', ', $headers));
+            error_log('Column Map: ' . json_encode($columnMap));
+
+            // Validate required columns
+            if ($columnMap['name'] === false || $columnMap['sku'] === false || $columnMap['price'] === false || $columnMap['cost_price'] === false) {
+                $missing = [];
+                if ($columnMap['name'] === false) $missing[] = 'name (or Product Name)';
+                if ($columnMap['sku'] === false) $missing[] = 'sku';
+                if ($columnMap['price'] === false) $missing[] = 'price (or Sale Price)';
+                if ($columnMap['cost_price'] === false) $missing[] = 'cost_price (or Cost Price)';
+                throw new \Exception('CSV must contain columns: ' . implode(', ', $missing) . '. Found columns: ' . implode(', ', $headers));
+            }
+
+            $successCount = 0;
+            $errorCount = 0;
+            $errors = [];
+            $rowNumber = 1;
+
+            while (($row = fgetcsv($handle)) !== false) {
+                $rowNumber++;
+                
+                try {
+                    $name = trim($row[$columnMap['name']] ?? '');
+                    $sku = trim($row[$columnMap['sku']] ?? '');
+                    $price = floatval($row[$columnMap['price']] ?? 0);
+                    $costPrice = floatval($row[$columnMap['cost_price']] ?? 0);
+                    $stockQuantity = $columnMap['stock_quantity'] !== false ? intval($row[$columnMap['stock_quantity']] ?? 0) : 0;
+                    $lowStockThreshold = $columnMap['low_stock_threshold'] !== false ? intval($row[$columnMap['low_stock_threshold']] ?? 10) : 10;
+                    $expiryDate = $columnMap['expiry_date'] !== false ? trim($row[$columnMap['expiry_date']] ?? '') : '';
+                    $supplierId = $columnMap['supplier_id'] !== false ? trim($row[$columnMap['supplier_id']] ?? '') : '';
+                    $unit = $columnMap['unit'] !== false ? trim($row[$columnMap['unit']] ?? 'piece') : 'piece';
+
+                    // Debug: log row data
+                    error_log("Row $rowNumber: name='$name', sku='$sku', price=$price, cost_price=$costPrice");
+
+                    // Validate required fields - allow 0 for prices if needed
+                    if (empty($name) || empty($sku)) {
+                        $errors[] = "Row $rowNumber: Missing required fields (name='$name', sku='$sku')";
+                        $errorCount++;
+                        continue;
+                    }
+
+                    if ($price <= 0) {
+                        $errors[] = "Row $rowNumber: Invalid price (must be > 0, got: $price)";
+                        $errorCount++;
+                        continue;
+                    }
+
+                    if ($costPrice <= 0) {
+                        $errors[] = "Row $rowNumber: Invalid cost price (must be > 0, got: $costPrice)";
+                        $errorCount++;
+                        continue;
+                    }
+
+                    // Check SKU duplicate (or existing product for upsert)
+                    $stmt = DB::query('SELECT id FROM products WHERE shop_id = ? AND sku = ?', [$shopId, $sku]);
+                    $existingProduct = $stmt->fetch();
+
+                    // Resolve supplier ID by PO ID, Supplier ID, or Supplier Name
+                    $resolvedSupplierId = null;
+                    if ($forcedSupplierId !== null) {
+                        $resolvedSupplierId = $forcedSupplierId;
+                    } else if (!empty($supplierId)) {
+                        // 1. Check if it's in the format PO-XXXX (Purchase Order ID)
+                        if (preg_match('/^PO[-_ ]?(\d+)$/i', $supplierId, $matches)) {
+                            $poId = intval($matches[1]);
+                            $stmt = DB::query('SELECT supplier_id FROM purchase_orders WHERE shop_id = ? AND id = ?', [$shopId, $poId]);
+                            $po = $stmt->fetch();
+                            if ($po && !empty($po['supplier_id'])) {
+                                $resolvedSupplierId = intval($po['supplier_id']);
+                            }
+                        }
+
+                        // 2. If not resolved yet, check if it's a numeric Supplier ID
+                        if ($resolvedSupplierId === null && is_numeric($supplierId)) {
+                            $stmt = DB::query('SELECT id FROM suppliers WHERE shop_id = ? AND id = ?', [$shopId, intval($supplierId)]);
+                            $sup = $stmt->fetch();
+                            if ($sup) {
+                                $resolvedSupplierId = intval($sup['id']);
+                            }
+                        }
+
+                        // 3. If not resolved yet, try searching by supplier name
+                        if ($resolvedSupplierId === null) {
+                            $stmt = DB::query('SELECT id FROM suppliers WHERE shop_id = ? AND name = ?', [$shopId, $supplierId]);
+                            $sup = $stmt->fetch();
+                            if ($sup) {
+                                $resolvedSupplierId = intval($sup['id']);
+                            }
+                        }
+
+                        // 4. If still not found, automatically create the supplier if it doesn't exist
+                        if ($resolvedSupplierId === null) {
+                            DB::query(
+                                'INSERT INTO suppliers (shop_id, name) VALUES (?, ?)',
+                                [$shopId, $supplierId]
+                            );
+                            $resolvedSupplierId = intval(DB::lastInsertId());
+                        }
+                    }
+
+                    if ($existingProduct) {
+                        // Update existing product
+                        DB::query(
+                            'UPDATE products 
+                             SET name = ?, price = ?, cost_price = ?, stock_quantity = ?, low_stock_threshold = ?, expiry_date = ?, supplier_id = ?, unit = ?
+                             WHERE id = ? AND shop_id = ?',
+                            [
+                                $name,
+                                $price,
+                                $costPrice,
+                                $stockQuantity,
+                                $lowStockThreshold,
+                                !empty($expiryDate) ? $expiryDate : null,
+                                $resolvedSupplierId,
+                                $unit,
+                                intval($existingProduct['id']),
+                                $shopId
+                            ]
+                        );
+                    } else {
+                        // Insert product
+                        DB::query(
+                            'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, expiry_date, supplier_id, unit) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            [
+                                $shopId,
+                                $name,
+                                $sku,
+                                $price,
+                                $costPrice,
+                                $stockQuantity,
+                                $lowStockThreshold,
+                                !empty($expiryDate) ? $expiryDate : null,
+                                $resolvedSupplierId,
+                                $unit
+                            ]
+                        );
+                    }
+
+                    $successCount++;
+
+                } catch (\Exception $e) {
+                    $errors[] = "Row $rowNumber: " . $e->getMessage();
+                    $errorCount++;
+                }
+            }
+
+            fclose($handle);
+
+            DB::commit();
+
+            header('Content-Type: application/json');
+            http_response_code(200);
+            echo json_encode([
+                'message' => "Bulk upload completed. $successCount products imported successfully, $errorCount failed.",
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'errors' => array_slice($errors, 0, 10) // Return first 10 errors
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            error_log('Bulk upload error: ' . $e->getMessage());
+            Auth::jsonError('Server error during bulk upload: ' . $e->getMessage(), 500);
+        }
+    }
+
+    private static function findColumn($aliases, $headers) {
+        foreach ($aliases as $alias) {
+            $index = array_search($alias, $headers);
+            if ($index !== false) {
+                return $index;
+            }
+        }
+        return false;
+    }
 }

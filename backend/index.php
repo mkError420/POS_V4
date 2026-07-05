@@ -267,6 +267,7 @@ $routes = [
         '/^auth\/register-shop$/' => function($args, $data) { AuthController::registerShop($data); },
         // Products
         '/^products$/' => function($args, $data) { ProductController::createProduct($data); },
+        '/^products\/bulk-upload$/' => function($args, $data) { ProductController::bulkUploadProducts(); },
         // Customers
         '/^customers$/' => function($args, $data) { CustomerController::createCustomer($data); },
         '/^customers\/bulk-upload$/' => function($args, $data) { CustomerController::bulkUpload(); },

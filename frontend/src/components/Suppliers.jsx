@@ -45,6 +45,11 @@ export default function Suppliers() {
   const [selectedLog, setSelectedLog] = useState(null);
   const [editLogFormData, setEditLogFormData] = useState({ quantity: '', notes: '', new_expiry_date: '' });
 
+  // Supplier CSV upload states
+  const [showSupplierCsvModal, setShowSupplierCsvModal] = useState(false);
+  const [supplierCsvFile, setSupplierCsvFile] = useState(null);
+  const [supplierCsvUploading, setSupplierCsvUploading] = useState(false);
+
   // Supplier basic form state
   const [formData, setFormData] = useState({
     name: '',
@@ -850,6 +855,53 @@ export default function Suppliers() {
     }
   };
 
+  const handleSupplierCsvUpload = async (e) => {
+    e.preventDefault();
+    if (!supplierCsvFile) {
+      triggerAlert('error', 'Please select a CSV file.');
+      return;
+    }
+
+    setSupplierCsvUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('csv_file', supplierCsvFile);
+
+      const response = await fetch(`${API_BASE_URL}/products/bulk-upload?supplier_id=${selectedSupplierId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Failed to upload CSV.');
+
+      // Show detailed summary/alerts
+      if (resData.error_count > 0 && resData.errors && resData.errors.length > 0) {
+        const errorMsg = `${resData.message}\n\nErrors:\n${resData.errors.slice(0, 5).join('\n')}`;
+        triggerAlert('error', errorMsg);
+      } else {
+        triggerAlert('success', resData.message || 'Supplied products imported successfully!');
+      }
+
+      setShowSupplierCsvModal(false);
+      setSupplierCsvFile(null);
+      
+      // Reload profile data & baseline products
+      await Promise.all([
+        loadProfileData(selectedSupplierId),
+        fetchProducts()
+      ]);
+    } catch (err) {
+      triggerAlert('error', err.message);
+    } finally {
+      setSupplierCsvUploading(false);
+    }
+  };
+
   // HELPER FORMATTERS
   const formatCurrency = (val) => `৳${parseFloat(val).toFixed(2)}`;
   const formatDate = (dateStr) => {
@@ -1051,18 +1103,22 @@ export default function Suppliers() {
     });
     
     // Unique list of products this supplier has supplied or historically adjusted
-    const uniqueProducts = Array.from(new Set(sLogs.map(l => l.product_id)))
+    const logProductIds = sLogs.map(l => l.product_id);
+    const directProductIds = productsList
+      .filter(p => p.supplier_id === supplier.id)
+      .map(p => p.id);
+      
+    const uniqueProducts = Array.from(new Set([...logProductIds, ...directProductIds]))
       .map(id => {
-        const log = sLogs.find(l => l.product_id === id);
-        // Find product details in inventory cache
         const pDetails = productsList.find(p => p.id === id);
+        const log = sLogs.find(l => l.product_id === id);
         return {
           id,
-          name: log.product_name,
-          sku: log.product_sku,
+          name: pDetails ? pDetails.name : (log ? log.product_name : 'Unknown Product'),
+          sku: pDetails ? pDetails.sku : (log ? log.product_sku : 'N/A'),
           stock: pDetails ? pDetails.stock_quantity : 'N/A',
           stock_quantity: pDetails ? pDetails.stock_quantity : 0,
-          current_cost: pDetails ? pDetails.cost_price : log.new_cost_price
+          current_cost: pDetails ? pDetails.cost_price : (log ? log.new_cost_price : 0)
         };
       });
 
@@ -1456,7 +1512,18 @@ export default function Suppliers() {
 
             {profileTab === 'supplied_products' && (
               <div className="space-y-4">
-                <h4 className="font-bold text-slate-700 text-sm">Products currently cataloged from this vendor</h4>
+                <div className="flex justify-between items-center bg-white p-1 rounded-xl">
+                  <h4 className="font-bold text-slate-700 text-sm">Products currently cataloged from this vendor</h4>
+                  <button
+                    onClick={() => setShowSupplierCsvModal(true)}
+                    className="bg-indigo-650 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-xs transition-colors flex items-center space-x-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>Import Supplied Products (CSV)</span>
+                  </button>
+                </div>
                 <div className="overflow-x-auto border border-slate-100 rounded-xl">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1665,6 +1732,9 @@ export default function Suppliers() {
 
         {/* RENDER EDIT LOG MODAL */}
         {showEditLogModal && renderEditLogModal()}
+
+        {/* RENDER SUPPLIER CSV UPLOAD MODAL */}
+        {showSupplierCsvModal && renderSupplierCsvUploadModal()}
       </div>
     );
   }
@@ -2209,6 +2279,108 @@ export default function Suppliers() {
 
   // --- RENDER COMPONENT PIECES AS UTILITIES TO KEEP CODE READABLE ---
 
+  // SUPPLIER CSV UPLOAD MODAL
+  function renderSupplierCsvUploadModal() {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800">Import Supplied Products via CSV</h3>
+            <button
+              onClick={() => {
+                setShowSupplierCsvModal(false);
+                setSupplierCsvFile(null);
+              }}
+              className="text-slate-400 hover:text-slate-600 animate-pulse"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/50 text-xs text-indigo-800 space-y-2">
+              <span className="font-bold uppercase tracking-wider block text-[10px] text-indigo-600">CSV Requirements:</span>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Required: <strong>Product Name</strong>, <strong>SKU</strong>, <strong>Cost Price</strong>, and <strong>Sale Price</strong></li>
+                <li>Optional: <strong>Stock Quantity</strong>, <strong>Low Stock Threshold</strong>, <strong>Expiry Date</strong> (YYYY-MM-DD), and <strong>Unit</strong></li>
+                <li>All products will be linked to the current supplier automatically.</li>
+              </ul>
+            </div>
+
+            <form onSubmit={handleSupplierCsvUpload} className="space-y-4">
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                <svg className="w-10 h-10 text-slate-400 mb-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+                {supplierCsvFile ? (
+                  <div className="text-center">
+                    <span className="text-sm font-semibold text-slate-800 block truncate max-w-[280px]">
+                      {supplierCsvFile.name}
+                    </span>
+                    <span className="text-xs text-slate-400 block mt-0.5">
+                      {(supplierCsvFile.size / 1024).toFixed(1)} KB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSupplierCsvFile(null)}
+                      className="text-xs text-rose-500 hover:text-rose-700 underline font-semibold mt-2.5 block mx-auto animate-pulse"
+                    >
+                      Remove File
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <label className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-xl text-xs transition-colors cursor-pointer inline-block">
+                      <span>Choose CSV File</span>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => setSupplierCsvFile(e.target.files[0] || null)}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-[11px] text-slate-400 block mt-2">Maximum file size: 5MB</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex space-x-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSupplierCsvModal(false);
+                    setSupplierCsvFile(null);
+                  }}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={supplierCsvUploading || !supplierCsvFile}
+                  className="px-5 py-2 bg-slate-650 hover:bg-indigo-700 disabled:bg-slate-350 text-white rounded-xl text-sm font-semibold transition-colors shadow flex items-center space-x-1.5"
+                >
+                  {supplierCsvUploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <span>Upload CSV</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDER COMPONENT PIECES AS UTILITIES TO KEEP CODE READABLE ---
+
   // SUPPLIER FORM MODAL (ADD & EDIT)
   function renderSupplierFormModal(isEdit = false) {
     return (
@@ -2519,6 +2691,7 @@ export default function Suppliers() {
                   <option value="kg">kg</option>
                   <option value="gm">gm</option>
                   <option value="liter">Liter</option>
+                  <option value="packet">Packet</option>
                 </select>
               </div>
             </div>
