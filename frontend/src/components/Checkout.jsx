@@ -17,6 +17,7 @@ const createNewSaleTab = (index) => ({
   isPaidTouched: false,
   reduceDueAmount: 0,
   redeemPoints: 0, // Loyalty points to redeem
+  saleDate: new Date().toISOString().slice(0, 10),
 });
 
 export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBill = null, onClearResumedHeldBill = () => { } }) {
@@ -543,8 +544,15 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     updateActiveTabState('cart', activeTab.cart.filter(item => item.id !== productId));
   };
 
+  const updatePrice = (productId, newPriceVal) => {
+    if (!activeTab) return;
+    updateActiveTabState('cart', activeTab.cart.map(item =>
+      item.id === productId ? { ...item, price: newPriceVal } : item
+    ));
+  };
+
   // Financial Calculators
-  const getSubtotal = () => activeTab?.cart?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
+  const getSubtotal = () => activeTab?.cart?.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0) || 0;
   const getTax = () => getSubtotal() * taxRate;
   const getDiscountAmount = () => getSubtotal() * (parseFloat(activeTab?.discountPercent || 0) / 100);
   const getPointsDiscount = () => (activeTab?.redeemPoints || 0) * loyaltyPointValue;
@@ -650,9 +658,11 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         paid_amount: parsedPaid,
         reduce_due_amount: parseFloat(activeTab.reduceDueAmount || 0),
         redeem_points: activeTab.redeemPoints || 0,
+        created_at: activeTab.saleDate || new Date().toISOString().slice(0, 10),
         items: activeTab.cart.map(item => ({
           product_id: item.id,
-          quantity: item.quantity
+          quantity: item.quantity,
+          unit_price: parseFloat(item.price) || 0
         }))
       };
 
@@ -685,7 +695,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         tax: payload.tax,
         total: data.final_amount,
         payment_method: activeTab.paymentMethod,
-        created_at: new Date().toLocaleString(),
+        created_at: activeTab.saleDate ? new Date(activeTab.saleDate).toLocaleDateString() : new Date().toLocaleDateString(),
         customer_name: activeTab.customerName.trim() || 'Walk-in Customer',
         customer_phone: activeTab.customerPhone.trim() || '',
         customer_address: activeTab.customerAddress.trim() || '',
@@ -754,7 +764,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
       const payloadItems = activeTab.cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
-        product_name: item.name
+        product_name: item.name,
+        price: parseFloat(item.price) || 0
       }));
 
       const payload = {
@@ -859,6 +870,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
         reconstructedCart.push({
           ...productObj,
+          price: item.price !== undefined ? item.price : productObj.price,
           quantity: finalQty
         });
       }
@@ -1055,11 +1067,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         </button>
       </div>
       {/* 3. Split Screen Flex Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 overflow-hidden min-h-0">
 
         {/* Left Side: Product Grid (2 columns on Desktop) */}
-        <div className="lg:col-span-2 flex flex-col overflow-hidden">
-
+        <div className="lg:col-span-3 flex flex-col overflow-hidden">
           {/* Search & Barcode Scan Console */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             {/* Search Input */}
@@ -1212,7 +1223,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         </div>
 
         {/* Right Side / Cart Side Panel (Always visible on Desktop) */}
-        <div className={`hidden lg:flex lg:col-span-1 bg-white border border-slate-200 rounded-2xl flex-col overflow-hidden shadow-sm`}>
+        <div className={`hidden lg:flex lg:col-span-2 bg-white border border-slate-200 rounded-2xl flex-col overflow-hidden shadow-sm`}>
           {renderCartPanelContent()}
         </div>
 
@@ -2035,26 +2046,39 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
         {/* Customer & Cart items header */}
         <div className="p-2.5 border-b border-slate-100 bg-slate-50 space-y-2">
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-              Select Customer
-            </label>
-            <select
-              value={activeTab.selectedCustomerId}
-              onChange={(e) => updateActiveTabState('selectedCustomerId', e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="">Walk-in Customer</option>
-              {customers.map(c => {
-                const balance = parseFloat(c.due_balance || 0);
-                const balanceStr = balance > 0 ? ` [Due: ৳${balance.toFixed(2)}]` : '';
-                return (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.phone && c.phone !== '-' ? `(${c.phone})` : ''}{balanceStr}
-                  </option>
-                );
-              })}
-            </select>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2">
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Select Customer
+              </label>
+              <select
+                value={activeTab.selectedCustomerId}
+                onChange={(e) => updateActiveTabState('selectedCustomerId', e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">Walk-in Customer</option>
+                {customers.map(c => {
+                  const balance = parseFloat(c.due_balance || 0);
+                  const balanceStr = balance > 0 ? ` [Due: ৳${balance.toFixed(2)}]` : '';
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.phone && c.phone !== '-' ? `(${c.phone})` : ''}{balanceStr}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <div className="col-span-1">
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Sale Date
+              </label>
+              <input
+                type="date"
+                value={activeTab.saleDate || new Date().toISOString().slice(0, 10)}
+                onChange={(e) => updateActiveTabState('saleDate', e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-700"
+              />
+            </div>
           </div>
 
           <div className="border-t border-slate-200/60 pt-2 space-y-2">
@@ -2266,8 +2290,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
           </div>
         </div>
 
-        {/* Selected products scrollpane */}
-        <div className="flex-1 overflow-y-auto p-4 divide-y divide-slate-100 min-h-0">
+        {/* Selected products table */}
+        <div className="flex-1 overflow-y-auto p-2.5 min-h-0">
           {activeTab?.cart?.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center text-slate-400 py-12">
               <svg className="w-10 h-10 mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2276,52 +2300,84 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               <p className="text-sm font-medium">Cart is empty</p>
             </div>
           ) : (
-            activeTab?.cart?.map((item) => (
-              <div key={item.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                <div className="min-w-0 pr-3">
-                  <h4 className="text-sm font-semibold text-slate-800 truncate">{item.name}</h4>
-                  <span className="text-xs text-slate-500">৳{parseFloat(item.price).toFixed(2)}</span>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  {/* Quantity adjustments */}
-                  <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      className="px-2 py-1 hover:bg-slate-200 text-slate-600 transition-colors font-bold"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      max={item.stock_quantity}
-                      value={item.quantity === 0 ? '' : item.quantity}
-                      onChange={(e) => handleQuantityInput(item.id, e.target.value)}
-                      onBlur={() => handleQuantityBlur(item.id, item.quantity)}
-                      className="w-10 text-center text-xs font-bold text-slate-700 bg-transparent border-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      className="px-2 py-1 hover:bg-slate-200 text-slate-600 transition-colors font-bold"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  {/* Clear line item */}
-                  <button
-                    onClick={() => removeFromCart(item.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
-                    title="Remove Item"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase bg-slate-50/50">
+                    <th className="p-2 pl-3">Item</th>
+                    <th className="p-2 text-center w-28">Qty</th>
+                    <th className="p-2 text-center w-12">Unit</th>
+                    <th className="p-2 text-right w-24">Price (৳)</th>
+                    <th className="p-2 text-right w-24">Subtotal</th>
+                    <th className="p-2 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {activeTab.cart.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="p-2 pl-3 font-semibold text-slate-800 max-w-[120px] truncate" title={item.name}>
+                        {item.name}
+                      </td>
+                      <td className="p-2 text-center">
+                        <div className="inline-flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.id, -1)}
+                            className="px-2 py-1 hover:bg-slate-100 text-slate-600 transition-colors font-bold text-xs"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={item.stock_quantity}
+                            value={item.quantity === 0 ? '' : item.quantity}
+                            onChange={(e) => handleQuantityInput(item.id, e.target.value)}
+                            onBlur={() => handleQuantityBlur(item.id, item.quantity)}
+                            className="w-10 text-center text-xs font-bold text-slate-700 bg-transparent border-0 focus:ring-0 focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.id, 1)}
+                            className="px-2 py-1 hover:bg-slate-100 text-slate-600 transition-colors font-bold text-xs"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-2 text-center text-slate-500 font-medium font-sans">
+                        {item.unit || 'piece'}
+                      </td>
+                      <td className="p-2 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.price}
+                          onChange={(e) => updatePrice(item.id, e.target.value)}
+                          className="w-20 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-indigo-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
+                        />
+                      </td>
+                      <td className="p-2 text-right font-extrabold text-slate-700">
+                        ৳{(parseFloat(item.price || 0) * item.quantity).toFixed(2)}
+                      </td>
+                      <td className="p-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.id)}
+                          className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                          title="Remove Item"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -2330,16 +2386,12 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
           <div className="space-y-1.5 text-xs text-slate-600">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span className="font-semibold">৳{getSubtotal().toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
                 <span>Tax ({(taxRate * 100).toString()}%):</span>
                 <span className="font-semibold">৳{getTax().toFixed(2)}</span>
               </div>
 
               {/* Discount Manual Inputs */}
-              <div className="flex justify-between items-center col-span-1">
+              <div className="flex justify-between items-center">
                 <span>Discount (%):</span>
                 <input
                   type="number"
@@ -2353,9 +2405,9 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               </div>
 
               {/* Final Total */}
-              <div className="flex justify-between items-center col-span-1 border-l border-slate-200/60 pl-4">
+              <div className="flex justify-between items-center col-span-2 border-t border-slate-200/60 pt-1.5 mt-0.5">
                 <span className="font-extrabold text-slate-800">Total:</span>
-                <span className="font-extrabold text-indigo-650">৳{getFinalTotal().toFixed(2)}</span>
+                <span className="font-extrabold text-indigo-650 text-sm">৳{getFinalTotal().toFixed(2)}</span>
               </div>
             </div>
 

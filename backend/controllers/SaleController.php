@@ -22,6 +22,7 @@ class SaleController {
         $tax = (float)($requestData['tax'] ?? 0);
         $paymentMethod = $requestData['payment_method'] ?? null;
         $reduceDueAmount = (float)($requestData['reduce_due_amount'] ?? 0);
+        $createdAt = $requestData['created_at'] ?? null;
 
         if (empty($items) && $reduceDueAmount <= 0) {
             Auth::jsonError('Checkout cart is empty.', 400);
@@ -62,7 +63,7 @@ class SaleController {
                     throw new \Exception("Insufficient stock for product \"{$product['name']}\". Available: {$product['stock_quantity']}, requested: $quantity.");
                 }
 
-                $unitPrice = (float)$product['price'];
+                $unitPrice = isset($item['unit_price']) ? (float)$item['unit_price'] : (float)$product['price'];
                 $subtotal = $unitPrice * $quantity;
                 $calculatedTotal += $subtotal;
 
@@ -155,10 +156,15 @@ class SaleController {
                 }
             }
 
+            $createdAtDatetime = date('Y-m-d H:i:s');
+            if (!empty($createdAt)) {
+                $createdAtDatetime = date('Y-m-d H:i:s', strtotime($createdAt . ' ' . date('H:i:s')));
+            }
+
             // Save sale header
             DB::query(
-                'INSERT INTO sales (shop_id, customer_id, user_id, total_amount, discount, tax, final_amount, paid_amount, due_amount, payment_method, points_earned, points_redeemed, points_redeemed_value) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO sales (shop_id, customer_id, user_id, total_amount, discount, tax, final_amount, paid_amount, due_amount, payment_method, points_earned, points_redeemed, points_redeemed_value, created_at) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $shopId,
                     $customerId ? (int)$customerId : null,
@@ -172,7 +178,8 @@ class SaleController {
                     $paymentMethod,
                     $pointsEarned,
                     $redeemPoints,
-                    $pointsRedeemedValue
+                    $pointsRedeemedValue,
+                    $createdAtDatetime
                 ]
             );
             $saleId = DB::lastInsertId();
@@ -200,8 +207,8 @@ class SaleController {
                     $discountPercent = $calculatedTotal > 0 ? ($discount / $calculatedTotal) * 100 : 0.00;
                     
                     DB::query(
-                        "INSERT INTO held_bills (shop_id, user_id, customer_id, customer_name, customer_phone, customer_address, discount_percent, notes, items, due_amount, status) 
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held')",
+                        "INSERT INTO held_bills (shop_id, user_id, customer_id, customer_name, customer_phone, customer_address, discount_percent, notes, items, due_amount, status, created_at) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?)",
                         [
                             $shopId,
                             $userId,
@@ -212,7 +219,8 @@ class SaleController {
                             $discountPercent,
                             $note,
                             json_encode($validatedItems),
-                            $dueAmount
+                            $dueAmount,
+                            $createdAtDatetime
                         ]
                     );
                 }
