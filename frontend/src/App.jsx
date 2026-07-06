@@ -261,6 +261,7 @@ export default function App() {
       case '/sales': return <SalesHistory />;
       case '/manual-orders': return <ManualOrders />;
       case '/other-cost': return <OtherCost />;
+      case '/other-sales': return <OtherSales />;
       case '/total-revenue': return <TotalRevenue />;
       case '/wastage': return <Wastage />;
       case '/returns': return <Returns />;

@@ -107,6 +107,7 @@ export default function TotalRevenue() {
     const rows = [
       ['Sales Revenue (Accrual)', 'Inflow', 'Gross revenue generated from customer sales transactions', revenueData.sales_revenue.toFixed(2)],
       ['Sales Revenue (Cash Collected)', 'Inflow', 'Actual cash collected from sales transactions', revenueData.sales_cash_received.toFixed(2)],
+      ['Other Sales Revenue', 'Inflow', 'Revenue from miscellaneous goods, scrap, or services', (revenueData.other_sales_revenue || 0).toFixed(2)],
       ['Customer Due Balance (Receivable)', 'Inflow', 'Total outstanding balance owed by customers', (revenueData.customer_due || 0).toFixed(2)],
       ['Customer Returns', 'Outflow', 'Total refund value of returned items by customers', (revenueData.customer_returns || 0).toFixed(2)],
       ['Cost of Goods Sold (COGS)', 'Outflow', 'Cost price value of stock sold to customers (adjusted for returns)', revenueData.cost_of_goods_sold.toFixed(2)],
@@ -117,8 +118,8 @@ export default function TotalRevenue() {
       ['Wastage & Damage Loss', 'Outflow', 'Cost of damaged, expired, or stolen items written off', (revenueData.wastage_loss || 0).toFixed(2)],
       ['Manual Sales Orders (Confirmed)', 'Inflow', 'Confirmed sales from manually collected salesman orders', (revenueData.manual_orders?.confirmed_value || 0).toFixed(2)],
       ['Manual Sales Orders (Pending Drafts)', 'Pending', 'Value of salesman order drafts currently in pending status', (revenueData.manual_orders?.pending_value || 0).toFixed(2)],
-      ['Net Profit (Cashflow Basis)', 'Summary', 'Net cashflow liquid profit (Cash Collected - Cash Paid - Other Costs - Wastage Loss - Customer Returns)', revenueData.net_profit_cashflow.toFixed(2)],
-      ['Net Profit (COGS Margin Basis)', 'Summary', 'Net trading margins profit (Sales - COGS - Other Costs - Wastage Loss - Customer Returns)', revenueData.net_profit_cogs.toFixed(2)]
+      ['Net Profit (Cashflow Basis)', 'Summary', 'Net cashflow liquid profit (Cash Collected + Other Sales - Cash Paid - Other Costs - Wastage Loss - Customer Returns)', revenueData.net_profit_cashflow.toFixed(2)],
+      ['Net Profit (COGS Margin Basis)', 'Summary', 'Net trading margins profit (Sales + Other Sales - COGS - Other Costs - Wastage Loss - Customer Returns)', revenueData.net_profit_cogs.toFixed(2)]
     ];
 
     const csvContent = "\uFEFF" + [
@@ -173,6 +174,7 @@ export default function TotalRevenue() {
       const tableData = [
         ['Sales Revenue (Accrual)', formatCurrency(revenueData.sales_revenue), 'Inflow'],
         ['Sales Revenue (Cash Collected)', formatCurrency(revenueData.sales_cash_received), 'Inflow'],
+        ['Other Sales Revenue', formatCurrency(revenueData.other_sales_revenue || 0), 'Inflow'],
         ['Customer Due Balance (Receivable)', formatCurrency(revenueData.customer_due || 0), 'Inflow'],
         ['Customer Returns', formatCurrency(revenueData.customer_returns || 0), 'Outflow'],
         ['Cost of Goods Sold (COGS)', formatCurrency(revenueData.cost_of_goods_sold), 'Outflow'],
@@ -381,6 +383,22 @@ export default function TotalRevenue() {
               </div>
             </div>
 
+            {/* Other Sales Revenue Card */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Other Sales</span>
+                <div className="p-2.5 bg-indigo-50 text-indigo-500 rounded-xl">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="block text-2xl font-black text-slate-800">{formatCurrency(revenueData.other_sales_revenue || 0)}</span>
+                <span className="text-xs text-slate-455 mt-1 block">Revenue from miscellaneous sales</span>
+              </div>
+            </div>
+
             {/* Customer Returns Card */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
               <div className="flex items-center justify-between">
@@ -489,6 +507,10 @@ export default function TotalRevenue() {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500">Total Sales:</span>
                     <span className="font-bold text-slate-800">{formatCurrency(revenueData.sales_revenue)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500">Other Sales (Inflow):</span>
+                    <span className="font-bold text-emerald-600">+{formatCurrency(revenueData.other_sales_revenue || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500">Total Sold (TS):</span>
@@ -692,6 +714,10 @@ export default function TotalRevenue() {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500">Cash Collected (Sales):</span>
                     <span className="font-bold text-emerald-600">{formatCurrency(revenueData.sales_cash_received)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500">Other Sales (Inflow):</span>
+                    <span className="font-bold text-emerald-600">+{formatCurrency(revenueData.other_sales_revenue || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500">Cash Paid (POs):</span>

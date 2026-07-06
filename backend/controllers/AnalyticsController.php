@@ -121,9 +121,20 @@ class AnalyticsController {
             $stmt = DB::query($returnedCogsSql, $returnedCogsParams);
             $totalReturnedCOGS = (float)($stmt->fetchColumn() ?: 0);
 
+            // 10. Other Sales (Miscellaneous/Scrap)
+            $otherSalesSql = 'SELECT SUM(amount) AS total_other_sales FROM other_sales WHERE ' . ($hasShop ? 'shop_id = ?' : '1=1');
+            $otherSalesParams = $hasShop ? [$shopId] : [];
+            if (!empty($startDate) && !empty($endDate)) {
+                $otherSalesSql .= ' AND sale_date BETWEEN ? AND ?';
+                $otherSalesParams[] = $startDate;
+                $otherSalesParams[] = $endDate;
+            }
+            $stmt = DB::query($otherSalesSql, $otherSalesParams);
+            $totalOtherSales = (float)($stmt->fetchColumn() ?: 0);
+
             // Calculate net profits
-            $netProfitCOGS = $totalSales - ($totalCOGS - $totalReturnedCOGS) - $totalOther - $totalWastage - $totalRefunds;
-            $netProfitCashflow = $totalSalesCash - $totalPurchasingCash - $totalOther - $totalWastage - $totalRefunds;
+            $netProfitCOGS = $totalSales + $totalOtherSales - ($totalCOGS - $totalReturnedCOGS) - $totalOther - $totalWastage - $totalRefunds;
+            $netProfitCashflow = $totalSalesCash + $totalOtherSales - $totalPurchasingCash - $totalOther - $totalWastage - $totalRefunds;
 
             // Generate 7-Day Trend Map
             $trendMap = [];
@@ -133,6 +144,7 @@ class AnalyticsController {
                     'date' => $dateStr,
                     'sales_revenue' => 0.0,
                     'sales_cash_received' => 0.0,
+                    'other_sales_revenue' => 0.0,
                     'cost_of_goods_sold' => 0.0,
                     'customer_returns' => 0.0,
                     'returned_cogs' => 0.0,
@@ -237,12 +249,24 @@ class AnalyticsController {
                 }
             }
 
+            // Fetch daily other sales trend
+            $trendOtherSalesSql = 'SELECT DATE_FORMAT(sale_date, "%Y-%m-%d") AS date, SUM(amount) AS revenue 
+                                   FROM other_sales WHERE ' . ($hasShop ? 'shop_id = ?' : '1=1') . ' AND sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) 
+                                   GROUP BY DATE_FORMAT(sale_date, "%Y-%m-%d")';
+            $stmt = DB::query($trendOtherSalesSql, $hasShop ? [$shopId] : []);
+            while ($row = $stmt->fetch()) {
+                $dt = $row['date'];
+                if (isset($trendMap[$dt])) {
+                    $trendMap[$dt]['other_sales_revenue'] = (float)$row['revenue'];
+                }
+            }
+
             // Calculate profit fields on trend map
             foreach ($trendMap as $dateStr => &$d) {
                 $dailyRefunds = $d['customer_returns'];
                 $dailyReturnedCOGS = $d['returned_cogs'];
-                $d['net_profit_cogs'] = $d['sales_revenue'] - ($d['cost_of_goods_sold'] - $dailyReturnedCOGS) - $d['other_costs'] - $d['wastage_loss'] - $dailyRefunds;
-                $d['net_profit_cashflow'] = $d['sales_cash_received'] - $d['inventory_purchasing_cash_paid'] - $d['other_costs'] - $d['wastage_loss'] - $dailyRefunds;
+                $d['net_profit_cogs'] = $d['sales_revenue'] + $d['other_sales_revenue'] - ($d['cost_of_goods_sold'] - $dailyReturnedCOGS) - $d['other_costs'] - $d['wastage_loss'] - $dailyRefunds;
+                $d['net_profit_cashflow'] = $d['sales_cash_received'] + $d['other_sales_revenue'] - $d['inventory_purchasing_cash_paid'] - $d['other_costs'] - $d['wastage_loss'] - $dailyRefunds;
             }
 
             $trend = array_values($trendMap);
@@ -294,6 +318,7 @@ class AnalyticsController {
                 'sales_revenue' => $totalSales,
                 'sales_cash_received' => $totalSalesCash,
                 'sales_count' => $salesCount,
+                'other_sales_revenue' => $totalOtherSales,
                 'cost_of_goods_sold' => $totalCOGS - $totalReturnedCOGS,
                 'customer_returns' => $totalRefunds,
                 'inventory_purchasing_cost' => $totalPurchasing,
@@ -331,15 +356,23 @@ class AnalyticsController {
                 $stmt = DB::query('SELECT COUNT(*) as total_sales, SUM(final_amount) as global_revenue FROM sales');
                 $salesStats = $stmt->fetch();
 
+                $stmt = DB::query('SELECT SUM(amount) as global_other_sales FROM other_sales');
+                $globalOtherSales = (float)($stmt->fetchColumn() ?: 0);
+                $totalGlobalRevenue = (float)($salesStats['global_revenue'] ?? 0) + $globalOtherSales;
+
                 $stmt = DB::query('SELECT sh.name as shop_name, COUNT(s.id) as sales_count, SUM(s.final_amount) as shop_revenue
                                    FROM shops sh
                                    LEFT JOIN sales s ON sh.id = s.shop_id
                                    GROUP BY sh.id
                                    ORDER BY shop_revenue DESC');
                 $tenantSales = $stmt->fetchAll();
+                
+                // Add other sales to each tenant
                 foreach ($tenantSales as &$ts) {
+                    $stmtOS = DB::query('SELECT SUM(amount) FROM other_sales WHERE shop_id = ?', [$ts['shop_id'] ?? 0]);
+                    $osAmount = (float)($stmtOS->fetchColumn() ?: 0);
                     $ts['sales_count'] = (int)$ts['sales_count'];
-                    $ts['shop_revenue'] = (float)$ts['shop_revenue'];
+                    $ts['shop_revenue'] = (float)$ts['shop_revenue'] + $osAmount;
                 }
 
                 header('Content-Type: application/json');
@@ -350,7 +383,7 @@ class AnalyticsController {
                         'active_shops' => (int)($shopStats['active_shops'] ?? 0),
                         'total_users' => (int)($userStats['total_users'] ?? 0),
                         'total_sales' => (int)($salesStats['total_sales'] ?? 0),
-                        'global_revenue' => number_format((float)($salesStats['global_revenue'] ?? 0), 2, '.', '')
+                        'global_revenue' => number_format($totalGlobalRevenue, 2, '.', '')
                     ],
                     'tenant_breakdown' => $tenantSales
                 ]);
@@ -361,6 +394,10 @@ class AnalyticsController {
 
                 $stmt = DB::query('SELECT COUNT(*) as sales_count, SUM(final_amount) as revenue FROM sales WHERE shop_id = ?', [$shopId]);
                 $salesStats = $stmt->fetch();
+
+                $stmt = DB::query('SELECT SUM(amount) as other_sales_revenue FROM other_sales WHERE shop_id = ?', [$shopId]);
+                $tenantOtherSales = (float)($stmt->fetchColumn() ?: 0);
+                $tenantTotalRevenue = (float)($salesStats['revenue'] ?? 0) + $tenantOtherSales;
 
                 $stmt = DB::query('SELECT COUNT(*) as total_products, SUM(CASE WHEN stock_quantity <= low_stock_threshold THEN 1 ELSE 0 END) as low_stock_count
                                    FROM products WHERE shop_id = ?', [$shopId]);
@@ -382,7 +419,7 @@ class AnalyticsController {
                     $sale['final_amount'] = (float)$sale['final_amount'];
                 }
 
-                // 7-day trend
+                // 7-day trend (Combine Sales + Other Sales)
                 $stmt = DB::query("SELECT DATE_FORMAT(created_at, '%Y-%m-%d') as sale_date,
                                           SUM(final_amount) as daily_revenue,
                                           COUNT(id) as daily_sales
@@ -391,6 +428,18 @@ class AnalyticsController {
                                    GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
                                    ORDER BY sale_date ASC", [$shopId]);
                 $trendRows = $stmt->fetchAll();
+
+                // Also get Other Sales 7-day trend for dashboard
+                $stmt = DB::query("SELECT DATE_FORMAT(sale_date, '%Y-%m-%d') as os_date,
+                                          SUM(amount) as daily_os_revenue
+                                   FROM other_sales
+                                   WHERE shop_id = ? AND sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+                                   GROUP BY DATE_FORMAT(sale_date, '%Y-%m-%d')", [$shopId]);
+                $osTrendRows = $stmt->fetchAll();
+                $osTrendMap = [];
+                foreach ($osTrendRows as $osr) {
+                    $osTrendMap[$osr['os_date']] = (float)$osr['daily_os_revenue'];
+                }
 
                 // Payment breakdown
                 $stmt = DB::query('SELECT payment_method, COUNT(*) as count, SUM(final_amount) as total
@@ -443,10 +492,19 @@ class AnalyticsController {
                 foreach ($trendRows as $row) {
                     $sd = $row['sale_date'];
                     if (isset($trendMap[$sd])) {
-                        $trendMap[$sd]['revenue'] = (float)$row['daily_revenue'];
+                        $trendMap[$sd]['revenue'] = (float)$row['daily_revenue'] + ($osTrendMap[$sd] ?? 0.0);
                         $trendMap[$sd]['sales_count'] = (int)$row['daily_sales'];
                     }
                 }
+                
+                // Ensure days with ONLY other sales are added
+                foreach ($osTrendMap as $osd => $osAmount) {
+                    if (isset($trendMap[$osd]) && !isset($trendMap[$osd]['has_sales'])) {
+                        $trendMap[$osd]['revenue'] += $osAmount;
+                        $trendMap[$osd]['has_sales'] = true;
+                    }
+                }
+                
                 $salesTrend = array_values($trendMap);
 
                 header('Content-Type: application/json');
@@ -454,7 +512,7 @@ class AnalyticsController {
                     'dashboard_type' => 'tenant',
                     'metrics' => [
                         'total_sales' => (int)($salesStats['sales_count'] ?? 0),
-                        'revenue' => number_format((float)($salesStats['revenue'] ?? 0), 2, '.', ''),
+                        'revenue' => number_format($tenantTotalRevenue, 2, '.', ''),
                         'total_products' => (int)($productStats['total_products'] ?? 0),
                         'low_stock_alerts' => (int)($productStats['low_stock_count'] ?? 0),
                         'total_customers' => (int)($customerStats['total_customers'] ?? 0)
