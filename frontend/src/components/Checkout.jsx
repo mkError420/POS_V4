@@ -1076,8 +1076,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
           <div
             key={tab.id}
             className={`flex items-center space-x-2 py-2 px-4 border-b-2 cursor-pointer transition-all duration-200 ${activeTabId === tab.id
-                ? 'border-indigo-600 text-indigo-600 font-semibold bg-indigo-50/50'
-                : 'border-transparent text-slate-500 hover:bg-slate-100'
+              ? 'border-indigo-600 text-indigo-600 font-semibold bg-indigo-50/50'
+              : 'border-transparent text-slate-500 hover:bg-slate-100'
               }`}
             onClick={() => setActiveTabId(tab.id)}
           >
@@ -1100,10 +1100,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         </button>
       </div>
       {/* 3. Split Screen Flex Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 overflow-hidden min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden min-h-0">
 
         {/* Left Side: Product Grid (2 columns on Desktop) */}
-        <div className="lg:col-span-3 flex flex-col overflow-hidden">
+        <div className="lg:col-span-5 flex flex-col overflow-hidden">
           {/* Search & Barcode Scan Console */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             {/* Search Input */}
@@ -1150,8 +1150,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   type="button"
                   onClick={() => setAutoFocusBarcode(!autoFocusBarcode)}
                   className={`flex-shrink-0 text-[9px] font-extrabold px-2 py-1 rounded transition-all tracking-wider ${autoFocusBarcode
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                      : 'bg-slate-800 text-slate-400 border border-slate-700'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
                     }`}
                   title={autoFocusBarcode ? "Click to switch to manual mode" : "Click to switch to auto-focus scanner mode"}
                 >
@@ -1205,8 +1205,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             <td className="p-3 text-right font-extrabold text-slate-700">৳{parseFloat(product.price).toFixed(2)}</td>
                             <td className="p-3 text-center">
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${remainingQty <= product.low_stock_threshold
-                                  ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                                  : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                                : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                 }`}>
                                 {remainingQty} left
                               </span>
@@ -1258,7 +1258,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         </div>
 
         {/* Right Side / Cart Side Panel (Always visible on Desktop) */}
-        <div className={`hidden lg:flex lg:col-span-2 bg-white border border-slate-200 rounded-2xl flex-col overflow-hidden shadow-sm`}>
+        <div className={`hidden lg:flex lg:col-span-7 bg-white border border-slate-200 rounded-2xl flex-col overflow-hidden shadow-sm`}>
           {renderCartPanelContent()}
         </div>
 
@@ -1572,8 +1572,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       type="button"
                       onClick={() => { setPreviewMode('thermal'); }}
                       className={`py-2 text-xs font-semibold rounded-lg transition-all ${previewMode === 'thermal'
-                          ? 'bg-white text-indigo-700 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                         }`}
                     >
                       Thermal (80mm)
@@ -1582,8 +1582,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       type="button"
                       onClick={() => setPreviewMode('regular')}
                       className={`py-2 text-xs font-semibold rounded-lg transition-all ${previewMode === 'regular'
-                          ? 'bg-white text-indigo-700 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                         }`}
                     >
                       Regular (A4)
@@ -2423,7 +2423,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           className="text-slate-400 hover:text-rose-500 transition-colors p-1"
                           title="Remove Item"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4" fill="none" stroke="red" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
@@ -2530,8 +2530,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     type="button"
                     onClick={() => updateActiveTabState('paymentMethod', method)}
                     className={`py-1 px-1.5 rounded text-[10px] font-semibold border text-center transition-all ${activeTab?.paymentMethod === method
-                        ? 'bg-slate-600 border-indigo-650 text-white shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'bg-slate-600 border-indigo-650 text-white shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                   >
                     {method === 'mobile_pay' ? 'Mobile' : method.charAt(0).toUpperCase() + method.slice(1)}
