@@ -163,16 +163,31 @@ class OtherController {
         Auth::enforceTenant();
 
         $shopId = Auth::$shopId;
+        $hasShop = $shopId !== null;
+        $startDate = $_GET['start_date'] ?? null;
+        $endDate = $_GET['end_date'] ?? null;
 
         try {
-            $stmt = DB::query(
-                'SELECT w.*, p.name AS product_name, p.sku AS product_sku 
-                 FROM wastages w 
-                 JOIN products p ON w.product_id = p.id 
-                 WHERE w.shop_id = ?
-                 ORDER BY w.adjusted_at DESC',
-                [$shopId]
-            );
+            $sql = 'SELECT w.*, p.name AS product_name, p.sku AS product_sku, sh.name AS shop_name 
+                    FROM wastages w 
+                    JOIN products p ON w.product_id = p.id 
+                    LEFT JOIN shops sh ON w.shop_id = sh.id
+                    WHERE ' . ($hasShop ? 'w.shop_id = ?' : '1=1');
+
+            $params = $hasShop ? [$shopId] : [];
+
+            if (!empty($startDate)) {
+                $sql .= ' AND w.adjusted_at >= ?';
+                $params[] = $startDate;
+            }
+            if (!empty($endDate)) {
+                $sql .= ' AND w.adjusted_at <= ?';
+                $params[] = $endDate;
+            }
+
+            $sql .= ' ORDER BY w.adjusted_at DESC, w.id DESC';
+
+            $stmt = DB::query($sql, $params);
             $wastages = $stmt->fetchAll();
 
             foreach ($wastages as &$w) {

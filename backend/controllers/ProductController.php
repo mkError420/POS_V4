@@ -629,16 +629,28 @@ class ProductController {
         Auth::enforceTenant();
 
         $shopId = Auth::$shopId;
+        $hasShop = $shopId !== null;
         $productId = (int)$productId;
         $startDate = $_GET['start_date'] ?? null;
         $endDate = $_GET['end_date'] ?? null;
 
         try {
-            // Verify product exists and belongs to the shop
-            $stmt = DB::query('SELECT name, sku, stock_quantity FROM products WHERE id = ? AND shop_id = ?', [$productId, $shopId]);
+            // Verify product exists and belongs to the shop (if shop is specified)
+            $sql = 'SELECT name, sku, stock_quantity, shop_id FROM products WHERE id = ?';
+            $params = [$productId];
+            if ($hasShop) {
+                $sql .= ' AND shop_id = ?';
+                $params[] = $shopId;
+            }
+            $stmt = DB::query($sql, $params);
             $product = $stmt->fetch();
             if (!$product) {
                 Auth::jsonError('Product not found or access denied.', 404);
+            }
+
+            // Resolve shopId if not explicitly provided (e.g. for super_admin)
+            if (!$hasShop) {
+                $shopId = (int)$product['shop_id'];
             }
 
             // Calculate future changes if end date is specified (for retrospective timeline starting point)

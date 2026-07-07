@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -60,6 +60,9 @@ export default function Customers() {
   });
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProductToAdd, setSelectedProductToAdd] = useState('');
+  const [editProductSearchTerm, setEditProductSearchTerm] = useState('');
+  const [showEditProductDropdown, setShowEditProductDropdown] = useState(false);
+  const editProductDropdownRef = useRef(null);
   const [updatingSale, setUpdatingSale] = useState(false);
 
   const refundMethodOptions = [
@@ -132,6 +135,19 @@ export default function Customers() {
 
   useEffect(() => {
     fetchCustomers();
+  }, []);
+
+  // Handle click outside to close product search dropdown in Edit Sale form
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (editProductDropdownRef.current && !editProductDropdownRef.current.contains(event.target)) {
+        setShowEditProductDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const triggerAlert = (type, message) => {
@@ -362,6 +378,8 @@ export default function Customers() {
   const handleStartEditSale = (sale) => {
     setEditingSaleId(sale.sale_id);
     setSelectedProductToAdd('');
+    setEditProductSearchTerm('');
+    setShowEditProductDropdown(false);
     setEditForm({
       created_at: sale.created_at.slice(0, 10),
       payment_method: sale.payment_method,
@@ -431,6 +449,16 @@ export default function Customers() {
       }
     });
     setSelectedProductToAdd(''); // Reset selection
+    setEditProductSearchTerm(''); // Reset search term
+  };
+
+  const getFilteredEditProducts = () => {
+    if (!editProductSearchTerm) return allProducts;
+    const lowerTerm = editProductSearchTerm.toLowerCase();
+    return allProducts.filter(p => 
+      p.name.toLowerCase().includes(lowerTerm) || 
+      (p.sku && p.sku.toLowerCase().includes(lowerTerm))
+    );
   };
 
   const getEditSubtotal = () => {
@@ -1478,25 +1506,59 @@ export default function Customers() {
 
                             {/* Add Product Dropdown */}
                             <div className="flex space-x-2 items-end bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                              <div className="flex-1">
+                              <div className="flex-1 relative" ref={editProductDropdownRef}>
                                 <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Add Product to Sale</label>
-                                <select
-                                  value={selectedProductToAdd}
-                                  onChange={(e) => setSelectedProductToAdd(e.target.value)}
-                                  className="w-full border border-slate-200 bg-white rounded-lg p-1.5 focus:ring-1 focus:ring-indigo-500 outline-none text-xs"
-                                >
-                                  <option value="">-- Choose Product --</option>
-                                  {allProducts.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name} - ৳{parseFloat(p.price).toFixed(2)} (Stock: {p.stock_quantity})
-                                    </option>
-                                  ))}
-                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Type to search product..."
+                                  value={editProductSearchTerm}
+                                  onFocus={() => setShowEditProductDropdown(true)}
+                                  onChange={(e) => {
+                                    setEditProductSearchTerm(e.target.value);
+                                    setShowEditProductDropdown(true);
+                                    if (selectedProductToAdd) {
+                                      setSelectedProductToAdd('');
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  className="w-full border border-slate-200 bg-white rounded-lg p-1.5 focus:ring-1 focus:ring-indigo-500 outline-none text-xs text-slate-700 font-medium"
+                                />
+                                {showEditProductDropdown && (
+                                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                                    {getFilteredEditProducts().length === 0 ? (
+                                      <div className="p-3 text-xs text-slate-400 text-center">No products found</div>
+                                    ) : (
+                                      getFilteredEditProducts().map(p => (
+                                        <div
+                                          key={p.id}
+                                          onClick={() => {
+                                            handleAddProductToEditForm(p.id);
+                                            setShowEditProductDropdown(false);
+                                          }}
+                                          className="p-2 hover:bg-indigo-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0"
+                                        >
+                                          <div className="flex flex-col text-left">
+                                            <span className="font-semibold text-slate-800">{p.name}</span>
+                                            {p.sku && <span className="text-slate-450 text-[10px]">SKU: {p.sku}</span>}
+                                          </div>
+                                          <div className="text-right">
+                                            <div className="font-bold text-indigo-650">৳{parseFloat(p.price).toFixed(2)}</div>
+                                            <div className="text-[10px] text-slate-450">Stock: {p.stock_quantity}</div>
+                                          </div>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                )}
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleAddProductToEditForm(selectedProductToAdd)}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg transition-colors text-xs h-[29px]"
                               >
                                 Add
                               </button>
