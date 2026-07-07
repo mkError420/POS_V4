@@ -310,6 +310,8 @@ $routes = [
         '/^products\/(\d+)$/' => function($args, $data) { ProductController::updateProduct($args[0], $data); },
         // Customers
         '/^customers\/(\d+)$/' => function($args, $data) { CustomerController::updateCustomer($args[0], $data); },
+        // Sales
+        '/^sales\/(\d+)$/' => function($args, $data) { SaleController::updateSale($args[0], $data); },
         // Suppliers
         '/^suppliers\/purchase-orders\/(\d+)$/' => function($args, $data) { SupplierController::updatePurchaseOrder($args[0], $data); },
         '/^suppliers\/purchase-orders\/(\d+)\/status$/' => function($args, $data) { SupplierController::updatePurchaseOrderStatus($args[0], $data); },

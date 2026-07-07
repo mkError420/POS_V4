@@ -497,6 +497,298 @@ class SaleController {
         }
     }
 
+    public static function updateSale($id, $requestData) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin']);
+
+        $saleId = (int)$id;
+        $shopId = Auth::$shopId;
+        $userId = Auth::$user['id'];
+
+        $customerId = $requestData['customer_id'] ?? null;
+        $items = $requestData['items'] ?? [];
+        $discount = (float)($requestData['discount'] ?? 0);
+        $tax = (float)($requestData['tax'] ?? 0);
+        $paymentMethod = $requestData['payment_method'] ?? null;
+        $createdAt = $requestData['created_at'] ?? null;
+        $paidAmount = isset($requestData['paid_amount']) ? (float)$requestData['paid_amount'] : null;
+
+        if (empty($items)) {
+            Auth::jsonError('Checkout cart is empty.', 400);
+        }
+
+        if (empty($paymentMethod)) {
+            Auth::jsonError('Please specify payment method.', 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Fetch original sale record
+            $stmt = DB::query('SELECT * FROM sales WHERE id = ? AND shop_id = ? FOR UPDATE', [$saleId, $shopId]);
+            $originalSale = $stmt->fetch();
+            if (!$originalSale) {
+                DB::rollBack();
+                Auth::jsonError('Sale record not found or access denied.', 404);
+            }
+
+            // 2. Fetch original sale items
+            $stmt = DB::query('SELECT * FROM sale_items WHERE sale_id = ? AND shop_id = ?', [$saleId, $shopId]);
+            $originalItems = $stmt->fetchAll();
+
+            // 3. Restore product stock quantities from original items
+            foreach ($originalItems as $origItem) {
+                DB::query(
+                    'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?',
+                    [(int)$origItem['quantity'], (int)$origItem['product_id'], $shopId]
+                );
+            }
+
+            // 4. Reverse original customer due_balance
+            $oldCustomerId = $originalSale['customer_id'];
+            $oldDueAmount = (float)$originalSale['due_amount'];
+            if ($oldDueAmount > 0 && $oldCustomerId) {
+                DB::query(
+                    'UPDATE customers SET due_balance = GREATEST(due_balance - ?, 0) WHERE id = ? AND shop_id = ?',
+                    [$oldDueAmount, $oldCustomerId, $shopId]
+                );
+            }
+
+            // 5. Reverse original loyalty points
+            if ($oldCustomerId) {
+                $oldPointsEarned = (int)$originalSale['points_earned'];
+                $oldPointsRedeemed = (int)$originalSale['points_redeemed'];
+                DB::query(
+                    'UPDATE customers SET loyalty_points = GREATEST(loyalty_points - ?, 0) + ? WHERE id = ? AND shop_id = ?',
+                    [$oldPointsEarned, $oldPointsRedeemed, $oldCustomerId, $shopId]
+                );
+            }
+
+            // 6. Delete original sale items
+            DB::query('DELETE FROM sale_items WHERE sale_id = ? AND shop_id = ?', [$saleId, $shopId]);
+
+            // 7. Delete linked held bill if any
+            DB::query('DELETE FROM held_bills WHERE shop_id = ? AND notes = ?', [$shopId, "Due from Sale #$saleId"]);
+
+            // 8. Validate new items, check stock, and deduct stock
+            $calculatedTotal = 0.00;
+            $validatedItems = [];
+            $stockAlerts = [];
+
+            foreach ($items as $item) {
+                $productId = $item['product_id'] ?? null;
+                $quantity = (int)($item['quantity'] ?? 0);
+
+                if (empty($productId) || $quantity <= 0) {
+                    throw new \Exception("Invalid item details for product ID $productId.");
+                }
+
+                $stmt = DB::query(
+                    'SELECT id, name, price, cost_price, stock_quantity, low_stock_threshold FROM products WHERE id = ? AND shop_id = ? FOR UPDATE',
+                    [$productId, $shopId]
+                );
+                $product = $stmt->fetch();
+
+                if (!$product) {
+                    throw new \Exception("Product with ID $productId not found in this shop.");
+                }
+
+                if ((int)$product['stock_quantity'] < $quantity) {
+                    throw new \Exception("Insufficient stock for product \"{$product['name']}\". Available: {$product['stock_quantity']}, requested: $quantity.");
+                }
+
+                $unitPrice = isset($item['unit_price']) ? (float)$item['unit_price'] : (float)$product['price'];
+                $subtotal = $unitPrice * $quantity;
+                $calculatedTotal += $subtotal;
+
+                $validatedItems[] = [
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'cost_price' => (float)$product['cost_price'],
+                    'subtotal' => $subtotal
+                ];
+
+                $newStock = (int)$product['stock_quantity'] - $quantity;
+                DB::query(
+                    'UPDATE products SET stock_quantity = ? WHERE id = ? AND shop_id = ?',
+                    [$newStock, $productId, $shopId]
+                );
+
+                if ($newStock <= (int)$product['low_stock_threshold']) {
+                    $stockAlerts[] = [
+                        'product_id' => $productId,
+                        'name' => $product['name'],
+                        'remaining_stock' => $newStock,
+                        'threshold' => (int)$product['low_stock_threshold']
+                    ];
+                }
+            }
+
+            // 9. Fetch loyalty settings
+            $stmt = DB::query('SELECT loyalty_enabled, loyalty_point_earn_rate, loyalty_point_value FROM shops WHERE id = ?', [$shopId]);
+            $shopSettings = $stmt->fetch() ?: [
+                'loyalty_enabled' => 0,
+                'loyalty_point_earn_rate' => 100.00,
+                'loyalty_point_value' => 1.00
+            ];
+            $isLoyaltyEnabled = (int)$shopSettings['loyalty_enabled'] === 1;
+
+            $redeemPoints = (int)($requestData['redeem_points'] ?? 0);
+            $pointsRedeemedValue = 0.00;
+
+            if ($isLoyaltyEnabled && $customerId && $redeemPoints > 0) {
+                $cStmt = DB::query(
+                    'SELECT loyalty_points FROM customers WHERE id = ? AND shop_id = ? FOR UPDATE',
+                    [$customerId, $shopId]
+                );
+                $cust = $cStmt->fetch();
+                if (!$cust) {
+                    throw new \Exception('Customer not found for loyalty points redemption.');
+                }
+                $currentPoints = (int)$cust['loyalty_points'];
+                if ($currentPoints < $redeemPoints) {
+                    throw new \Exception("Insufficient loyalty points. Customer has $currentPoints, requested redemption of $redeemPoints.");
+                }
+                $pointsRedeemedValue = $redeemPoints * (float)$shopSettings['loyalty_point_value'];
+                DB::query(
+                    'UPDATE customers SET loyalty_points = loyalty_points - ? WHERE id = ? AND shop_id = ?',
+                    [$redeemPoints, $customerId, $shopId]
+                );
+            }
+
+            $netAmount = $calculatedTotal - $discount - $pointsRedeemedValue;
+            $finalAmount = max(0.00, $netAmount) + $tax;
+
+            $finalPaidAmount = ($paidAmount !== null) ? $paidAmount : $finalAmount;
+            $dueAmount = $finalAmount - $finalPaidAmount;
+
+            if ($dueAmount > 0 && !$customerId) {
+                throw new \Exception('Customer profile selection is required to record outstanding due balance.');
+            }
+
+            // Award loyalty points
+            $pointsEarned = 0;
+            if ($isLoyaltyEnabled && $customerId) {
+                $earnRate = (float)$shopSettings['loyalty_point_earn_rate'] ?: 100.00;
+                $pointsEarningBasis = $calculatedTotal - $discount - $pointsRedeemedValue;
+                if ($pointsEarningBasis > 0) {
+                    $pointsEarned = (int)floor($pointsEarningBasis / $earnRate);
+                }
+                if ($pointsEarned > 0) {
+                    DB::query(
+                        'UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ? AND shop_id = ?',
+                        [$pointsEarned, $customerId, $shopId]
+                    );
+                }
+            }
+
+            // Setup created_at timestamp
+            $createdAtDatetime = $originalSale['created_at'];
+            if (!empty($createdAt)) {
+                $createdAtDatetime = date('Y-m-d H:i:s', strtotime($createdAt . ' ' . date('H:i:s')));
+            }
+
+            // 10. Update sales record
+            DB::query(
+                'UPDATE sales SET 
+                    customer_id = ?, 
+                    total_amount = ?, 
+                    discount = ?, 
+                    tax = ?, 
+                    final_amount = ?, 
+                    paid_amount = ?, 
+                    due_amount = ?, 
+                    payment_method = ?, 
+                    points_earned = ?, 
+                    points_redeemed = ?, 
+                    points_redeemed_value = ?, 
+                    created_at = ? 
+                 WHERE id = ? AND shop_id = ?',
+                [
+                    $customerId ? (int)$customerId : null,
+                    $calculatedTotal,
+                    $discount,
+                    $tax,
+                    $finalAmount,
+                    $finalPaidAmount,
+                    $dueAmount,
+                    $paymentMethod,
+                    $pointsEarned,
+                    $redeemPoints,
+                    $pointsRedeemedValue,
+                    $createdAtDatetime,
+                    $saleId,
+                    $shopId
+                ]
+            );
+
+            // 11. Add new items to sale_items
+            foreach ($validatedItems as $item) {
+                DB::query(
+                    'INSERT INTO sale_items (shop_id, sale_id, product_id, quantity, unit_price, cost_price, subtotal) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        $shopId,
+                        $saleId,
+                        (int)$item['product_id'],
+                        (int)$item['quantity'],
+                        (float)$item['unit_price'],
+                        (float)$item['cost_price'],
+                        (float)$item['subtotal']
+                    ]
+                );
+            }
+
+            // 12. If new due_amount > 0, update customer due_balance and create held_bill
+            if ($dueAmount > 0 && $customerId) {
+                DB::query(
+                    'UPDATE customers SET due_balance = due_balance + ? WHERE id = ? AND shop_id = ?',
+                    [$dueAmount, $customerId, $shopId]
+                );
+
+                $cStmt = DB::query('SELECT name, phone, address FROM customers WHERE id = ? AND shop_id = ?', [$customerId, $shopId]);
+                $cust = $cStmt->fetch();
+                if ($cust) {
+                    $note = "Due from Sale #$saleId";
+                    $discountPercent = $calculatedTotal > 0 ? ($discount / $calculatedTotal) * 100 : 0.00;
+                    DB::query(
+                        "INSERT INTO held_bills (shop_id, user_id, customer_id, customer_name, customer_phone, customer_address, discount_percent, notes, items, due_amount, status, created_at) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held', ?)",
+                        [
+                            $shopId,
+                            $userId,
+                            $customerId,
+                            $cust['name'],
+                            $cust['phone'] ?: null,
+                            $cust['address'] ?: null,
+                            $discountPercent,
+                            $note,
+                            json_encode($validatedItems),
+                            $dueAmount,
+                            $createdAtDatetime
+                        ]
+                    );
+                }
+            }
+
+            DB::commit();
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'message' => "Sale #$saleId updated successfully.",
+                'sale_id' => $saleId,
+                'stock_alerts' => $stockAlerts
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            error_log('Update sale error: ' . $e->getMessage());
+            Auth::jsonError($e->getMessage() ?: 'Server error updating sale transaction.', 500);
+        }
+    }
+
     public static function bulkDeleteSales($requestData) {
         Auth::authenticate();
         Auth::enforceTenant();

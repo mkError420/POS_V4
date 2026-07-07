@@ -4,6 +4,8 @@ import autoTable from 'jspdf-autotable';
 import API_BASE_URL from '../config';
 
 export default function Suppliers() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'shop_admin';
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,6 +40,12 @@ export default function Suppliers() {
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [selectedExpiredProduct, setSelectedExpiredProduct] = useState(null);
   const [returnFormData, setReturnFormData] = useState({ quantity: '', notes: '' });
+
+  // Product Edit states (inside supplied products profile tab)
+  const [showEditProductModal, setShowEditProductModal] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [productEditForm, setProductEditForm] = useState({ name: '', sku: '', cost_price: '', price: '', stock_quantity: '' });
+  const [updatingProduct, setUpdatingProduct] = useState(false);
   const [replaceFormData, setReplaceFormData] = useState({ quantity: '', new_expiry_date: '', notes: '' });
 
   // Log Edit CRUD states
@@ -868,6 +876,47 @@ export default function Suppliers() {
     }
   };
 
+  const handleSaveProductEdit = async (e) => {
+    e.preventDefault();
+    if (!editingProductId) return;
+
+    setUpdatingProduct(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/products/${editingProductId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: productEditForm.name,
+          sku: productEditForm.sku,
+          cost_price: parseFloat(productEditForm.cost_price),
+          price: parseFloat(productEditForm.price),
+          stock_quantity: parseInt(productEditForm.stock_quantity, 10)
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update product.');
+
+      triggerAlert('success', data.message || 'Product updated successfully.');
+      setShowEditProductModal(false);
+      setEditingProductId(null);
+      
+      // Refresh products list and reload profile data
+      await fetchProducts();
+      if (selectedSupplierId) {
+        await loadProfileData(selectedSupplierId);
+      }
+    } catch (err) {
+      triggerAlert('error', err.message);
+    } finally {
+      setUpdatingProduct(false);
+    }
+  };
+
   const handleSupplierCsvUpload = async (e) => {
     e.preventDefault();
     if (!supplierCsvFile) {
@@ -1564,7 +1613,28 @@ export default function Suppliers() {
                                 {p.stock} units
                               </span>
                             </td>
-                            <td className="p-3 text-center">
+                            <td className="p-3 text-center flex items-center justify-center space-x-1.5">
+                              {isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    const fullProd = productsList.find(item => item.id === p.id);
+                                    if (fullProd) {
+                                      setEditingProductId(p.id);
+                                      setProductEditForm({
+                                        name: fullProd.name,
+                                        sku: fullProd.sku,
+                                        cost_price: fullProd.cost_price,
+                                        price: fullProd.price,
+                                        stock_quantity: fullProd.stock_quantity
+                                      });
+                                      setShowEditProductModal(true);
+                                    }
+                                  }}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold py-1 px-2.5 rounded text-xs transition-colors"
+                                >
+                                  Edit
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
                                   setSelectedExpiredProduct(p);
@@ -1579,7 +1649,7 @@ export default function Suppliers() {
                                 }`}
                                 title={p.stock_quantity > 0 ? "Return to Supplier" : "No stock available to return"}
                               >
-                                Return to Supplier
+                                Return
                               </button>
                             </td>
                           </tr>
@@ -1748,6 +1818,9 @@ export default function Suppliers() {
 
         {/* RENDER SUPPLIER CSV UPLOAD MODAL */}
         {showSupplierCsvModal && renderSupplierCsvUploadModal()}
+
+        {/* RENDER EDIT PRODUCT MODAL */}
+        {showEditProductModal && renderEditProductModal()}
       </div>
     );
   }
@@ -2393,6 +2466,115 @@ export default function Suppliers() {
   }
 
   // --- RENDER COMPONENT PIECES AS UTILITIES TO KEEP CODE READABLE ---
+
+  // EDIT SUPPLIED PRODUCT MODAL
+  function renderEditProductModal() {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-slate-800">
+              Edit Product Info
+            </h3>
+            <button
+              onClick={() => {
+                setShowEditProductModal(false);
+                setEditingProductId(null);
+              }}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <form onSubmit={handleSaveProductEdit} className="mt-4 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Product Name *</label>
+              <input
+                type="text"
+                value={productEditForm.name}
+                onChange={(e) => setProductEditForm(prev => ({ ...prev, name: e.target.value }))}
+                required
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">SKU *</label>
+              <input
+                type="text"
+                value={productEditForm.sku}
+                onChange={(e) => setProductEditForm(prev => ({ ...prev, sku: e.target.value }))}
+                required
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cost Price *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={productEditForm.cost_price}
+                  onChange={(e) => setProductEditForm(prev => ({ ...prev, cost_price: e.target.value }))}
+                  required
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Selling Price *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={productEditForm.price}
+                  onChange={(e) => setProductEditForm(prev => ({ ...prev, price: e.target.value }))}
+                  required
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Current Active Stock *</label>
+              <input
+                type="number"
+                min="0"
+                value={productEditForm.stock_quantity}
+                onChange={(e) => setProductEditForm(prev => ({ ...prev, stock_quantity: e.target.value }))}
+                required
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex space-x-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditProductModal(false);
+                  setEditingProductId(null);
+                }}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updatingProduct}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-sm font-semibold transition-colors shadow"
+              >
+                {updatingProduct ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   // SUPPLIER FORM MODAL (ADD & EDIT)
   function renderSupplierFormModal(isEdit = false) {
