@@ -826,9 +826,19 @@ class OtherController {
 
             DB::beginTransaction();
 
-            // Cascade delete: first delete users attached
+            // Cascade delete: delete all shop records in dependency order
+            DB::query('DELETE FROM sale_items WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM sales WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM held_bills WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM purchase_order_items WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM purchase_orders WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM cost_price_logs WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM wastages WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM products WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM customers WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM suppliers WHERE shop_id = ?', [$shopId]);
+            DB::query('DELETE FROM other_costs WHERE shop_id = ?', [$shopId]);
             DB::query('DELETE FROM users WHERE shop_id = ?', [$shopId]);
-            // Delete shop
             DB::query('DELETE FROM shops WHERE id = ?', [$shopId]);
 
             DB::commit();
@@ -1060,6 +1070,13 @@ class OtherController {
             $stmt = DB::query('SELECT id FROM users WHERE id = ?', [$userId]);
             if (!$stmt->fetch()) {
                 Auth::jsonError('User not found.', 404);
+            }
+
+            // Check if user has associated transactions to prevent RESTRICT constraint violation
+            $salesStmt = DB::query('SELECT COUNT(*) as count FROM sales WHERE user_id = ?', [$userId]);
+            $salesCount = (int)$salesStmt->fetch()['count'];
+            if ($salesCount > 0) {
+                Auth::jsonError('Cannot delete user with existing sales transactions. Please suspend the user instead.', 400);
             }
 
             DB::query('DELETE FROM users WHERE id = ?', [$userId]);
