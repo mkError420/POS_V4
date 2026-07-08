@@ -25,7 +25,7 @@ export default function OtherCost() {
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
-    cost_date: new Date().toISOString().split('T')[0],
+    cost_date: new Date().toBDISODateString(),
     notes: ''
   });
  
@@ -188,7 +188,7 @@ export default function OtherCost() {
     setFormData({
       title: '',
       amount: '',
-      cost_date: new Date().toISOString().split('T')[0],
+      cost_date: new Date().toBDISODateString(),
       notes: ''
     });
     setCurrentCost(null);
@@ -229,7 +229,7 @@ export default function OtherCost() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `other_costs_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `other_costs_ledger_${new Date().toBDISODateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -373,13 +373,13 @@ export default function OtherCost() {
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = d.toBDISODateString();
           trendMap[dateStr] = { date: dateStr, amount: 0 };
         }
 
         costs.forEach(item => {
           if (!item.cost_date) return;
-          const dateStr = new Date(item.cost_date).toISOString().split('T')[0];
+          const dateStr = new Date(item.cost_date).toBDISODateString();
           if (trendMap[dateStr]) {
             trendMap[dateStr].amount += parseFloat(item.amount || 0);
           }

@@ -36,7 +36,7 @@ export default function Wastage() {
     quantity: '',
     reason: 'Damaged',
     notes: '',
-    adjusted_at: new Date().toISOString().split('T')[0]
+    adjusted_at: new Date().toBDISODateString()
   });
  
   const fetchWastages = async () => {
@@ -214,7 +214,7 @@ export default function Wastage() {
       quantity: '',
       reason: 'Damaged',
       notes: '',
-      adjusted_at: new Date().toISOString().split('T')[0]
+      adjusted_at: new Date().toBDISODateString()
     });
     setProductSearchTerm('');
     setShowProductDropdown(false);
@@ -254,7 +254,7 @@ export default function Wastage() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `wastage_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `wastage_logs_${new Date().toBDISODateString()}.csv`;
     link.click();
     triggerAlert('success', 'Wastage logs exported to CSV successfully!');
   };
@@ -389,13 +389,13 @@ export default function Wastage() {
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = d.toBDISODateString();
           trendMap[dateStr] = { date: dateStr, loss: 0 };
         }
 
         wastages.forEach(item => {
           if (!item.adjusted_at) return;
-          const dateStr = new Date(item.adjusted_at).toISOString().split('T')[0];
+          const dateStr = new Date(item.adjusted_at).toBDISODateString();
           if (trendMap[dateStr]) {
             trendMap[dateStr].loss += parseFloat(item.cost_loss || 0);
           }

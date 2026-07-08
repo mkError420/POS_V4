@@ -192,7 +192,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `held_bills_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `held_bills_export_${new Date().toBDISODateString()}.csv`;
     link.click();
     triggerAlert('success', 'Held bills exported to CSV successfully!');
   };
@@ -301,12 +301,12 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = d.toBDISODateString();
           trendMap[dateStr] = { date: dateStr, due: 0, count: 0 };
         }
 
         filteredBills.forEach(bill => {
-          const dateStr = new Date(bill.created_at).toISOString().split('T')[0];
+          const dateStr = new Date(bill.created_at).toBDISODateString();
           if (trendMap[dateStr]) {
             trendMap[dateStr].due += parseFloat(bill.due_amount || 0);
             trendMap[dateStr].count += 1;

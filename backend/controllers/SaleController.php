@@ -290,7 +290,7 @@ class SaleController {
                 $params[] = "%$productName%";
             }
 
-            $sql .= ' ORDER BY s.created_at DESC';
+            $sql .= ' ORDER BY s.created_at DESC, s.id DESC';
 
             $stmt = DB::query($sql, $params);
             $sales = $stmt->fetchAll();

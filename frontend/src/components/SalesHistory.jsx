@@ -292,7 +292,7 @@ export default function SalesHistory() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    const dateSuffix = new Date().toISOString().slice(0, 10);
+    const dateSuffix = new Date().toBDISODateString();
     link.setAttribute('download', `sales_history_${dateSuffix}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
@@ -363,7 +363,7 @@ export default function SalesHistory() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `due_bills_history_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `due_bills_history_${new Date().toBDISODateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -382,7 +382,7 @@ export default function SalesHistory() {
       (sale.payment_method && sale.payment_method.toLowerCase().includes(query)) ||
       (sale.final_amount && String(sale.final_amount).includes(query))
     );
-  });
+  }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0) || (b.id || 0) - (a.id || 0));
 
   const totalSalesCount = filteredSales.length;
   const totalRevenue = filteredSales.reduce((sum, s) => sum + parseFloat(s.final_amount || 0), 0);
@@ -586,12 +586,12 @@ export default function SalesHistory() {
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = d.toBDISODateString();
           trendMap[dateStr] = { date: dateStr, revenue: 0, count: 0 };
         }
 
         filteredSales.forEach(sale => {
-          const dateStr = new Date(sale.created_at).toISOString().split('T')[0];
+          const dateStr = new Date(sale.created_at).toBDISODateString();
           if (trendMap[dateStr]) {
             trendMap[dateStr].revenue += parseFloat(sale.final_amount || 0);
             trendMap[dateStr].count += 1;

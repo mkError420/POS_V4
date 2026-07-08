@@ -220,7 +220,8 @@ export default function Inventory() {
       low_stock_threshold: product.low_stock_threshold,
       expiry_date: product.expiry_date ? product.expiry_date.split('T')[0] : '',
       supplier_id: product.supplier_id || '',
-      unit: product.unit || 'piece'
+      unit: product.unit || 'piece',
+      category: product.category || ''
     });
     setShowEditModal(true);
   };
@@ -288,7 +289,8 @@ export default function Inventory() {
       low_stock_threshold: '10',
       expiry_date: '',
       supplier_id: '',
-      unit: 'piece'
+      unit: 'piece',
+      category: ''
     });
     setCurrentProduct(null);
   };
@@ -300,7 +302,7 @@ export default function Inventory() {
       return;
     }
 
-    const headers = ['ID', 'Name', 'SKU', 'Cost Price', 'Sale Price', 'Stock Quantity', 'Low Stock Threshold', 'Expiry Date'];
+    const headers = ['ID', 'Name', 'SKU', 'Category', 'Cost Price', 'Sale Price', 'Stock Quantity', 'Low Stock Threshold', 'Expiry Date'];
 
     const escapeCSV = (val) => {
       if (val === null || val === undefined) return '';
@@ -315,6 +317,7 @@ export default function Inventory() {
       p.id,
       escapeCSV(p.name),
       escapeCSV(p.sku),
+      escapeCSV(p.category || ''),
       parseFloat(p.cost_price).toFixed(2),
       parseFloat(p.price).toFixed(2),
       p.stock_quantity,
@@ -331,7 +334,7 @@ export default function Inventory() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `inventory_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `inventory_catalog_${new Date().toBDISODateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -724,6 +727,7 @@ export default function Inventory() {
                     <th className="p-4">SKU</th>
                     {isSuperAdmin && <th className="p-4">Shop</th>}
                     <th className="p-4">Product Name</th>
+                    <th className="p-4">Category</th>
                     <th className="p-4">Supplier</th>
                     <th className="p-4">Cost Price</th>
                     <th className="p-4">Sale Price</th>
@@ -792,6 +796,15 @@ export default function Inventory() {
                           <td className="p-4 font-mono text-xs font-bold text-slate-500">{product.sku}</td>
                           {isSuperAdmin && <td className="p-4 font-semibold text-slate-800">{product.shop_name}</td>}
                           <td className="p-4 font-semibold text-slate-800">{product.name}</td>
+                          <td className="p-4">
+                            {product.category ? (
+                              <span className="bg-indigo-50 text-indigo-750 font-bold px-2 py-0.5 rounded border border-indigo-100 text-xs">
+                                {product.category}
+                              </span>
+                            ) : (
+                              <span className="text-slate-450 text-xs font-medium">-</span>
+                            )}
+                          </td>
                           <td className="p-4 text-slate-700 font-medium">{product.supplier_name || 'N/A'}</td>
                           <td className="p-4 text-slate-600">৳{parseFloat(product.cost_price).toFixed(2)}</td>
                           <td className="p-4 font-extrabold text-slate-800">৳{parseFloat(product.price).toFixed(2)}</td>
@@ -988,6 +1001,24 @@ export default function Inventory() {
                   </div>
 
                   <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category (Optional)</label>
+                    <input
+                      list="categories-list"
+                      type="text"
+                      name="category"
+                      value={formData.category || ''}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Beverages, Snacks"
+                      className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none bg-white font-semibold"
+                    />
+                    <datalist id="categories-list">
+                      {Array.from(new Set(products.map(p => p.category).filter(Boolean))).map(cat => (
+                        <option key={cat} value={cat} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Supplier (Optional)</label>
                     <select
                       name="supplier_id"
@@ -1136,6 +1167,24 @@ export default function Inventory() {
                   </div>
 
                   <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category (Optional)</label>
+                    <input
+                      list="categories-list-edit"
+                      type="text"
+                      name="category"
+                      value={formData.category || ''}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Beverages, Snacks"
+                      className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none bg-white font-semibold"
+                    />
+                    <datalist id="categories-list-edit">
+                      {Array.from(new Set(products.map(p => p.category).filter(Boolean))).map(cat => (
+                        <option key={cat} value={cat} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Supplier (Optional)</label>
                     <select
                       name="supplier_id"
@@ -1199,11 +1248,11 @@ export default function Inventory() {
                     <h4 className="text-sm font-bold text-slate-700 mb-2">CSV Format Requirements:</h4>
                     <p className="text-xs text-slate-500 mb-2">The CSV file must contain the following columns (case-insensitive):</p>
                     <code className="text-xs bg-white px-2 py-1 rounded border border-slate-200 block mb-2">
-                      Product Name, SKU, Cost Price, Sale Price
+                      Product Name, SKU, Cost Price
                     </code>
                     <p className="text-xs text-slate-500 mb-2">Optional columns:</p>
                     <code className="text-xs bg-white px-2 py-1 rounded border border-slate-200 block">
-                      Stock Quantity, Low Stock Threshold, Expiry Date, Supplier ID, Unit
+                      Sale Price, Category, Stock Quantity, Low Stock Threshold, Expiry Date, Supplier ID, Unit
                     </code>
                   </div>
 

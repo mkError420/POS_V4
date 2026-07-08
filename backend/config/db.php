@@ -66,6 +66,7 @@ class DB {
  
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $options);
+                self::$pdo->exec("SET time_zone = '+06:00';");
                 self::runMigrations();
             } catch (\PDOException $e) {
                 // If database does not exist, attempt to create it
@@ -76,6 +77,7 @@ class DB {
                         $tempPdo->exec("CREATE DATABASE IF NOT EXISTS `$dbName` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                         
                         self::$pdo = new PDO($dsn, $user, $pass, $options);
+                        self::$pdo->exec("SET time_zone = '+06:00';");
                         self::runMigrations();
                     } catch (\PDOException $ex) {
                         http_response_code(500);
@@ -156,6 +158,11 @@ class DB {
             // Check if unit column exists on products table
             if ($tableExists('products') && !$columnExists('products', 'unit')) {
                 $pdo->exec("ALTER TABLE `products` ADD COLUMN `unit` VARCHAR(20) NOT NULL DEFAULT 'piece'");
+            }
+
+            // Check if category column exists on products table
+            if ($tableExists('products') && !$columnExists('products', 'category')) {
+                $pdo->exec("ALTER TABLE `products` ADD COLUMN `category` VARCHAR(100) NULL");
             }
 
             // Check if due_balance column exists on suppliers table

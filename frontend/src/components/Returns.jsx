@@ -393,7 +393,7 @@ export default function Returns() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `product_returns_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `product_returns_${new Date().toBDISODateString()}.csv`;
     link.click();
     triggerAlert('success', 'Product returns exported to CSV successfully!');
   };

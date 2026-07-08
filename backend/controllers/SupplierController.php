@@ -287,6 +287,7 @@ class SupplierController {
             $sku = $item['sku'] ?? '';
             $unit = $item['unit'] ?? 'piece';
             $lowStock = $item['low_stock_threshold'] ?? 10;
+            $category = $item['category'] ?? null;
 
             $normalizedItems[] = [
                 'product_id' => $productId,
@@ -297,7 +298,8 @@ class SupplierController {
                 'name' => $name,
                 'sku' => $sku,
                 'unit' => $unit,
-                'low_stock_threshold' => $lowStock
+                'low_stock_threshold' => $lowStock,
+                'category' => $category
             ];
         }
 
@@ -316,11 +318,26 @@ class SupplierController {
                 
                 if ($existingProd) {
                     $productId = (int)$existingProd['id'];
+                    // Update supplier_id and category of the existing product to match
+                    if (!empty($item['category'])) {
+                        DB::query('UPDATE products SET category = ?, supplier_id = ? WHERE id = ? AND shop_id = ?', [
+                            $item['category'],
+                            $supplierId,
+                            $productId,
+                            $shopId
+                        ]);
+                    } else {
+                        DB::query('UPDATE products SET supplier_id = ? WHERE id = ? AND shop_id = ?', [
+                            $supplierId,
+                            $productId,
+                            $shopId
+                        ]);
+                    }
                 } else {
                     // Create the new product in the database with stock_quantity = 0
                     DB::query(
-                        'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, supplier_id, unit) 
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, supplier_id, unit, category) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                         [
                             $shopId,
                             $item['name'],
@@ -330,10 +347,27 @@ class SupplierController {
                             0,
                             (int)$item['low_stock_threshold'],
                             $supplierId,
-                            $item['unit']
+                            $item['unit'],
+                            !empty($item['category']) ? $item['category'] : null
                         ]
                     );
                     $productId = (int)DB::lastInsertId();
+                }
+            } else {
+                // It's an existing product (selected in the PO dropdown). We should also update its category and supplier if provided.
+                if (!empty($item['category'])) {
+                    DB::query('UPDATE products SET category = ?, supplier_id = ? WHERE id = ? AND shop_id = ?', [
+                        $item['category'],
+                        $supplierId,
+                        $productId,
+                        $shopId
+                    ]);
+                } else {
+                    DB::query('UPDATE products SET supplier_id = ? WHERE id = ? AND shop_id = ?', [
+                        $supplierId,
+                        $productId,
+                        $shopId
+                    ]);
                 }
             }
 
@@ -457,7 +491,7 @@ class SupplierController {
 
             // Fetch PO items
             $stmt = DB::query(
-                'SELECT poi.*, p.name AS product_name, p.sku AS product_sku 
+                'SELECT poi.*, p.name AS product_name, p.sku AS product_sku, p.category AS product_category 
                  FROM purchase_order_items poi 
                  JOIN products p ON poi.product_id = p.id 
                  WHERE poi.purchase_order_id = ? AND poi.shop_id = ?',

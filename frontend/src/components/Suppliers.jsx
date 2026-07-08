@@ -44,7 +44,7 @@ export default function Suppliers() {
   // Product Edit states (inside supplied products profile tab)
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
-  const [productEditForm, setProductEditForm] = useState({ name: '', sku: '', cost_price: '', price: '', stock_quantity: '' });
+  const [productEditForm, setProductEditForm] = useState({ name: '', sku: '', cost_price: '', price: '', stock_quantity: '', category: '' });
   const [updatingProduct, setUpdatingProduct] = useState(false);
   const [replaceFormData, setReplaceFormData] = useState({ quantity: '', new_expiry_date: '', notes: '' });
 
@@ -74,6 +74,7 @@ export default function Suppliers() {
     is_new: false,
     name: '',
     sku: '',
+    category: '',
     cost_price: '',
     selling_price: '',
     quantity_ordered: 1,
@@ -112,6 +113,7 @@ export default function Suppliers() {
       is_new: true,
       name: poFormData.name,
       sku: poFormData.sku,
+      category: poFormData.category || '',
       quantity_ordered: parseInt(poFormData.quantity_ordered),
       cost_price: parseFloat(poFormData.cost_price || 0),
       selling_price: parseFloat(poFormData.selling_price || 0),
@@ -120,6 +122,7 @@ export default function Suppliers() {
       product_id: parseInt(poFormData.product_id),
       name: poFormData.name || productSearch.split(' (')[0],
       sku: poFormData.sku || productSearch.match(/\(([^)]+)\)/)?.[1] || '',
+      category: poFormData.category || '',
       quantity_ordered: parseInt(poFormData.quantity_ordered),
       cost_price: parseFloat(poFormData.cost_price || 0),
       selling_price: parseFloat(poFormData.selling_price || 0),
@@ -136,6 +139,7 @@ export default function Suppliers() {
       is_new: false,
       name: '',
       sku: '',
+      category: '',
       cost_price: '',
       selling_price: '',
       quantity_ordered: 1,
@@ -417,6 +421,7 @@ export default function Suppliers() {
       is_new: false,
       name: '',
       sku: '',
+      category: '',
       cost_price: '',
       selling_price: '',
       quantity_ordered: 1,
@@ -436,6 +441,7 @@ export default function Suppliers() {
         is_new: true,
         name: '',
         sku: '',
+        category: '',
         cost_price: '',
         selling_price: '',
         unit: 'piece',
@@ -450,6 +456,7 @@ export default function Suppliers() {
           is_new: false,
           name: prod.name,
           sku: prod.sku,
+          category: prod.category || '',
           cost_price: prod.cost_price,
           selling_price: prod.price,
           unit: prod.unit || 'piece',
@@ -462,6 +469,7 @@ export default function Suppliers() {
           is_new: false,
           name: '',
           sku: '',
+          category: '',
           cost_price: '',
           selling_price: '',
           unit: 'piece',
@@ -530,6 +538,7 @@ export default function Suppliers() {
         is_new: false,
         name: '',
         sku: '',
+        category: '',
         cost_price: '',
         selling_price: '',
         quantity_ordered: 1,
@@ -894,7 +903,8 @@ export default function Suppliers() {
           sku: productEditForm.sku,
           cost_price: parseFloat(productEditForm.cost_price),
           price: parseFloat(productEditForm.price),
-          stock_quantity: parseInt(productEditForm.stock_quantity, 10)
+          stock_quantity: parseInt(productEditForm.stock_quantity, 10),
+          category: productEditForm.category
         })
       });
 
@@ -996,7 +1006,7 @@ export default function Suppliers() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `purchase_orders_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `purchase_orders_export_${new Date().toBDISODateString()}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -1042,7 +1052,7 @@ export default function Suppliers() {
       doc.setFontSize(10);
       doc.text(`Total Orders: ${filteredPOs.length}`, 14, doc.lastAutoTable.finalY + 10);
 
-      doc.save(`purchase_orders_export_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`purchase_orders_export_${new Date().toBDISODateString()}.pdf`);
       triggerAlert('success', 'PDF downloaded successfully!');
     } catch (err) {
       triggerAlert('error', 'Failed to generate PDF.');
@@ -1065,7 +1075,7 @@ export default function Suppliers() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `cost_price_logs_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `cost_price_logs_export_${new Date().toBDISODateString()}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -1110,7 +1120,7 @@ export default function Suppliers() {
       doc.setFontSize(10);
       doc.text(`Total Logs: ${costLogs.length}`, 14, doc.lastAutoTable.finalY + 10);
 
-      doc.save(`cost_price_logs_export_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`cost_price_logs_export_${new Date().toBDISODateString()}.pdf`);
       triggerAlert('success', 'PDF downloaded successfully!');
     } catch (err) {
       triggerAlert('error', 'Failed to generate PDF.');
@@ -1178,11 +1188,20 @@ export default function Suppliers() {
           id,
           name: pDetails ? pDetails.name : (log ? log.product_name : 'Unknown Product'),
           sku: pDetails ? pDetails.sku : (log ? log.product_sku : 'N/A'),
+          category: pDetails ? (pDetails.category || '') : '',
           stock: pDetails ? pDetails.stock_quantity : 'N/A',
           stock_quantity: pDetails ? pDetails.stock_quantity : 0,
           current_cost: pDetails ? pDetails.cost_price : (log ? log.new_cost_price : 0)
         };
       });
+
+    // Group supplied products by category
+    const groupedProducts = uniqueProducts.reduce((acc, p) => {
+      const cat = p.category && p.category.trim() !== '' ? p.category.trim() : 'Uncategorized';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(p);
+      return acc;
+    }, {});
 
     return (
       <div className="space-y-6">
@@ -1599,61 +1618,89 @@ export default function Suppliers() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {uniqueProducts.length === 0 ? (
-                        <tr>
-                          <td colSpan="5" className="p-8 text-center text-slate-400">No products recorded.</td>
-                        </tr>
+                        <div className="p-8 text-center text-slate-400 text-xs bg-white border border-slate-100 rounded-xl">No products recorded.</div>
                       ) : (
-                        uniqueProducts.map(p => (
-                          <tr key={p.id} className="hover:bg-slate-50/50">
-                            <td className="p-3 font-mono font-bold text-slate-500">{p.sku}</td>
-                            <td className="p-3 font-semibold text-slate-800">{p.name}</td>
-                            <td className="p-3 text-slate-750 font-bold">{formatCurrency(p.current_cost)}</td>
-                            <td className="p-3">
-                              <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded border border-slate-200">
-                                {p.stock} units
-                              </span>
-                            </td>
-                            <td className="p-3 text-center flex items-center justify-center space-x-1.5">
-                              {isAdmin && (
-                                <button
-                                  onClick={() => {
-                                    const fullProd = productsList.find(item => item.id === p.id);
-                                    if (fullProd) {
-                                      setEditingProductId(p.id);
-                                      setProductEditForm({
-                                        name: fullProd.name,
-                                        sku: fullProd.sku,
-                                        cost_price: fullProd.cost_price,
-                                        price: fullProd.price,
-                                        stock_quantity: fullProd.stock_quantity
-                                      });
-                                      setShowEditProductModal(true);
-                                    }
-                                  }}
-                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold py-1 px-2.5 rounded text-xs transition-colors"
-                                >
-                                  Edit
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setSelectedExpiredProduct(p);
-                                  setReturnFormData({ quantity: String(p.stock_quantity || 0), notes: '' });
-                                  setShowReturnModal(true);
-                                }}
-                                disabled={!(p.stock_quantity > 0)}
-                                className={`font-bold py-1 px-2.5 rounded border transition-colors ${
-                                  p.stock_quantity > 0
-                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                                    : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
-                                }`}
-                                title={p.stock_quantity > 0 ? "Return to Supplier" : "No stock available to return"}
-                              >
-                                Return
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        <div className="space-y-6">
+                          {Object.entries(groupedProducts).map(([category, prods]) => (
+                            <div key={category} className="space-y-2.5">
+                              <div className="flex items-center space-x-2">
+                                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-indigo-150 uppercase tracking-wider">
+                                  {category}
+                                </span>
+                                <span className="text-[10px] font-semibold text-slate-400">
+                                  ({prods.length} {prods.length === 1 ? 'item' : 'items'})
+                                </span>
+                              </div>
+                              <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                                <table className="w-full text-left border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                                      <th className="p-3">SKU</th>
+                                      <th className="p-3">Product Name</th>
+                                      <th className="p-3">Last Cost Price</th>
+                                      <th className="p-3">Current Active Stock</th>
+                                      <th className="p-3 text-center">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 text-xs">
+                                    {prods.map(p => (
+                                      <tr key={p.id} className="hover:bg-slate-50/50">
+                                        <td className="p-3 font-mono font-bold text-slate-500">{p.sku}</td>
+                                        <td className="p-3 font-semibold text-slate-800">{p.name}</td>
+                                        <td className="p-3 text-slate-750 font-bold">{formatCurrency(p.current_cost)}</td>
+                                        <td className="p-3">
+                                          <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded border border-slate-200">
+                                            {p.stock} units
+                                          </span>
+                                        </td>
+                                        <td className="p-3 text-center flex items-center justify-center space-x-1.5">
+                                          {isAdmin && (
+                                            <button
+                                              onClick={() => {
+                                                const fullProd = productsList.find(item => item.id === p.id);
+                                                if (fullProd) {
+                                                  setEditingProductId(p.id);
+                                                  setProductEditForm({
+                                                    name: fullProd.name,
+                                                    sku: fullProd.sku,
+                                                    cost_price: fullProd.cost_price,
+                                                    price: fullProd.price,
+                                                    stock_quantity: fullProd.stock_quantity,
+                                                    category: fullProd.category || ''
+                                                  });
+                                                  setShowEditProductModal(true);
+                                                }
+                                              }}
+                                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold py-1 px-2.5 rounded text-xs transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() => {
+                                              setSelectedExpiredProduct(p);
+                                              setReturnFormData({ quantity: String(p.stock_quantity || 0), notes: '' });
+                                              setShowReturnModal(true);
+                                            }}
+                                            disabled={!(p.stock_quantity > 0)}
+                                            className={`font-bold py-1 px-2.5 rounded border transition-colors ${
+                                              p.stock_quantity > 0
+                                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                                                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                                            }`}
+                                            title={p.stock_quantity > 0 ? "Return to Supplier" : "No stock available to return"}
+                                          >
+                                            Return
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </tbody>
                   </table>
@@ -2551,6 +2598,23 @@ export default function Suppliers() {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+              <input
+                list="suppliers-edit-categories-list"
+                type="text"
+                value={productEditForm.category || ''}
+                onChange={(e) => setProductEditForm(prev => ({ ...prev, category: e.target.value }))}
+                placeholder="Product category"
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-semibold"
+              />
+              <datalist id="suppliers-edit-categories-list">
+                {Array.from(new Set(productsList.map(p => p.category).filter(Boolean))).map(cat => (
+                  <option key={cat} value={cat} />
+                ))}
+              </datalist>
+            </div>
+
             <div className="pt-4 border-t border-slate-100 flex space-x-3 justify-end">
               <button
                 type="button"
@@ -2835,6 +2899,23 @@ export default function Suppliers() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+              <input
+                list="po-categories-list"
+                type="text"
+                value={poFormData.category || ''}
+                onChange={(e) => setPoFormData({ ...poFormData, category: e.target.value })}
+                placeholder="Search or enter category (e.g. Grains, Snacks)"
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-semibold"
+              />
+              <datalist id="po-categories-list">
+                {Array.from(new Set(productsList.map(p => p.category).filter(Boolean))).map(cat => (
+                  <option key={cat} value={cat} />
+                ))}
+              </datalist>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cost Price (৳) *</label>
@@ -2849,13 +2930,12 @@ export default function Suppliers() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Sale Price (৳) *</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Sale Price (৳)</label>
                 <input
                   type="number"
                   step="0.01"
                   value={poFormData.selling_price}
                   onChange={(e) => setPoFormData({ ...poFormData, selling_price: e.target.value })}
-                  required
                   placeholder="0.00"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                 />
@@ -2956,7 +3036,9 @@ export default function Suppliers() {
                   {poCart.map((item, index) => (
                     <div key={index} className="flex items-center justify-between bg-white border border-slate-100 rounded-lg p-2 text-xs">
                       <div className="flex-1">
-                        <div className="font-semibold text-slate-800">{item.name}</div>
+                        <div className="font-semibold text-slate-800">
+                          {item.name} {item.category && <span className="ml-1.5 px-1.5 py-0.25 bg-indigo-50 text-indigo-700 rounded text-[9px] font-bold border border-indigo-100">{item.category}</span>}
+                        </div>
                         <div className="text-slate-500">
                           {item.sku} • Qty: {item.quantity_ordered} • Tk {item.cost_price.toFixed(2)} × {item.quantity_ordered} = Tk {(item.cost_price * item.quantity_ordered).toFixed(2)}
                         </div>
@@ -3108,7 +3190,14 @@ export default function Suppliers() {
                     {selectedPo.items.map((item) => (
                       <tr key={item.id}>
                         <td className="p-3 font-mono font-bold text-slate-500">{item.product_sku}</td>
-                        <td className="p-3 font-semibold text-slate-800">{item.product_name}</td>
+                        <td className="p-3 font-semibold text-slate-800">
+                          <div>{item.product_name}</div>
+                          {item.product_category && (
+                            <span className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.25 rounded border border-indigo-100 mt-0.5">
+                              {item.product_category}
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3 text-slate-650">{formatCurrency(item.cost_price !== undefined ? item.cost_price : item.unit_price)}</td>
                         <td className="p-3 text-slate-650">{formatCurrency(item.selling_price || 0)}</td>
                         <td className="p-3 text-slate-700 font-semibold">{item.quantity_ordered !== undefined ? item.quantity_ordered : item.quantity}</td>
@@ -3452,7 +3541,7 @@ export default function Suppliers() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">New Expiry Date *</label>
                 <input
                   type="date"
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toBDISODateString()}
                   value={replaceFormData.new_expiry_date}
                   onChange={(e) => setReplaceFormData({ ...replaceFormData, new_expiry_date: e.target.value })}
                   required
@@ -3532,7 +3621,7 @@ export default function Suppliers() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">New Expiry Date *</label>
                   <input
                     type="date"
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().toBDISODateString()}
                     value={editLogFormData.new_expiry_date}
                     onChange={(e) => setEditLogFormData({ ...editLogFormData, new_expiry_date: e.target.value })}
                     required

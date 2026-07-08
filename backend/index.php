@@ -1,4 +1,7 @@
 <?php
+// Set default timezone to Bangladesh Standard Time
+date_default_timezone_set('Asia/Dhaka');
+
 /**
  * PHP Front Controller & Router for POS Backend (Fixed for Subfolder Hosting)
  */

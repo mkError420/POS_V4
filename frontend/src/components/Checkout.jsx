@@ -17,7 +17,7 @@ const createNewSaleTab = (index) => ({
   isPaidTouched: false,
   reduceDueAmount: 0,
   redeemPoints: 0, // Loyalty points to redeem
-  saleDate: new Date().toISOString().slice(0, 10),
+  saleDate: new Date().toBDISODateString(),
 });
 
 export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBill = null, onClearResumedHeldBill = () => { } }) {
@@ -485,7 +485,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
       updatedCart[existingIndex].quantity += 1;
       updateActiveTabState('cart', updatedCart);
     } else {
-      updateActiveTabState('cart', [...activeTab.cart, { ...product, quantity: 1 }]);
+      updateActiveTabState('cart', [...activeTab.cart, { ...product, quantity: 1, price: '' }]);
     }
   };
 
@@ -577,6 +577,13 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
       return;
     }
 
+    const emptyPriceItems = activeTab.cart.filter(item => item.price === '' || item.price === undefined || item.price === null || isNaN(parseFloat(item.price)));
+    if (emptyPriceItems.length > 0) {
+      const names = emptyPriceItems.map(item => `"${item.name}"`).join(', ');
+      triggerAlert('error', `Please enter a valid price for: ${names}`);
+      return;
+    }
+
     const finalTotal = getFinalTotal();
     const parsedPaid = activeTab.paidAmount !== '' ? parseFloat(activeTab.paidAmount) : finalTotal;
     const dueAmount = finalTotal - parsedPaid;
@@ -659,7 +666,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         paid_amount: parsedPaid,
         reduce_due_amount: parseFloat(activeTab.reduceDueAmount || 0),
         redeem_points: activeTab.redeemPoints || 0,
-        created_at: activeTab.saleDate || new Date().toISOString().slice(0, 10),
+        created_at: activeTab.saleDate || new Date().toBDISODateString(),
         items: activeTab.cart.map(item => ({
           product_id: item.id,
           quantity: item.quantity,
@@ -786,6 +793,13 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     }
     if (activeTab.cart.length === 0) {
       triggerAlert('error', 'Cart is empty. Nothing to hold.');
+      return;
+    }
+
+    const emptyPriceItems = activeTab.cart.filter(item => item.price === '' || item.price === undefined || item.price === null || isNaN(parseFloat(item.price)));
+    if (emptyPriceItems.length > 0) {
+      const names = emptyPriceItems.map(item => `"${item.name}"`).join(', ');
+      triggerAlert('error', `Please enter a valid price for: ${names}`);
       return;
     }
 
@@ -1002,7 +1016,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `held_bills_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `held_bills_${new Date().toBDISODateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -2127,7 +2141,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               </label>
               <input
                 type="date"
-                value={activeTab.saleDate || new Date().toISOString().slice(0, 10)}
+                value={activeTab.saleDate || new Date().toBDISODateString()}
                 onChange={(e) => updateActiveTabState('saleDate', e.target.value)}
                 disabled={!(currentUser?.role === 'shop_admin' || currentUser?.role === 'super_admin')}
                 className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium text-slate-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"

@@ -594,7 +594,7 @@ export default function ManualOrders() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `manual_orders_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `manual_orders_export_${new Date().toBDISODateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

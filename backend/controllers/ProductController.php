@@ -136,6 +136,7 @@ class ProductController {
         $expiry_date = $requestData['expiry_date'] ?? null;
         $supplier_id = $requestData['supplier_id'] ?? null;
         $unit = $requestData['unit'] ?? 'piece';
+        $category = $requestData['category'] ?? null;
 
         if (empty($name) || empty($sku) || $price === null || $cost_price === null) {
             Auth::jsonError('Please provide name, sku, price, and cost price.', 400);
@@ -149,8 +150,8 @@ class ProductController {
             }
 
             DB::query(
-                'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, expiry_date, supplier_id, unit) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, expiry_date, supplier_id, unit, category) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $shopId,
                     $name,
@@ -161,7 +162,8 @@ class ProductController {
                     (int)$low_stock_threshold,
                     !empty($expiry_date) ? $expiry_date : null,
                     !empty($supplier_id) ? (int)$supplier_id : null,
-                    $unit
+                    $unit,
+                    !empty($category) ? $category : null
                 ]
             );
 
@@ -217,7 +219,8 @@ class ProductController {
                 'low_stock_threshold' => 'low_stock_threshold',
                 'expiry_date' => 'expiry_date',
                 'supplier_id' => 'supplier_id',
-                'unit' => 'unit'
+                'unit' => 'unit',
+                'category' => 'category'
             ];
 
             foreach ($fieldsToUpdate as $apiKey => $dbKey) {
@@ -344,19 +347,19 @@ class ProductController {
                 'low_stock_threshold' => self::findColumn(['low stock threshold', 'low_stock_threshold'], $headers),
                 'expiry_date' => self::findColumn(['expiry date', 'expiry_date'], $headers),
                 'supplier_id' => self::findColumn(['supplier id', 'supplier_id'], $headers),
-                'unit' => self::findColumn(['unit'], $headers)
+                'unit' => self::findColumn(['unit'], $headers),
+                'category' => self::findColumn(['category'], $headers)
             ];
 
             // Debug: log found columns
             error_log('CSV Headers: ' . implode(', ', $headers));
             error_log('Column Map: ' . json_encode($columnMap));
 
-            // Validate required columns
-            if ($columnMap['name'] === false || $columnMap['sku'] === false || $columnMap['price'] === false || $columnMap['cost_price'] === false) {
+            // Validate required columns (Sale Price is optional, defaulting to Cost Price)
+            if ($columnMap['name'] === false || $columnMap['sku'] === false || $columnMap['cost_price'] === false) {
                 $missing = [];
                 if ($columnMap['name'] === false) $missing[] = 'name (or Product Name)';
                 if ($columnMap['sku'] === false) $missing[] = 'sku';
-                if ($columnMap['price'] === false) $missing[] = 'price (or Sale Price)';
                 if ($columnMap['cost_price'] === false) $missing[] = 'cost_price (or Cost Price)';
                 throw new \Exception('CSV must contain columns: ' . implode(', ', $missing) . '. Found columns: ' . implode(', ', $headers));
             }
@@ -376,8 +379,11 @@ class ProductController {
                 try {
                     $name = trim($row[$columnMap['name']] ?? '');
                     $sku = trim($row[$columnMap['sku']] ?? '');
-                    $price = floatval($row[$columnMap['price']] ?? 0);
                     $costPrice = floatval($row[$columnMap['cost_price']] ?? 0);
+                    $price = $columnMap['price'] !== false && trim($row[$columnMap['price']] ?? '') !== '' ? floatval($row[$columnMap['price']]) : 0;
+                    if ($price <= 0) {
+                        $price = $costPrice;
+                    }
                     $stockQuantity = $columnMap['stock_quantity'] !== false ? intval($row[$columnMap['stock_quantity']] ?? 0) : 0;
                     $lowStockThreshold = $columnMap['low_stock_threshold'] !== false ? intval($row[$columnMap['low_stock_threshold']] ?? 10) : 10;
                     $expiryDateRaw = $columnMap['expiry_date'] !== false ? trim($row[$columnMap['expiry_date']] ?? '') : '';
@@ -403,19 +409,14 @@ class ProductController {
                     }
                     $supplierId = $columnMap['supplier_id'] !== false ? trim($row[$columnMap['supplier_id']] ?? '') : '';
                     $unit = $columnMap['unit'] !== false ? trim($row[$columnMap['unit']] ?? 'piece') : 'piece';
+                    $category = $columnMap['category'] !== false ? trim($row[$columnMap['category']] ?? '') : '';
 
                     // Debug: log row data
-                    error_log("Row $rowNumber: name='$name', sku='$sku', price=$price, cost_price=$costPrice");
+                    error_log("Row $rowNumber: name='$name', sku='$sku', price=$price, cost_price=$costPrice, category='$category'");
 
                     // Validate required fields - allow 0 for prices if needed
                     if (empty($name) || empty($sku)) {
                         $errors[] = "Row $rowNumber: Missing required fields (name='$name', sku='$sku')";
-                        $errorCount++;
-                        continue;
-                    }
-
-                    if ($price <= 0) {
-                        $errors[] = "Row $rowNumber: Invalid price (must be > 0, got: $price)";
                         $errorCount++;
                         continue;
                     }
@@ -477,7 +478,7 @@ class ProductController {
                         // Update existing product
                         DB::query(
                             'UPDATE products 
-                             SET name = ?, price = ?, cost_price = ?, stock_quantity = ?, low_stock_threshold = ?, expiry_date = ?, supplier_id = ?, unit = ?
+                             SET name = ?, price = ?, cost_price = ?, stock_quantity = ?, low_stock_threshold = ?, expiry_date = ?, supplier_id = ?, unit = ?, category = ?
                              WHERE id = ? AND shop_id = ?',
                             [
                                 $name,
@@ -488,6 +489,7 @@ class ProductController {
                                 !empty($expiryDate) ? $expiryDate : null,
                                 $resolvedSupplierId,
                                 $unit,
+                                !empty($category) ? $category : null,
                                 intval($existingProduct['id']),
                                 $shopId
                             ]
@@ -495,8 +497,8 @@ class ProductController {
                     } else {
                         // Insert product
                         DB::query(
-                            'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, expiry_date, supplier_id, unit) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                            'INSERT INTO products (shop_id, name, sku, price, cost_price, stock_quantity, low_stock_threshold, expiry_date, supplier_id, unit, category) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                             [
                                 $shopId,
                                 $name,
@@ -507,7 +509,8 @@ class ProductController {
                                 $lowStockThreshold,
                                 !empty($expiryDate) ? $expiryDate : null,
                                 $resolvedSupplierId,
-                                $unit
+                                $unit,
+                                !empty($category) ? $category : null
                             ]
                         );
 
@@ -525,7 +528,8 @@ class ProductController {
                                 'quantity' => $stockQuantity,
                                 'cost_price' => $costPrice,
                                 'selling_price' => $price,
-                                'expiry_date' => !empty($expiryDate) ? $expiryDate : null
+                                'expiry_date' => !empty($expiryDate) ? $expiryDate : null,
+                                'category' => !empty($category) ? $category : null
                             ];
                             $newProductIds[] = [
                                 'product_id' => $newProductId,

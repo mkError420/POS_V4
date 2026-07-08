@@ -742,7 +742,7 @@ export default function Customers() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `customers_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `customers_export_${new Date().toBDISODateString()}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -780,7 +780,7 @@ export default function Customers() {
       doc.setFontSize(10);
       doc.text(`Total Customers: ${filteredCustomers.length}`, 14, doc.lastAutoTable.finalY + 10);
 
-      doc.save(`customers_export_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`customers_export_${new Date().toBDISODateString()}.pdf`);
       triggerAlert('success', 'PDF downloaded successfully!');
     } catch (err) {
       triggerAlert('error', 'Failed to generate PDF.');

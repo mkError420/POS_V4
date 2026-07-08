@@ -21,7 +21,7 @@ export default function OtherSales() {
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_phone: '',
-    sale_date: new Date().toISOString().split('T')[0],
+    sale_date: new Date().toBDISODateString(),
     notes: '',
     items: [ { category: 'Miscellaneous', item_name: '', quantity: 1, unit_price: '' } ]
   });
@@ -235,7 +235,7 @@ export default function OtherSales() {
     setFormData({
       customer_name: '',
       customer_phone: '',
-      sale_date: new Date().toISOString().split('T')[0],
+      sale_date: new Date().toBDISODateString(),
       notes: '',
       items: [ { category: 'Miscellaneous', item_name: '', quantity: 1, unit_price: '' } ]
     });
