@@ -34,6 +34,18 @@ export default function Inventory() {
   const [shops, setShops] = useState([]);
   const [selectedShopId, setSelectedShopId] = useState('');
 
+  // Selected letter for alphabetical filtering
+  const [selectedLetter, setSelectedLetter] = useState('');
+
+  // Filter and sort products alphabetically
+  const filteredProducts = products
+    .filter(p => {
+      if (!selectedLetter) return true;
+      return p.name && p.name.trim().toUpperCase().startsWith(selectedLetter);
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -282,7 +294,8 @@ export default function Inventory() {
   };
 
   const exportToCSV = () => {
-    if (products.length === 0) {
+    const productsToExport = filteredProducts;
+    if (productsToExport.length === 0) {
       triggerAlert('error', 'No products to export.');
       return;
     }
@@ -298,7 +311,7 @@ export default function Inventory() {
       return str;
     };
 
-    const rows = products.map(p => [
+    const rows = productsToExport.map(p => [
       p.id,
       escapeCSV(p.name),
       escapeCSV(p.sku),
@@ -367,10 +380,10 @@ export default function Inventory() {
       setUploading(false);
     }
   };
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const indexOfLastProduct = currentPage * itemsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
-  const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
 
   return (
     <div className="space-y-6">
@@ -506,10 +519,71 @@ export default function Inventory() {
             </div>
           </div>
 
+          {/* Alphabetical Filter Bar */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Alphabetical Index</h4>
+                <p className="text-[11px] text-slate-400">Quick filter products by their starting letter</p>
+              </div>
+              {selectedLetter && (
+                <button
+                  onClick={() => { setSelectedLetter(''); setCurrentPage(1); }}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center space-x-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Reset Alphabet Filter</span>
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => { setSelectedLetter(''); setCurrentPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  selectedLetter === ''
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                }`}
+              >
+                All
+              </button>
+              {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => {
+                // Count products starting with this letter (using local products array)
+                const count = products.filter(p => p.name && p.name.trim().toUpperCase().startsWith(letter)).length;
+                const isSelected = selectedLetter === letter;
+                
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => { setSelectedLetter(letter); setCurrentPage(1); }}
+                    className={`min-w-[32px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : count > 0
+                        ? 'bg-indigo-50/50 text-indigo-700 hover:bg-indigo-50 border border-indigo-100/50'
+                        : 'bg-slate-50/50 text-slate-400 opacity-60 cursor-pointer'
+                    }`}
+                  >
+                    <span>{letter}</span>
+                    {count > 0 && (
+                      <span className={`text-[9px] px-1.5 py-0.25 rounded-full ${
+                        isSelected ? 'bg-indigo-500 text-white' : 'bg-indigo-100 text-indigo-800 font-semibold'
+                      }`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Dynamic Graph Chart */}
           {(() => {
             // Take the top 7 products by stock quantity to display in the bar chart
-            const topProducts = [...products]
+            const topProducts = [...filteredProducts]
               .sort((a, b) => b.stock_quantity - a.stock_quantity)
               .slice(0, 7);
 
@@ -667,7 +741,7 @@ export default function Inventory() {
                         </div>
                       </td>
                     </tr>
-                  ) : products.length === 0 ? (
+                  ) : filteredProducts.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-12 text-center text-slate-400">
                         No products matched current search filters.
@@ -770,7 +844,7 @@ export default function Inventory() {
           {totalPages > 1 && (
             <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
               <div className="text-xs font-semibold text-slate-500">
-                Showing <span className="text-slate-800">{indexOfFirstProduct + 1}</span> to <span className="text-slate-800">{Math.min(indexOfLastProduct, products.length)}</span> of <span className="text-slate-800">{products.length}</span> entries
+                Showing <span className="text-slate-800">{indexOfFirstProduct + 1}</span> to <span className="text-slate-800">{Math.min(indexOfLastProduct, filteredProducts.length)}</span> of <span className="text-slate-800">{filteredProducts.length}</span> entries
               </div>
               <div className="flex items-center space-x-1.5">
                 <button
