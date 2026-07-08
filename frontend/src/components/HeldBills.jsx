@@ -723,8 +723,14 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                                     </div>
                                     {bill.discount_percent > 0 && (
                                       <div className="flex justify-between">
-                                        <span className="text-slate-500">Discount:</span>
+                                        <span className="text-slate-500">Discount (%):</span>
                                         <span className="font-semibold text-slate-700">{bill.discount_percent}%</span>
+                                      </div>
+                                    )}
+                                    {bill.discount_amount > 0 && (
+                                      <div className="flex justify-between">
+                                        <span className="text-slate-500">Discount (৳):</span>
+                                        <span className="font-semibold text-slate-700">৳{parseFloat(bill.discount_amount).toFixed(2)}</span>
                                       </div>
                                     )}
                                     <div className="flex justify-between border-t border-slate-100 pt-2">

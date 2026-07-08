@@ -31,6 +31,7 @@ class HeldBillController {
                 $bill['user_id'] = (int)$bill['user_id'];
                 $bill['customer_id'] = $bill['customer_id'] !== null ? (int)$bill['customer_id'] : null;
                 $bill['discount_percent'] = (float)$bill['discount_percent'];
+                $bill['discount_amount'] = isset($bill['discount_amount']) ? (float)$bill['discount_amount'] : 0.00;
                 $bill['due_amount'] = (float)$bill['due_amount'];
                 
                 // If items is JSON string, decode it
@@ -67,6 +68,7 @@ class HeldBillController {
         $customerPhone = $requestData['customer_phone'] ?? null;
         $customerAddress = $requestData['customer_address'] ?? null;
         $discountPercent = (float)($requestData['discount_percent'] ?? 0);
+        $discountAmount = (float)($requestData['discount_amount'] ?? 0);
         $notes = $requestData['notes'] ?? null;
         $items = $requestData['items'] ?? [];
         $dueAmount = (float)($requestData['due_amount'] ?? 0);
@@ -77,8 +79,8 @@ class HeldBillController {
 
         try {
             DB::query(
-                "INSERT INTO held_bills (shop_id, user_id, customer_id, customer_name, customer_phone, customer_address, discount_percent, notes, items, due_amount, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held')",
+                "INSERT INTO held_bills (shop_id, user_id, customer_id, customer_name, customer_phone, customer_address, discount_percent, discount_amount, notes, items, due_amount, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'held')",
                 [
                     $shopId,
                     $userId,
@@ -87,6 +89,7 @@ class HeldBillController {
                     $customerPhone,
                     $customerAddress,
                     $discountPercent,
+                    $discountAmount,
                     $notes,
                     json_encode($items),
                     $dueAmount

@@ -12,6 +12,7 @@ const createNewSaleTab = (index) => ({
   customerAddress: '',
   syncToDirectory: true,
   discountPercent: 0,
+  discountAmount: 0,
   paymentMethod: 'cash',
   paidAmount: '',
   isPaidTouched: false,
@@ -229,7 +230,16 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     if (!activeTab?.isPaidTouched) {
       updateActiveTabState('paidAmount', getFinalTotal().toFixed(2));
     }
-  }, [activeTab?.cart, activeTab?.discountPercent, taxRate, activeTab?.isPaidTouched, activeTab?.reduceDueAmount]);
+  }, [
+    activeTab?.cart,
+    activeTab?.discountPercent,
+    activeTab?.discountAmount,
+    activeTab?.redeemPoints,
+    loyaltyPointValue,
+    taxRate,
+    activeTab?.isPaidTouched,
+    activeTab?.reduceDueAmount
+  ]);
 
   // Auto-focus barcode reader input when active
   useEffect(() => {
@@ -555,7 +565,9 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
   // Financial Calculators
   const getSubtotal = () => activeTab?.cart?.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0) || 0;
   const getTax = () => getSubtotal() * taxRate;
-  const getDiscountAmount = () => getSubtotal() * (parseFloat(activeTab?.discountPercent || 0) / 100);
+  const getPercentDiscountAmount = () => getSubtotal() * (parseFloat(activeTab?.discountPercent || 0) / 100);
+  const getFlatDiscountAmount = () => parseFloat(activeTab?.discountAmount || 0);
+  const getDiscountAmount = () => getPercentDiscountAmount() + getFlatDiscountAmount();
   const getPointsDiscount = () => (activeTab?.redeemPoints || 0) * loyaltyPointValue;
   const getFinalTotal = () => {
     const sub = getSubtotal();
@@ -703,7 +715,12 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         tax: payload.tax,
         total: data.final_amount,
         payment_method: activeTab.paymentMethod,
-        created_at: activeTab.saleDate ? new Date(activeTab.saleDate).toLocaleDateString() : new Date().toLocaleDateString(),
+        created_at: (() => {
+          const now = new Date();
+          const datePart = activeTab.saleDate || now.toBDISODateString();
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+          return new Date(`${datePart} ${timeStr}`).toLocaleString();
+        })(),
         customer_name: activeTab.customerName.trim() || 'Walk-in Customer',
         customer_phone: activeTab.customerPhone.trim() || '',
         customer_address: activeTab.customerAddress.trim() || '',
@@ -821,6 +838,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         customer_phone: activeTab.customerPhone.trim() || null,
         customer_address: activeTab.customerAddress.trim() || null,
         discount_percent: activeTab.discountPercent,
+        discount_amount: activeTab.discountAmount,
         notes: holdNotes.trim(),
         items: payloadItems
       };
@@ -934,6 +952,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
       updateActiveTabState('cart', reconstructedCart);
       updateActiveTabState('discountPercent', parseFloat(heldBill.discount_percent || 0));
+      updateActiveTabState('discountAmount', parseFloat(heldBill.discount_amount || 0));
       updateActiveTabState('reduceDueAmount', parseFloat(heldBill.due_amount || 0));
       updateActiveTabState('selectedCustomerId', heldBill.customer_id || '');
       updateActiveTabState('customerName', heldBill.customer_name || '');
@@ -2469,7 +2488,21 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   step="0.1"
                   value={activeTab.discountPercent}
                   onChange={(e) => updateActiveTabState('discountPercent', Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                  className="w-14 border border-slate-200 rounded px-1 py-0.5 text-right font-medium text-slate-700 bg-white text-xs"
+                  disabled={parseFloat(activeTab.discountAmount || 0) > 0}
+                  className="w-14 border border-slate-200 rounded px-1 py-0.5 text-right font-medium text-slate-700 bg-white text-xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span>Discount (৳):</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={activeTab.discountAmount}
+                  onChange={(e) => updateActiveTabState('discountAmount', Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={parseFloat(activeTab.discountPercent || 0) > 0}
+                  className="w-16 border border-slate-200 rounded px-1 py-0.5 text-right font-medium text-slate-700 bg-white text-xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -2486,6 +2519,11 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 <span>-৳{getDiscountAmount().toFixed(2)}</span>
               </div>
             )}
+
+            <div className="flex justify-between text-[11px] text-slate-500 font-semibold border-t border-slate-200/40 pt-1 mt-0.5">
+              <span>Sub-total:</span>
+              <span>৳{getFinalTotal().toFixed(2)}</span>
+            </div>
 
             {getPointsDiscount() > 0 && (
               <div className="flex justify-between text-[11px] text-emerald-600 font-medium">

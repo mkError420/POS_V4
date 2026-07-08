@@ -307,6 +307,14 @@ class DB {
                 $pdo->exec("ALTER TABLE `due_payments` ADD COLUMN `note` TEXT NULL");
             }
 
+            // Modify held_bills discount_percent column to DECIMAL(10,2) to accommodate flat discounts
+            if ($tableExists('held_bills')) {
+                $pdo->exec("ALTER TABLE `held_bills` MODIFY COLUMN `discount_percent` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                if (!$columnExists('held_bills', 'discount_amount')) {
+                    $pdo->exec("ALTER TABLE `held_bills` ADD COLUMN `discount_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                }
+            }
+
             // Create other_sales table if not exists
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS `other_sales` (
