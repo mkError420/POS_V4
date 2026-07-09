@@ -10,11 +10,20 @@ export default function Adjustments() {
   const [alert, setAlert] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
+  const userStr = localStorage.getItem('user');
+  const userObj = userStr ? JSON.parse(userStr) : {};
+  const isSuperAdmin = userObj.role === 'super_admin';
+
   // Filters
   const [filterProductId, setFilterProductId] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterShopId, setFilterShopId] = useState('');
+  const [shops, setShops] = useState([]);
+
+  const [filterProductSearch, setFilterProductSearch] = useState('');
+  const [showFilterProductDropdown, setShowFilterProductDropdown] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -23,7 +32,7 @@ export default function Adjustments() {
     reason: '',
     notes: ''
   });
-  
+
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
 
@@ -33,12 +42,13 @@ export default function Adjustments() {
       const token = localStorage.getItem('token');
       let url = `${API_BASE_URL}/adjustments`;
       const params = new URLSearchParams();
-      
+
       if (filterProductId) params.append('product_id', filterProductId);
       if (filterType) params.append('adjustment_type', filterType);
       if (filterStartDate) params.append('start_date', filterStartDate);
       if (filterEndDate) params.append('end_date', filterEndDate);
-      
+      if (filterShopId) params.append('shop_id', filterShopId);
+
       if (params.toString()) url += `?${params.toString()}`;
 
       const response = await fetch(url, {
@@ -81,11 +91,27 @@ export default function Adjustments() {
     }
   };
 
+  const fetchShops = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/shops`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setShops(await response.json());
+      }
+    } catch (err) {
+      console.error('Error fetching shops:', err);
+    }
+  };
+
   useEffect(() => {
     fetchAdjustments();
     fetchProducts();
     fetchStats();
-  }, [filterProductId, filterType, filterStartDate, filterEndDate]);
+    fetchShops();
+  }, [filterProductId, filterType, filterStartDate, filterEndDate, filterShopId]);
 
   const triggerAlert = (type, message) => {
     setAlert({ type, message });
@@ -99,13 +125,16 @@ export default function Adjustments() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.product_id || formData.adjusted_quantity === '') {
-      triggerAlert('error', 'Please select a product and enter the adjusted quantity.');
+      triggerAlert('error', 'Please select a product and enter the quantity.');
       return;
     }
     if (!formData.reason) {
       triggerAlert('error', 'Please provide a reason for the adjustment.');
       return;
     }
+
+    let finalQuantity = parseInt(formData.adjusted_quantity);
+    const selectedProduct = products.find(p => p.id === parseInt(formData.product_id));
 
     try {
       const token = localStorage.getItem('token');
@@ -116,8 +145,9 @@ export default function Adjustments() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          shop_id: selectedProduct ? selectedProduct.shop_id : null,
           product_id: parseInt(formData.product_id),
-          adjusted_quantity: parseInt(formData.adjusted_quantity),
+          adjusted_quantity: finalQuantity,
           reason: formData.reason,
           notes: formData.notes
         })
@@ -137,11 +167,11 @@ export default function Adjustments() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (adj) => {
     if (!window.confirm('Are you sure you want to delete this adjustment? This will revert the stock quantity.')) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/adjustments/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/adjustments/${adj.id}?shop_id=${adj.shop_id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -192,7 +222,7 @@ export default function Adjustments() {
   };
 
   const getAdjustmentBadge = (type) => {
-    return type === 'increase' 
+    return type === 'increase'
       ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
       : 'bg-rose-100 text-rose-800 border-rose-200';
   };
@@ -201,9 +231,8 @@ export default function Adjustments() {
     <div className="space-y-6">
       {/* Alerts Banner */}
       {alert && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${
-          alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-        }`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+          }`}>
           <span className="text-sm font-semibold">{alert.message}</span>
         </div>
       )}
@@ -214,15 +243,17 @@ export default function Adjustments() {
           <h2 className="text-2xl font-bold text-slate-800">Inventory Adjustments</h2>
           <p className="text-sm text-slate-500">Adjust stock quantities to match physical inventory counts</p>
         </div>
-        <button
-          onClick={() => openAddModal()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow transition-colors flex items-center space-x-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          <span>New Adjustment</span>
-        </button>
+        {!isSuperAdmin && (
+          <button
+            onClick={() => openAddModal()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow transition-colors flex items-center space-x-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            <span>New Adjustment</span>
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -252,16 +283,68 @@ export default function Adjustments() {
       {/* Filter Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div className="flex flex-wrap items-center gap-4">
-          <select
-            value={filterProductId}
-            onChange={(e) => setFilterProductId(e.target.value)}
-            className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-          >
-            <option value="">All Products</option>
-            {products.map(p => (
-              <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
-            ))}
-          </select>
+          {isSuperAdmin && (
+            <select
+              value={filterShopId}
+              onChange={(e) => setFilterShopId(e.target.value)}
+              className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+            >
+              <option value="">All Shops</option>
+              {shops.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+          <div className="relative w-full md:w-64 min-w-[200px]">
+            <input
+              type="text"
+              value={filterProductSearch}
+              onChange={(e) => {
+                setFilterProductSearch(e.target.value);
+                setShowFilterProductDropdown(true);
+                if (e.target.value === '') {
+                  setFilterProductId('');
+                }
+              }}
+              onFocus={() => setShowFilterProductDropdown(true)}
+              onBlur={() => setTimeout(() => setShowFilterProductDropdown(false), 200)}
+              placeholder="All Products (Search...)"
+              className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+            />
+            {showFilterProductDropdown && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div
+                  className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100"
+                  onClick={() => {
+                    setFilterProductId('');
+                    setFilterProductSearch('');
+                    setShowFilterProductDropdown(false);
+                  }}
+                >
+                  <div className="font-semibold text-slate-800">All Products</div>
+                </div>
+                {products
+                  .filter(p =>
+                    p.name.toLowerCase().includes(filterProductSearch.toLowerCase()) ||
+                    (p.sku && p.sku.toLowerCase().includes(filterProductSearch.toLowerCase()))
+                  )
+                  .map(p => (
+                    <div
+                      key={p.id}
+                      className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
+                      onClick={() => {
+                        setFilterProductId(String(p.id));
+                        setFilterProductSearch(`${p.name} (${p.sku})`);
+                        setShowFilterProductDropdown(false);
+                      }}
+                    >
+                      <div className="font-semibold text-slate-800">{p.name}</div>
+                      <div className="text-xs text-slate-500">SKU: {p.sku}</div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -291,6 +374,8 @@ export default function Adjustments() {
               setFilterType('');
               setFilterStartDate('');
               setFilterEndDate('');
+              setFilterShopId('');
+              setFilterProductSearch('');
             }}
             className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold"
           >
@@ -306,6 +391,9 @@ export default function Adjustments() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                {isSuperAdmin && (
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Shop</th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Previous Qty</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Adjusted Qty</th>
@@ -329,6 +417,11 @@ export default function Adjustments() {
                 adjustments.map(adj => (
                   <tr key={adj.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm text-slate-700">{formatDate(adj.created_at)}</td>
+                    {isSuperAdmin && (
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                        {adj.shop_name || 'N/A'}
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-slate-900">{adj.product_name}</div>
                       <div className="text-xs text-slate-500">{adj.product_sku}</div>
@@ -347,7 +440,7 @@ export default function Adjustments() {
                     <td className="px-6 py-4 text-sm text-slate-700">{adj.adjusted_by_name}</td>
                     <td className="px-6 py-4">
                       <button
-                        onClick={() => handleDelete(adj.id)}
+                        onClick={() => handleDelete(adj)}
                         className="text-rose-600 hover:text-rose-800 text-sm font-semibold"
                       >
                         Delete
@@ -366,7 +459,7 @@ export default function Adjustments() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
             <div className="p-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-800">New Inventory Adjustment</h3>
+              <h3 className="text-lg font-bold text-slate-800">Inventory Adjustment</h3>
               <p className="text-sm text-slate-500 mt-1">Adjust stock quantity to match physical count</p>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -390,36 +483,39 @@ export default function Adjustments() {
                   {showProductDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {products
-                        .filter(p => 
-                          p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
+                        .filter(p =>
+                          p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
                           (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
                         )
                         .map(p => (
-                        <div
-                          key={p.id}
-                          className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
-                          onClick={() => {
-                            setFormData({ ...formData, product_id: String(p.id), adjusted_quantity: String(p.stock_quantity) });
-                            setProductSearch(`${p.name} (${p.sku})`);
-                            setShowProductDropdown(false);
-                          }}
-                        >
-                          <div className="font-semibold text-slate-800">{p.name}</div>
-                          <div className="text-xs text-slate-500">SKU: {p.sku} • Current Stock: {p.stock_quantity}</div>
-                        </div>
-                      ))}
-                      {products.filter(p => 
-                        p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
+                          <div
+                            key={p.id}
+                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
+                            onClick={() => {
+                              setFormData({ ...formData, product_id: String(p.id), adjusted_quantity: String(p.stock_quantity) });
+                              setProductSearch(`${p.name} (${p.sku})`);
+                              setShowProductDropdown(false);
+                            }}
+                          >
+                            <div className="font-semibold text-slate-800">{p.name}</div>
+                            <div className="text-xs text-slate-500">SKU: {p.sku} • Current Stock: {p.stock_quantity}</div>
+                          </div>
+                        ))}
+                      {products.filter(p =>
+                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
                         (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
                       ).length === 0 && (
-                        <div className="px-4 py-3 text-sm text-slate-500 text-center">No products found</div>
-                      )}
+                          <div className="px-4 py-3 text-sm text-slate-500 text-center">No products found</div>
+                        )}
                     </div>
                   )}
                 </div>
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Adjusted Quantity *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Adjusted Quantity *
+                </label>
                 <input
                   type="number"
                   name="adjusted_quantity"
@@ -430,11 +526,24 @@ export default function Adjustments() {
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                   placeholder="Enter the physical count"
                 />
-                {formData.product_id && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Current stock: {products.find(p => p.id === parseInt(formData.product_id))?.stock_quantity || 'N/A'}
-                  </p>
-                )}
+                {formData.product_id && (() => {
+                  const currentStock = products.find(p => p.id === parseInt(formData.product_id))?.stock_quantity || 0;
+                  const newQty = parseInt(formData.adjusted_quantity);
+                  return (
+                    <p className="text-xs text-slate-500 mt-1.5 flex items-center">
+                      <span>Current stock: {currentStock}</span>
+                      {!isNaN(newQty) && newQty > currentStock && (
+                        <span className="text-emerald-600 ml-2 font-medium">→ Increase by {newQty - currentStock}</span>
+                      )}
+                      {!isNaN(newQty) && newQty < currentStock && (
+                        <span className="text-rose-600 ml-2 font-medium">→ Decrease by {currentStock - newQty}</span>
+                      )}
+                      {!isNaN(newQty) && newQty === currentStock && (
+                        <span className="text-slate-500 ml-2 font-medium">→ No change</span>
+                      )}
+                    </p>
+                  );
+                })()}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason *</label>

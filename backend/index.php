@@ -363,6 +363,8 @@ $routes = [
         '/^wastages\/(\d+)$/' => function($args) { OtherController::deleteWastage($args[0]); },
         // Returns
         '/^returns\/(\d+)$/' => function($args) { OtherController::deleteReturn($args[0]); },
+        // Adjustments
+        '/^adjustments\/(\d+)$/' => function($args) { OtherController::deleteAdjustment($args[0]); },
         // Shops
         '/^shops\/(\d+)$/' => function($args) { OtherController::deleteShop($args[0]); },
         // Users

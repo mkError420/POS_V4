@@ -527,13 +527,19 @@ class OtherController {
         $endDate = $_GET['end_date'] ?? null;
 
         try {
-            $sql = 'SELECT ia.*, p.name AS product_name, p.sku AS product_sku, u.name AS adjusted_by_name
+            $sql = 'SELECT ia.*, p.name AS product_name, p.sku AS product_sku, u.name AS adjusted_by_name, s.name AS shop_name
                     FROM inventory_adjustments ia
                     JOIN products p ON ia.product_id = p.id
                     JOIN users u ON ia.adjusted_by = u.id
-                    WHERE ia.shop_id = ?';
+                    LEFT JOIN shops s ON ia.shop_id = s.id
+                    WHERE 1=1';
             
-            $params = [$shopId];
+            $params = [];
+
+            if ($shopId !== null) {
+                $sql .= ' AND ia.shop_id = ?';
+                $params[] = $shopId;
+            }
 
             if (!empty($productId)) {
                 $sql .= ' AND ia.product_id = ?';
@@ -579,7 +585,7 @@ class OtherController {
     public static function createAdjustment($requestData) {
         Auth::authenticate();
         Auth::enforceTenant();
-        Auth::authorize(['shop_admin']);
+        Auth::authorize(['shop_admin', 'super_admin']);
 
         $shopId = Auth::$shopId;
         $userId = Auth::$user['id'];
@@ -637,6 +643,45 @@ class OtherController {
             DB::rollBack();
             error_log('Create adjustment error: ' . $e->getMessage());
             Auth::jsonError('Server error processing stock adjustment.', 500);
+        }
+    }
+
+    public static function deleteAdjustment($adjustmentId) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin', 'super_admin']);
+
+        $shopId = Auth::$shopId;
+
+        try {
+            DB::beginTransaction();
+
+            $stmt = DB::query('SELECT * FROM inventory_adjustments WHERE id = ? AND shop_id = ? FOR UPDATE', [$adjustmentId, $shopId]);
+            $adjustment = $stmt->fetch();
+
+            if (!$adjustment) {
+                DB::rollBack();
+                Auth::jsonError('Adjustment not found.', 404);
+            }
+
+            $productId = $adjustment['product_id'];
+            $diff = (int)$adjustment['difference'];
+
+            if ($diff !== 0) {
+                DB::query('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND shop_id = ?', [$diff, $productId, $shopId]);
+            }
+
+            DB::query('DELETE FROM inventory_adjustments WHERE id = ? AND shop_id = ?', [$adjustmentId, $shopId]);
+
+            DB::commit();
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Adjustment successfully deleted and stock reverted.']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            error_log('Delete adjustment error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting adjustment.', 500);
         }
     }
 
