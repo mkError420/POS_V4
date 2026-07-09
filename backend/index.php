@@ -274,6 +274,7 @@ $routes = [
         '/^auth\/register-shop$/' => function($args, $data) { AuthController::registerShop($data); },
         // Products
         '/^products$/' => function($args, $data) { ProductController::createProduct($data); },
+        '/^products\/bulk-delete$/' => function($args, $data) { ProductController::bulkDeleteProducts($data); },
         '/^products\/bulk-upload$/' => function($args, $data) { ProductController::bulkUploadProducts(); },
         // Customers
         '/^customers$/' => function($args, $data) { CustomerController::createCustomer($data); },
@@ -321,6 +322,8 @@ $routes = [
         '/^suppliers\/purchase-orders\/(\d+)\/pay$/' => function($args, $data) { SupplierController::payPurchaseOrder($args[0], $data); },
         '/^suppliers\/returns\/(\d+)$/' => function($args, $data) { SupplierController::updateSupplierReturn($args[0], $data); },
         '/^suppliers\/(\d+)$/' => function($args, $data) { SupplierController::updateSupplier($args[0], $data); },
+        // Adjustments
+        '/^adjustments\/(\d+)$/' => function($args, $data) { OtherController::updateAdjustment($args[0], $data); },
         // Held Bills
         '/^held-bills\/(\d+)$/' => function($args, $data) { HeldBillController::updateHeldBill($args[0], $data); },
         // Manual Orders

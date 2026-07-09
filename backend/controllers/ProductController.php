@@ -191,9 +191,13 @@ class ProductController {
         $shopId = Auth::$shopId;
 
         try {
+            DB::beginTransaction();
+
             // Verify product belongs to active tenant
-            $stmt = DB::query('SELECT id FROM products WHERE id = ? AND shop_id = ?', [$productId, $shopId]);
-            if (!$stmt->fetch()) {
+            $stmt = DB::query('SELECT id, cost_price, supplier_id FROM products WHERE id = ? AND shop_id = ? FOR UPDATE', [$productId, $shopId]);
+            $existingProduct = $stmt->fetch();
+            if (!$existingProduct) {
+                DB::rollBack();
                 Auth::jsonError('Product not found or access denied.', 404);
             }
 
@@ -202,6 +206,7 @@ class ProductController {
             if ($sku !== null) {
                 $stmt = DB::query('SELECT id FROM products WHERE shop_id = ? AND sku = ? AND id != ?', [$shopId, $sku, $productId]);
                 if ($stmt->fetch()) {
+                    DB::rollBack();
                     Auth::jsonError('Another product with this SKU already exists.', 400);
                 }
             }
@@ -236,6 +241,7 @@ class ProductController {
             }
 
             if (empty($updateFields)) {
+                DB::rollBack();
                 Auth::jsonError('No update parameters provided.', 400);
             }
 
@@ -247,10 +253,90 @@ class ProductController {
                 $params
             );
 
+            // Log cost price change if it was modified
+            if (array_key_exists('cost_price', $requestData)) {
+                $newCostPrice = (float)$requestData['cost_price'];
+                $oldCostPrice = (float)$existingProduct['cost_price'];
+
+                if ($newCostPrice !== $oldCostPrice) {
+                    $supplierId = array_key_exists('supplier_id', $requestData) 
+                        ? (!empty($requestData['supplier_id']) ? (int)$requestData['supplier_id'] : null)
+                        : $existingProduct['supplier_id'];
+
+                    DB::query(
+                        'INSERT INTO cost_price_logs (shop_id, product_id, supplier_id, old_cost_price, new_cost_price, reason)
+                         VALUES (?, ?, ?, ?, ?, ?)',
+                        [$shopId, $productId, $supplierId, $oldCostPrice, $newCostPrice, 'Manual update from catalog']
+                    );
+
+                    // Update cost prices in all past purchase order items dynamically
+                    DB::query(
+                        'UPDATE purchase_order_items SET cost_price = ? WHERE product_id = ? AND shop_id = ?',
+                        [$newCostPrice, $productId, $shopId]
+                    );
+
+                    // Recalculate total_amount for all affected purchase orders
+                    DB::query(
+                        'UPDATE purchase_orders po
+                         SET po.total_amount = (
+                             SELECT COALESCE(SUM(poi.quantity_ordered * poi.cost_price), 0)
+                             FROM purchase_order_items poi
+                             WHERE poi.purchase_order_id = po.id AND poi.shop_id = po.shop_id
+                         )
+                         WHERE po.shop_id = ? AND po.id IN (
+                             SELECT purchase_order_id FROM purchase_order_items WHERE product_id = ? AND shop_id = ?
+                         )',
+                        [$shopId, $productId, $shopId]
+                    );
+
+                    // Update due_amount based on the new total_amount
+                    DB::query(
+                        'UPDATE purchase_orders
+                         SET due_amount = GREATEST(total_amount - paid_amount, 0)
+                         WHERE shop_id = ? AND id IN (
+                             SELECT purchase_order_id FROM purchase_order_items WHERE product_id = ? AND shop_id = ?
+                         )',
+                        [$shopId, $productId, $shopId]
+                    );
+
+                    // Recalculate supplier due_balance
+                    if ($supplierId) {
+                        DB::query(
+                            'UPDATE suppliers s
+                             SET s.due_balance = (
+                                 SELECT COALESCE(SUM(due_amount), 0)
+                                 FROM purchase_orders
+                                 WHERE supplier_id = s.id AND shop_id = s.shop_id AND payment_basis = "credit" AND status IN ("ordered", "received")
+                             )
+                             WHERE s.id = ? AND s.shop_id = ?',
+                            [$supplierId, $shopId]
+                        );
+
+                        // If total_spent column exists, update it
+                        $columnCheck = DB::query("SHOW COLUMNS FROM suppliers LIKE 'total_spent'");
+                        if ($columnCheck->fetch() !== false) {
+                            DB::query(
+                                'UPDATE suppliers s
+                                 SET s.total_spent = (
+                                     SELECT COALESCE(SUM(total_amount), 0)
+                                     FROM purchase_orders
+                                     WHERE supplier_id = s.id AND shop_id = s.shop_id AND status = "received"
+                                 )
+                                 WHERE s.id = ? AND s.shop_id = ?',
+                                [$supplierId, $shopId]
+                            );
+                        }
+                    }
+                }
+            }
+
+            DB::commit();
+
             header('Content-Type: application/json');
             echo json_encode(['message' => 'Product updated successfully.']);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             error_log('Update product error: ' . $e->getMessage());
             Auth::jsonError('Server error updating product.', 500);
         }
@@ -288,6 +374,50 @@ class ProductController {
             error_log('Delete product error: ' . $e->getMessage());
             Auth::jsonError('Server error deleting product.', 500);
         }
+    }
+
+    public static function bulkDeleteProducts($requestData) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin']);
+
+        $productIds = $requestData['product_ids'] ?? [];
+        $shopId = Auth::$shopId;
+
+        if (empty($productIds) || !is_array($productIds)) {
+            Auth::jsonError('No products selected for deletion.', 400);
+        }
+
+        $successCount = 0;
+        $failureCount = 0;
+
+        foreach ($productIds as $productId) {
+            $productId = (int)$productId;
+            try {
+                // Verify product belongs to active tenant
+                $stmt = DB::query('SELECT id FROM products WHERE id = ? AND shop_id = ?', [$productId, $shopId]);
+                if (!$stmt->fetch()) {
+                    $failureCount++;
+                    continue;
+                }
+
+                // Delete product
+                DB::query('DELETE FROM products WHERE id = ? AND shop_id = ?', [$productId, $shopId]);
+                $successCount++;
+            } catch (\PDOException $e) {
+                // Usually foreign key constraint violation (ER_ROW_IS_REFERENCED_2)
+                $failureCount++;
+            } catch (\Exception $e) {
+                $failureCount++;
+            }
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'message' => "Bulk delete complete.",
+            'success_count' => $successCount,
+            'failure_count' => $failureCount
+        ]);
     }
 
     public static function bulkUploadProducts() {
@@ -414,15 +544,21 @@ class ProductController {
                     // Debug: log row data
                     error_log("Row $rowNumber: name='$name', sku='$sku', price=$price, cost_price=$costPrice, category='$category'");
 
-                    // Validate required fields - allow 0 for prices if needed
-                    if (empty($name) || empty($sku)) {
-                        $errors[] = "Row $rowNumber: Missing required fields (name='$name', sku='$sku')";
+                    // Auto-fill missing name or sku
+                    if (empty($name) && !empty($sku)) {
+                        $name = $sku; // Use SKU as Name if Name is missing
+                    } else if (!empty($name) && empty($sku)) {
+                        $sku = 'SKU-' . strtoupper(substr(md5(uniqid()), 0, 6)); // Generate random SKU if missing
+                    }
+
+                    if (empty($name) && empty($sku)) {
+                        $errors[] = "Row $rowNumber: Missing required fields (both Name and SKU are empty)";
                         $errorCount++;
                         continue;
                     }
 
-                    if ($costPrice <= 0) {
-                        $errors[] = "Row $rowNumber: Invalid cost price (must be > 0, got: $costPrice)";
+                    if ($costPrice < 0) {
+                        $errors[] = "Row $rowNumber: Invalid cost price (cannot be negative, got: $costPrice)";
                         $errorCount++;
                         continue;
                     }

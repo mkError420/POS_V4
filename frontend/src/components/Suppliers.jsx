@@ -26,6 +26,7 @@ export default function Suppliers() {
   const [currentSupplier, setCurrentSupplier] = useState(null);
 
   const [showAddPoModal, setShowAddPoModal] = useState(false);
+  const [isEditPoMode, setIsEditPoMode] = useState(false);
   const [showPoDetailsModal, setShowPoDetailsModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
 
@@ -414,6 +415,8 @@ export default function Suppliers() {
     setProductSearch('');
     setShowSupplierSuggestions(false);
     setShowProductSuggestions(false);
+    setIsEditPoMode(false);
+    setPoCart([]);
     setPoFormData({
       supplier_id: supplierId,
       notes: '',
@@ -479,6 +482,58 @@ export default function Suppliers() {
     }
   };
 
+  const openEditPo = async (po) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/suppliers/purchase-orders/${po.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Could not retrieve PO details for editing.');
+      const poDetails = await response.json();
+      
+      setSelectedPo(poDetails);
+      const existingSupplier = suppliers.find(s => String(s.id) === String(poDetails.supplier_id));
+      setSupplierSearch(existingSupplier ? existingSupplier.name : '');
+      setProductSearch('');
+      setShowSupplierSuggestions(false);
+      setShowProductSuggestions(false);
+      
+      setPoFormData({
+        supplier_id: String(poDetails.supplier_id),
+        notes: poDetails.notes || '',
+        product_id: '',
+        is_new: false,
+        name: '',
+        sku: '',
+        category: '',
+        cost_price: '',
+        selling_price: '',
+        quantity_ordered: 1,
+        unit: 'piece',
+        low_stock_threshold: '10',
+        payment_basis: poDetails.payment_basis || 'cash',
+        paid_amount: poDetails.paid_amount || ''
+      });
+      
+      setPoCart(poDetails.items.map(item => ({
+        product_id: item.product_id,
+        is_new: false,
+        name: item.product_name,
+        sku: item.product_sku,
+        category: item.product_category || '',
+        quantity_ordered: item.quantity_ordered,
+        cost_price: item.cost_price,
+        selling_price: item.selling_price || 0,
+        unit: item.unit || 'piece'
+      })));
+      
+      setIsEditPoMode(true);
+      setShowAddPoModal(true);
+    } catch (err) {
+      triggerAlert('error', err.message);
+    }
+  };
+
   // SUBMIT PURCHASE ORDER
   const handlePoSubmit = async (e, poStatus = 'draft') => {
     e.preventDefault();
@@ -507,8 +562,12 @@ export default function Suppliers() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/suppliers/purchase-orders`, {
-        method: 'POST',
+      const url = isEditPoMode && selectedPo 
+        ? `${API_BASE_URL}/suppliers/purchase-orders/${selectedPo.id}`
+        : `${API_BASE_URL}/suppliers/purchase-orders`;
+      
+      const response = await fetch(url, {
+        method: isEditPoMode && selectedPo ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -524,10 +583,11 @@ export default function Suppliers() {
       });
 
       const resData = await response.json();
-      if (!response.ok) throw new Error(resData.error || 'Failed to create Purchase Order.');
+      if (!response.ok) throw new Error(resData.error || `Failed to ${isEditPoMode ? 'update' : 'create'} Purchase Order.`);
 
-      triggerAlert('success', `Purchase Order created successfully as ${poStatus}!`);
+      triggerAlert('success', `Purchase Order ${isEditPoMode ? 'updated' : 'created'} successfully as ${poStatus}!`);
       setShowAddPoModal(false);
+      setIsEditPoMode(false);
       setSupplierSearch('');
       setProductSearch('');
       setPoCart([]);
@@ -1513,12 +1573,20 @@ export default function Suppliers() {
                                 </button>
                               )}
                               {po.status === 'draft' && (
-                                <button
-                                  onClick={() => updatePoStatus(po.id, 'ordered')}
-                                  className="text-amber-600 hover:text-gray-850 font-semibold mr-3"
-                                >
-                                  Place Order
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => openEditPo(po)}
+                                    className="text-indigo-600 hover:text-indigo-800 font-semibold mr-3"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => updatePoStatus(po.id, 'ordered')}
+                                    className="text-amber-600 hover:text-gray-850 font-semibold mr-3"
+                                  >
+                                    Place Order
+                                  </button>
+                                </>
                               )}
                               <button
                                 onClick={() => handleDeletePo(po)}
@@ -2191,12 +2259,20 @@ export default function Suppliers() {
                               </button>
                             )}
                             {po.status === 'draft' && (
-                              <button
-                                onClick={() => updatePoStatus(po.id, 'ordered')}
-                                className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
-                              >
-                                Place Order
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => openEditPo(po)}
+                                  className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => updatePoStatus(po.id, 'ordered')}
+                                  className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
+                                >
+                                  Place Order
+                                </button>
+                              </>
                             )}
                             <button
                               onClick={() => handleDeletePo(po)}
@@ -2742,8 +2818,8 @@ export default function Suppliers() {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
         <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] p-5 shadow-2xl overflow-hidden flex flex-col">
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800">Create Purchase Order</h3>
-            <button onClick={() => setShowAddPoModal(false)} className="text-slate-400 hover:text-slate-600">
+            <h3 className="text-lg font-bold text-slate-800">{isEditPoMode ? 'Edit Purchase Order' : 'Create Purchase Order'}</h3>
+            <button onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); }} className="text-slate-400 hover:text-slate-600">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -3074,7 +3150,7 @@ export default function Suppliers() {
               <div className="flex space-x-3 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => setShowAddPoModal(false)}
+                  onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); }}
                   className="w-full sm:w-auto px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
                 >
                   Cancel
@@ -3084,14 +3160,14 @@ export default function Suppliers() {
                   onClick={(e) => handlePoSubmit(e, 'draft')}
                   className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
                 >
-                  Draft
+                  {isEditPoMode ? 'Save Draft' : 'Draft'}
                 </button>
                 <button
                   type="button"
                   onClick={(e) => handlePoSubmit(e, 'ordered')}
                   className="w-full sm:w-auto px-5 py-2 bg-slate-600 hover:bg-yellow-700 text-white rounded-xl text-sm font-semibold transition-colors shadow"
                 >
-                  Place Order
+                  {isEditPoMode ? 'Update Order' : 'Place Order'}
                 </button>
               </div>
             </div>
@@ -3309,7 +3385,7 @@ export default function Suppliers() {
 
     const handleReceivedQtyChange = (idx, val) => {
       const updated = [...receiveItems];
-      updated[idx].quantity_received = parseInt(val) || 0;
+      updated[idx].quantity_received = val === '' || val === '-' ? val : parseInt(val, 10);
       setReceiveItems(updated);
     };
 
@@ -3359,7 +3435,6 @@ export default function Suppliers() {
                       </label>
                       <input
                         type="number"
-                        min="0"
                         value={item.quantity_received}
                         onChange={(e) => handleReceivedQtyChange(idx, e.target.value)}
                         required

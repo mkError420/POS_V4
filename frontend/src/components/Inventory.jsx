@@ -21,8 +21,9 @@ export default function Inventory() {
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
 
   const [products, setProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 100;
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -274,6 +275,37 @@ export default function Inventory() {
 
       triggerAlert('success', 'Product deleted successfully!');
       fetchProducts();
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+    } catch (err) {
+      triggerAlert('error', err.message);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedProducts.length} selected product(s)?`)) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/products/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ product_ids: selectedProducts })
+      });
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Failed to bulk delete products.');
+
+      if (resData.failure_count > 0) {
+        triggerAlert('error', `Deleted ${resData.success_count} products, but failed to delete ${resData.failure_count} (likely tied to past sales).`);
+      } else {
+        triggerAlert('success', `Successfully deleted ${resData.success_count} products!`);
+      }
+      
+      setSelectedProducts([]);
+      fetchProducts();
     } catch (err) {
       triggerAlert('error', err.message);
     }
@@ -441,15 +473,28 @@ export default function Inventory() {
             </div>
             <div className="flex items-center space-x-3 w-full sm:w-auto">
               {!isSuperAdmin && (
-                <button
-                  onClick={() => setShowCsvUploadModal(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  <span>Import CSV</span>
-                </button>
+                <>
+                  {selectedProducts.length > 0 && (
+                    <button
+                      onClick={handleBulkDelete}
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Delete Selected ({selectedProducts.length})</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowCsvUploadModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>Import CSV</span>
+                  </button>
+                </>
               )}
               <button
                 onClick={exportToCSV}
@@ -726,6 +771,24 @@ export default function Inventory() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                    {!isSuperAdmin && (
+                      <th className="p-4 w-12">
+                        <input
+                          type="checkbox"
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const allIds = currentProducts.map(p => p.id);
+                              setSelectedProducts(Array.from(new Set([...selectedProducts, ...allIds])));
+                            } else {
+                              const currentIds = currentProducts.map(p => p.id);
+                              setSelectedProducts(selectedProducts.filter(id => !currentIds.includes(id)));
+                            }
+                          }}
+                          checked={currentProducts.length > 0 && currentProducts.every(p => selectedProducts.includes(p.id))}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="p-4">SKU</th>
                     {isSuperAdmin && <th className="p-4">Shop</th>}
                     <th className="p-4">Product Name</th>
@@ -795,6 +858,22 @@ export default function Inventory() {
 
                       return (
                         <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                          {!isSuperAdmin && (
+                            <td className="p-4 w-12">
+                              <input
+                                type="checkbox"
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedProducts([...selectedProducts, product.id]);
+                                  } else {
+                                    setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                                  }
+                                }}
+                                checked={selectedProducts.includes(product.id)}
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                              />
+                            </td>
+                          )}
                           <td className="p-4 font-mono text-xs font-bold text-slate-500">{product.sku}</td>
                           {isSuperAdmin && <td className="p-4 font-semibold text-slate-800">{product.shop_name}</td>}
                           <td className="p-4 font-semibold text-slate-800">{product.name}</td>
@@ -861,7 +940,7 @@ export default function Inventory() {
               <div className="text-xs font-semibold text-slate-500">
                 Showing <span className="text-slate-800">{indexOfFirstProduct + 1}</span> to <span className="text-slate-800">{Math.min(indexOfLastProduct, filteredProducts.length)}</span> of <span className="text-slate-800">{filteredProducts.length}</span> entries
               </div>
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center flex-wrap gap-1.5 justify-center sm:justify-end">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
@@ -870,18 +949,31 @@ export default function Inventory() {
                   Previous
                 </button>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${currentPage === page
-                      ? 'bg-slate-600 text-white shadow-xs'
-                      : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
-                      }`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {(() => {
+                  const maxPagesToShow = 20;
+                  let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                  let endPage = startPage + maxPagesToShow - 1;
+                  
+                  if (endPage > totalPages) {
+                    endPage = totalPages;
+                    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                  }
+                  
+                  const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+                  
+                  return pages.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${currentPage === page
+                        ? 'bg-slate-600 text-white shadow-xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  ));
+                })()}
 
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}

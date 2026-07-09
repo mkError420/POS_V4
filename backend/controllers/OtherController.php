@@ -646,6 +646,75 @@ class OtherController {
         }
     }
 
+    public static function updateAdjustment($adjustmentId, $requestData) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin', 'super_admin']);
+
+        $shopId = Auth::$shopId;
+        $userId = Auth::$user['id'];
+        $newAdjustedQuantity = $requestData['adjusted_quantity'] ?? null;
+        $reason = $requestData['reason'] ?? '';
+        $notes = $requestData['notes'] ?? null;
+
+        if ($newAdjustedQuantity === null || empty($reason)) {
+            Auth::jsonError('Adjusted quantity and reason are required.', 400);
+        }
+
+        $newQty = (int)$newAdjustedQuantity;
+        if ($newQty < 0) {
+            Auth::jsonError('Adjusted quantity cannot be negative.', 400);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $stmt = DB::query('SELECT * FROM inventory_adjustments WHERE id = ? AND shop_id = ? FOR UPDATE', [$adjustmentId, $shopId]);
+            $adjustment = $stmt->fetch();
+
+            if (!$adjustment) {
+                DB::rollBack();
+                Auth::jsonError('Adjustment not found.', 404);
+            }
+
+            $productId = $adjustment['product_id'];
+            $oldDiff = (int)$adjustment['difference'];
+            $prevQty = (int)$adjustment['previous_quantity'];
+
+            $stmt = DB::query('SELECT id, stock_quantity FROM products WHERE id = ? AND shop_id = ? FOR UPDATE', [$productId, $shopId]);
+            $product = $stmt->fetch();
+
+            if (!$product) {
+                DB::rollBack();
+                Auth::jsonError('Product not found.', 404);
+            }
+
+            $newDiff = $newQty - $prevQty;
+            $type = $newDiff >= 0 ? 'increase' : 'decrease';
+
+            $netChange = $newDiff - $oldDiff;
+
+            if ($netChange !== 0) {
+                DB::query('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?', [$netChange, $productId, $shopId]);
+            }
+
+            DB::query(
+                'UPDATE inventory_adjustments SET adjusted_quantity = ?, difference = ?, adjustment_type = ?, reason = ?, notes = ?, adjusted_by = ? WHERE id = ? AND shop_id = ?',
+                [$newQty, $newDiff, $type, $reason, $notes, $userId, $adjustmentId, $shopId]
+            );
+
+            DB::commit();
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Adjustment successfully updated.', 'newStock' => (int)$product['stock_quantity'] + $netChange]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            error_log('Update adjustment error: ' . $e->getMessage());
+            Auth::jsonError('Server error updating stock adjustment.', 500);
+        }
+    }
+
     public static function deleteAdjustment($adjustmentId) {
         Auth::authenticate();
         Auth::enforceTenant();

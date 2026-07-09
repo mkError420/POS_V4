@@ -9,6 +9,9 @@ export default function Adjustments() {
   const [error, setError] = useState(null);
   const [alert, setAlert] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editAdjustmentId, setEditAdjustmentId] = useState(null);
+  const [editShopId, setEditShopId] = useState(null);
 
   const userStr = localStorage.getItem('user');
   const userObj = userStr ? JSON.parse(userStr) : {};
@@ -138,14 +141,17 @@ export default function Adjustments() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/adjustments`, {
-        method: 'POST',
+      const method = editMode ? 'PUT' : 'POST';
+      const endpoint = editMode ? `${API_BASE_URL}/adjustments/${editAdjustmentId}` : `${API_BASE_URL}/adjustments`;
+
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          shop_id: selectedProduct ? selectedProduct.shop_id : null,
+          shop_id: editMode ? editShopId : (selectedProduct ? selectedProduct.shop_id : null),
           product_id: parseInt(formData.product_id),
           adjusted_quantity: finalQuantity,
           reason: formData.reason,
@@ -154,9 +160,9 @@ export default function Adjustments() {
       });
 
       const resData = await response.json();
-      if (!response.ok) throw new Error(resData.error || 'Failed to create adjustment.');
+      if (!response.ok) throw new Error(resData.error || 'Failed to save adjustment.');
 
-      triggerAlert('success', 'Inventory adjustment recorded successfully!');
+      triggerAlert('success', editMode ? 'Inventory adjustment updated successfully!' : 'Inventory adjustment recorded successfully!');
       setShowAddModal(false);
       resetForm();
       fetchAdjustments();
@@ -199,6 +205,9 @@ export default function Adjustments() {
   };
 
   const openAddModal = (product = null) => {
+    setEditMode(false);
+    setEditAdjustmentId(null);
+    setEditShopId(null);
     if (product) {
       setFormData({
         product_id: String(product.id),
@@ -210,6 +219,20 @@ export default function Adjustments() {
     } else {
       resetForm();
     }
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (adj) => {
+    setEditMode(true);
+    setEditAdjustmentId(adj.id);
+    setEditShopId(adj.shop_id);
+    setFormData({
+      product_id: String(adj.product_id),
+      adjusted_quantity: String(adj.adjusted_quantity),
+      reason: adj.reason || '',
+      notes: adj.notes || ''
+    });
+    setProductSearch(`${adj.product_name} (${adj.product_sku})`);
     setShowAddModal(true);
   };
 
@@ -439,12 +462,26 @@ export default function Adjustments() {
                     <td className="px-6 py-4 text-sm text-slate-700">{adj.reason}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{adj.adjusted_by_name}</td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleDelete(adj)}
-                        className="text-rose-600 hover:text-rose-800 text-sm font-semibold"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => openEditModal(adj)}
+                          className="text-indigo-600 hover:text-indigo-800 transition-colors p-1 bg-indigo-50 hover:bg-indigo-100 rounded"
+                          title="Edit"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(adj)}
+                          className="text-rose-600 hover:text-rose-800 transition-colors p-1 bg-rose-50 hover:bg-rose-100 rounded"
+                          title="Delete"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -459,7 +496,7 @@ export default function Adjustments() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
             <div className="p-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-800">Inventory Adjustment</h3>
+              <h3 className="text-lg font-bold text-slate-800">{editMode ? 'Edit Adjustment' : 'Inventory Adjustment'}</h3>
               <p className="text-sm text-slate-500 mt-1">Adjust stock quantity to match physical count</p>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -470,17 +507,19 @@ export default function Adjustments() {
                     type="text"
                     value={productSearch}
                     onChange={(e) => {
+                      if (editMode) return;
                       setProductSearch(e.target.value);
                       setShowProductDropdown(true);
                       setFormData({ ...formData, product_id: '' });
                     }}
-                    onFocus={() => setShowProductDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
+                    onFocus={() => { if (!editMode) setShowProductDropdown(true); }}
+                    onBlur={() => { if (!editMode) setTimeout(() => setShowProductDropdown(false), 200); }}
                     placeholder="Search product by name or SKU"
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                    className={`w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none ${editMode ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'focus:ring-1 focus:ring-indigo-500'}`}
                     required={!formData.product_id}
+                    disabled={editMode}
                   />
-                  {showProductDropdown && (
+                  {!editMode && showProductDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {products
                         .filter(p =>
@@ -586,7 +625,7 @@ export default function Adjustments() {
                   type="submit"
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow"
                 >
-                  Record Adjustment
+                  {editMode ? 'Update Adjustment' : 'Record Adjustment'}
                 </button>
               </div>
             </form>
