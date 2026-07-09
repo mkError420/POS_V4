@@ -144,10 +144,10 @@ export default function ManualOrders() {
   };
 
   // Calculations
-  const calculateTotals = (items, discountPercent) => {
-    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 0)), 0);
-    const discountAmount = parseFloat(((subtotal * parseFloat(discountPercent || 0)) / 100).toFixed(2));
-    const taxAmount = parseFloat(((subtotal * shopDetails.tax_rate) / 100).toFixed(2));
+  const calculateTotals = (items, discountAmt, taxAmt) => {
+    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0)), 0);
+    const discountAmount = parseFloat(discountAmt || 0);
+    const taxAmount = parseFloat(taxAmt || 0);
     const finalAmount = Math.max(0, subtotal - discountAmount + taxAmount);
     return { subtotal, discountAmount, tax: taxAmount, finalAmount };
   };
@@ -173,7 +173,7 @@ export default function ManualOrders() {
       discount: 0,
       tax: 0,
       notes: '',
-      items: [{ product_id: '', quantity: 1, unit_price: 0, max_stock: 0, searchTerm: '' }]
+      items: [{ product_id: '', quantity: '', unit_price: '', max_stock: 0, searchTerm: '' }]
     });
     setShowFormModal(true);
   };
@@ -187,9 +187,6 @@ export default function ManualOrders() {
       if (!response.ok) throw new Error('Failed to retrieve order details.');
       const detail = await response.json();
 
-      const subtotal = detail.items.reduce((sum, item) => sum + (parseFloat(item.unit_price || 0) * parseInt(item.quantity || 0)), 0);
-      const discountPercent = subtotal > 0 ? parseFloat(((parseFloat(detail.discount) / subtotal) * 100).toFixed(2)) : 0;
-
       setEditingOrder(detail);
       setFormData({
         salesman_name: detail.salesman_name,
@@ -197,14 +194,14 @@ export default function ManualOrders() {
         customer_phone: detail.customer_phone || '',
         customer_address: detail.customer_address || '',
         payment_method: detail.payment_method,
-        discount: discountPercent,
+        discount: parseFloat(detail.discount) || 0,
         tax: parseFloat(detail.tax) || 0,
         notes: detail.notes || '',
         items: detail.items.map(item => {
           const prod = products.find(p => p.id === item.product_id);
           return {
             product_id: item.product_id,
-            quantity: item.quantity,
+            quantity: parseFloat(item.quantity),
             unit_price: parseFloat(item.unit_price),
             max_stock: prod ? prod.stock_quantity : item.quantity, // fallback
             searchTerm: prod ? prod.name : ''
@@ -219,15 +216,7 @@ export default function ManualOrders() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      // Recalculate tax
-      if (name === 'discount') {
-        const { tax } = calculateTotals(prev.items, value);
-        updated.tax = tax;
-      }
-      return updated;
-    });
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleItemChange = (index, field, value) => {
@@ -236,17 +225,15 @@ export default function ManualOrders() {
       const item = { ...newItems[index] };
 
       if (field === 'quantity') {
-        item.quantity = Math.max(1, parseInt(value) || 1);
+        item.quantity = value === '' ? '' : Math.max(0, parseFloat(value) || 0);
       } else if (field === 'unit_price') {
-        item.unit_price = Math.max(0, parseFloat(value) || 0);
+        item.unit_price = value === '' ? '' : Math.max(0, parseFloat(value) || 0);
       }
 
       newItems[index] = item;
-      const { tax } = calculateTotals(newItems, prev.discount);
       return {
         ...prev,
-        items: newItems,
-        tax
+        items: newItems
       };
     });
   };
@@ -272,12 +259,14 @@ export default function ManualOrders() {
 
       if (selectedProd) {
         item.product_id = selectedProd.id;
-        item.unit_price = parseFloat(selectedProd.price);
+        item.unit_price = ''; // Shop admin will set value manually
+        item.quantity = '';
         item.max_stock = selectedProd.stock_quantity;
         item.searchTerm = selectedProd.name;
       } else {
         item.product_id = '';
-        item.unit_price = 0;
+        item.unit_price = '';
+        item.quantity = '';
         item.max_stock = 0;
         item.searchTerm = '';
       }
@@ -295,7 +284,7 @@ export default function ManualOrders() {
   const addFormItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { product_id: '', quantity: 1, unit_price: 0, max_stock: 0, searchTerm: '' }]
+      items: [...prev.items, { product_id: '', quantity: '', unit_price: '', max_stock: 0, searchTerm: '' }]
     }));
   };
 
@@ -305,7 +294,7 @@ export default function ManualOrders() {
       const { tax } = calculateTotals(newItems, prev.discount);
       return {
         ...prev,
-        items: newItems.length === 0 ? [{ product_id: '', quantity: 1, unit_price: 0, max_stock: 0, searchTerm: '' }] : newItems,
+        items: newItems.length === 0 ? [{ product_id: '', quantity: '', unit_price: '', max_stock: 0, searchTerm: '' }] : newItems,
         tax
       };
     });
@@ -330,10 +319,14 @@ export default function ManualOrders() {
       return;
     }
 
-    // Validate quantities against stock
+    // Validate quantities against stock and ensure unit_price/quantity are set
     for (const item of filteredItems) {
+      if (item.quantity === '' || item.unit_price === '') {
+        triggerAlert('error', `Please fill out Quantity and Unit Price for all selected products.`);
+        return;
+      }
       const prod = products.find(p => p.id === item.product_id);
-      if (prod && prod.stock_quantity < item.quantity) {
+      if (prod && prod.stock_quantity < parseFloat(item.quantity)) {
         triggerAlert('error', `Insufficient stock for product "${prod.name}". Available: ${prod.stock_quantity}.`);
         return;
       }
@@ -615,7 +608,7 @@ export default function ManualOrders() {
   const cashOrders = searchedOrders.filter(order => order.payment_method === 'cash');
   const creditOrders = searchedOrders.filter(order => order.payment_method === 'credit');
 
-  const totals = calculateTotals(formData.items, formData.discount);
+  const totals = calculateTotals(formData.items, formData.discount, formData.tax);
 
   return (
     <div className="space-y-6">
@@ -993,8 +986,9 @@ export default function ManualOrders() {
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Quantity</label>
                         <input
                           type="number"
+                          step="any"
                           value={item.quantity}
-                          min="1"
+                          min="0"
                           onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                           className="w-full border border-slate-200 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
                         />
@@ -1013,7 +1007,7 @@ export default function ManualOrders() {
 
                       <div className="w-full md:w-32 text-right">
                         <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subtotal</span>
-                        <span className="text-sm font-semibold text-slate-700">৳{(item.unit_price * item.quantity).toFixed(2)}</span>
+                        <span className="text-sm font-semibold text-slate-700">৳{((parseFloat(item.unit_price) || 0) * (parseFloat(item.quantity) || 0)).toFixed(2)}</span>
                       </div>
 
                       <button
@@ -1032,35 +1026,50 @@ export default function ManualOrders() {
 
               {/* Totals Summary */}
               <div className="border-t border-slate-100 pt-4 flex flex-col md:flex-row justify-between gap-4">
-                <div className="w-full md:w-1/3">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Discount (%)</label>
-                  <input
-                    type="number"
-                    name="discount"
-                    value={formData.discount}
-                    min="0"
-                    max="100"
-                    onChange={handleInputChange}
-                    placeholder="E.g. 5 for 5%"
-                    className="w-full border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                <div className="w-full md:w-1/3 space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Discount (৳)</label>
+                    <input
+                      type="number"
+                      name="discount"
+                      value={formData.discount}
+                      min="0"
+                      onChange={handleInputChange}
+                      placeholder="E.g. 50"
+                      className="w-full border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tax (৳)</label>
+                    <input
+                      type="number"
+                      name="tax"
+                      value={formData.tax}
+                      min="0"
+                      onChange={handleInputChange}
+                      placeholder="E.g. 15"
+                      className="w-full border border-slate-200 rounded-lg p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
 
-                <div className="w-full md:w-80 bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-2 text-sm">
+                <div className="w-full md:w-80 bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-2 text-sm h-fit">
                   <div className="flex justify-between text-slate-650">
                     <span>Subtotal:</span>
                     <span className="font-semibold text-slate-800">৳{totals.subtotal.toFixed(2)}</span>
                   </div>
                   {totals.discountAmount > 0 && (
                     <div className="flex justify-between text-rose-500">
-                      <span>Discount ({formData.discount}%):</span>
+                      <span>Discount:</span>
                       <span>-৳{totals.discountAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-slate-650">
-                    <span>Tax ({shopDetails.tax_rate}%):</span>
-                    <span>৳{totals.tax.toFixed(2)}</span>
-                  </div>
+                  {totals.tax > 0 && (
+                    <div className="flex justify-between text-slate-650">
+                      <span>Tax:</span>
+                      <span>+৳{totals.tax.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200 pt-2 text-base">
                     <span>Total Amount:</span>
                     <span>৳{totals.finalAmount.toFixed(2)}</span>

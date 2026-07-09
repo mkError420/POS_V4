@@ -48,7 +48,8 @@ class AnalyticsController {
             $totalCOGS = (float)($stmt->fetchColumn() ?: 0);
 
             // 3. Purchasing Costs
-            $poSql = "SELECT SUM(total_amount) AS total_purchased, SUM(paid_amount) AS total_paid 
+            // 3. Purchasing Costs
+            $poSql = "SELECT SUM(paid_amount) AS total_paid 
                       FROM purchase_orders 
                       WHERE " . ($hasShop ? "shop_id = ?" : "1=1") . " AND status IN ('ordered', 'received')";
             $poParams = $hasShop ? [$shopId] : [];
@@ -61,8 +62,12 @@ class AnalyticsController {
             }
             $stmt = DB::query($poSql, $poParams);
             $poRow = $stmt->fetch();
-            $totalPurchasing = (float)($poRow['total_purchased'] ?? 0);
             $totalPurchasingCash = (float)($poRow['total_paid'] ?? 0);
+
+            // Link Product Purchase Cost dynamically to Total Inventory Value (Total Spent)
+            $productPurchaseSql = "SELECT SUM(cost_price * stock_quantity) AS total_purchased FROM products WHERE " . ($hasShop ? "shop_id = ?" : "1=1");
+            $stmt = DB::query($productPurchaseSql, $hasShop ? [$shopId] : []);
+            $totalPurchasing = (float)($stmt->fetchColumn() ?: 0);
 
             // 4. Other Costs
             $otherSql = 'SELECT SUM(amount) AS total_other_costs FROM other_costs WHERE ' . ($hasShop ? 'shop_id = ?' : '1=1');

@@ -414,6 +414,29 @@ class DB {
                     CONSTRAINT `fk_inventory_adjustments_user` FOREIGN KEY (`adjusted_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
+            // Modify quantity columns to DECIMAL(10,3) to support fractional quantities
+            $tablesToAlter = [
+                'manual_order_items' => 'quantity',
+                'sale_items' => 'quantity',
+                'purchase_order_items' => 'quantity',
+                'supplier_returns' => 'quantity',
+                'customer_returns' => 'quantity',
+                'wastages' => 'quantity'
+            ];
+            foreach ($tablesToAlter as $tbl => $col) {
+                if ($tableExists($tbl)) {
+                    $pdo->exec("ALTER TABLE `$tbl` MODIFY COLUMN `$col` DECIMAL(10,3) NOT NULL");
+                }
+            }
+            if ($tableExists('products')) {
+                $pdo->exec("ALTER TABLE `products` MODIFY COLUMN `stock_quantity` DECIMAL(10,3) NOT NULL DEFAULT '0.000'");
+                $pdo->exec("ALTER TABLE `products` MODIFY COLUMN `low_stock_threshold` DECIMAL(10,3) NOT NULL DEFAULT '5.000'");
+            }
+            if ($tableExists('inventory_adjustments')) {
+                $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `previous_quantity` DECIMAL(10,3) NOT NULL");
+                $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `adjusted_quantity` DECIMAL(10,3) NOT NULL");
+                $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `difference` DECIMAL(10,3) NOT NULL");
+            }
 
             // Seed Super Admin if table has no users
             $stmt = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `role` = 'super_admin'");

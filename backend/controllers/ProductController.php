@@ -279,7 +279,9 @@ class ProductController {
                     DB::query(
                         'UPDATE purchase_orders po
                          SET po.total_amount = (
-                             SELECT COALESCE(SUM(poi.quantity_ordered * poi.cost_price), 0)
+                             SELECT COALESCE(SUM(
+                                 IF(po.status = "received", poi.quantity_received, poi.quantity_ordered) * poi.cost_price
+                             ), 0)
                              FROM purchase_order_items poi
                              WHERE poi.purchase_order_id = po.id AND poi.shop_id = po.shop_id
                          )
@@ -289,10 +291,11 @@ class ProductController {
                         [$shopId, $productId, $shopId]
                     );
 
-                    // Update due_amount based on the new total_amount
+                    // Update due_amount based on the new total_amount (and adjust paid_amount for cash POs)
                     DB::query(
                         'UPDATE purchase_orders
-                         SET due_amount = GREATEST(total_amount - paid_amount, 0)
+                         SET paid_amount = IF(payment_basis = "cash", total_amount, paid_amount),
+                             due_amount = GREATEST(total_amount - IF(payment_basis = "cash", total_amount, paid_amount), 0)
                          WHERE shop_id = ? AND id IN (
                              SELECT purchase_order_id FROM purchase_order_items WHERE product_id = ? AND shop_id = ?
                          )',
@@ -318,15 +321,36 @@ class ProductController {
                             DB::query(
                                 'UPDATE suppliers s
                                  SET s.total_spent = (
-                                     SELECT COALESCE(SUM(total_amount), 0)
-                                     FROM purchase_orders
-                                     WHERE supplier_id = s.id AND shop_id = s.shop_id AND status = "received"
+                                     SELECT COALESCE(SUM(stock_quantity * cost_price), 0)
+                                     FROM products
+                                     WHERE supplier_id = s.id AND shop_id = s.shop_id
                                  )
                                  WHERE s.id = ? AND s.shop_id = ?',
                                 [$supplierId, $shopId]
                             );
                         }
                     }
+                }
+            }
+
+            // ALWAYS recalculate total_spent unconditionally on product update (in case stock_quantity changed)
+            $supplierId = array_key_exists('supplier_id', $requestData) 
+                ? (!empty($requestData['supplier_id']) ? (int)$requestData['supplier_id'] : null)
+                : $existingProduct['supplier_id'];
+                
+            if ($supplierId) {
+                $columnCheck = DB::query("SHOW COLUMNS FROM suppliers LIKE 'total_spent'");
+                if ($columnCheck->fetch() !== false) {
+                    DB::query(
+                        'UPDATE suppliers s
+                         SET s.total_spent = (
+                             SELECT COALESCE(SUM(stock_quantity * cost_price), 0)
+                             FROM products
+                             WHERE supplier_id = s.id AND shop_id = s.shop_id
+                         )
+                         WHERE s.id = ? AND s.shop_id = ?',
+                        [$supplierId, $shopId]
+                    );
                 }
             }
 

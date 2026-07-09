@@ -678,29 +678,6 @@ class SupplierController {
                     Auth::jsonError('Received items are required to mark PO as received.', 400);
                 }
 
-                DB::query(
-                    "UPDATE purchase_orders 
-                     SET status = 'received', received_date = CURRENT_TIMESTAMP, notes = COALESCE(?, notes)
-                     WHERE id = ? AND shop_id = ?",
-                    [$notes, $poId, $shopId]
-                );
-
-                if ($po['status'] === 'draft' && $po['payment_basis'] === 'credit' && (float)$po['due_amount'] > 0) {
-                    DB::query(
-                        'UPDATE suppliers SET due_balance = due_balance + ? WHERE id = ? AND shop_id = ?',
-                        [(float)$po['due_amount'], $po['supplier_id'], $shopId]
-                    );
-                }
-
-                // Update supplier total_spent when PO is received (if column exists)
-                $columnCheck = DB::query("SHOW COLUMNS FROM suppliers LIKE 'total_spent'");
-                if ($columnCheck->fetch() !== false) {
-                    DB::query(
-                        'UPDATE suppliers SET total_spent = total_spent + ? WHERE id = ? AND shop_id = ?',
-                        [(float)$po['total_amount'], $po['supplier_id'], $shopId]
-                    );
-                }
-
                 foreach ($items as $item) {
                     $productId = (int)$item['product_id'];
                     $qtyReceived = (int)$item['quantity_received'];
@@ -739,6 +716,77 @@ class SupplierController {
                         );
                     }
                 }
+
+                // Recalculate PO totals after items have been updated
+                $oldDueAmount = (float)$po['due_amount'];
+                
+                DB::query(
+                    'UPDATE purchase_orders po
+                     SET po.total_amount = (
+                         SELECT COALESCE(SUM(poi.quantity_received * poi.cost_price), 0)
+                         FROM purchase_order_items poi
+                         WHERE poi.purchase_order_id = po.id AND poi.shop_id = po.shop_id
+                     )
+                     WHERE po.id = ? AND po.shop_id = ?',
+                    [$poId, $shopId]
+                );
+
+                // Update paid_amount (for cash) and due_amount
+                DB::query(
+                    'UPDATE purchase_orders
+                     SET paid_amount = IF(payment_basis = "cash", total_amount, paid_amount),
+                         due_amount = GREATEST(total_amount - IF(payment_basis = "cash", total_amount, paid_amount), 0)
+                     WHERE id = ? AND shop_id = ?',
+                    [$poId, $shopId]
+                );
+
+                // Fetch the newly calculated PO
+                $stmt = DB::query('SELECT total_amount, due_amount FROM purchase_orders WHERE id = ? AND shop_id = ?', [$poId, $shopId]);
+                $newPo = $stmt->fetch();
+                $newTotalAmount = (float)$newPo['total_amount'];
+                $newDueAmount = (float)$newPo['due_amount'];
+
+                // Adjust supplier due_balance
+                if ($po['payment_basis'] === 'credit') {
+                    if ($po['status'] === 'ordered') {
+                        // It was already ordered, so the old due amount is already in the balance. We just adjust the difference.
+                        $diff = $newDueAmount - $oldDueAmount;
+                        if ($diff != 0) {
+                            DB::query(
+                                'UPDATE suppliers SET due_balance = due_balance + ? WHERE id = ? AND shop_id = ?',
+                                [$diff, $po['supplier_id'], $shopId]
+                            );
+                        }
+                    } else if ($po['status'] === 'draft') {
+                        // Drafts aren't in due_balance yet. Add the whole new due_amount.
+                        if ($newDueAmount > 0) {
+                            DB::query(
+                                'UPDATE suppliers SET due_balance = due_balance + ? WHERE id = ? AND shop_id = ?',
+                                [$newDueAmount, $po['supplier_id'], $shopId]
+                            );
+                        }
+                    }
+                }
+
+                // Update supplier total_spent to reflect new inventory value
+                $columnCheck = DB::query("SHOW COLUMNS FROM suppliers LIKE 'total_spent'");
+                if ($columnCheck->fetch() !== false) {
+                    DB::query(
+                        'UPDATE suppliers s SET total_spent = (
+                             SELECT COALESCE(SUM(stock_quantity * cost_price), 0)
+                             FROM products
+                             WHERE supplier_id = s.id AND shop_id = s.shop_id
+                         ) WHERE id = ? AND shop_id = ?',
+                        [$po['supplier_id'], $shopId]
+                    );
+                }
+
+                DB::query(
+                    "UPDATE purchase_orders 
+                     SET status = 'received', received_date = CURRENT_TIMESTAMP, notes = COALESCE(?, notes)
+                     WHERE id = ? AND shop_id = ?",
+                    [$notes, $poId, $shopId]
+                );
 
                 DB::commit();
                 header('Content-Type: application/json');
@@ -811,8 +859,12 @@ class SupplierController {
                 $columnCheck = DB::query("SHOW COLUMNS FROM suppliers LIKE 'total_spent'");
                 if ($columnCheck->fetch() !== false) {
                     DB::query(
-                        'UPDATE suppliers SET total_spent = GREATEST(total_spent - ?, 0) WHERE id = ? AND shop_id = ?',
-                        [(float)$po['total_amount'], $po['supplier_id'], $shopId]
+                        'UPDATE suppliers s SET total_spent = (
+                             SELECT COALESCE(SUM(stock_quantity * cost_price), 0)
+                             FROM products
+                             WHERE supplier_id = s.id AND shop_id = s.shop_id
+                         ) WHERE id = ? AND shop_id = ?',
+                        [$po['supplier_id'], $shopId]
                     );
                 }
             }
@@ -990,18 +1042,21 @@ class SupplierController {
             );
             $pos = $stmt->fetchAll();
 
-            // Calculate total_spent dynamically from received POs if column doesn't exist
-            $totalSpent = 0.0;
-            if (!$hasTotalSpentColumn) {
-                foreach ($pos as $po) {
-                    if ($po['status'] === 'received') {
-                        $totalSpent += (float)$po['total_amount'];
-                    }
-                }
-                $supplier['total_spent'] = $totalSpent;
-            } else {
-                $totalSpent = (float)$supplier['total_spent'];
+            // Calculate total_spent as Total Inventory Value (cost_price * stock_quantity)
+            $stmt = DB::query(
+                'SELECT COALESCE(SUM(stock_quantity * cost_price), 0) as total_inventory_value
+                 FROM products
+                 WHERE supplier_id = ? AND shop_id = ?',
+                [$supplierId, $shopId]
+            );
+            $invVal = $stmt->fetch();
+            $totalSpent = (float)$invVal['total_inventory_value'];
+            
+            // Sync with DB if column exists
+            if ($hasTotalSpentColumn) {
+                DB::query('UPDATE suppliers SET total_spent = ? WHERE id = ? AND shop_id = ?', [$totalSpent, $supplierId, $shopId]);
             }
+            $supplier['total_spent'] = $totalSpent;
             $poStats = [
                 'received' => 0,
                 'draft' => 0,

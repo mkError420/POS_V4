@@ -1229,9 +1229,10 @@ export default function Inventory() {
                       <input
                         type="number"
                         name="stock_quantity"
+                        step="any"
                         value={formData.stock_quantity}
-                        onChange={handleInputChange}
-                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                        readOnly
+                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm bg-slate-50 cursor-not-allowed text-slate-500 font-medium outline-none"
                       />
                     </div>
                     <div>

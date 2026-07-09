@@ -95,8 +95,8 @@ export default function Suppliers() {
       return;
     }
 
-    if (parseInt(poFormData.quantity_ordered) <= 0) {
-      triggerAlert('error', 'Quantity must be at least 1.');
+    if (parseFloat(poFormData.quantity_ordered) < 0) {
+      triggerAlert('error', 'Quantity cannot be negative.');
       return;
     }
 
@@ -115,7 +115,7 @@ export default function Suppliers() {
       name: poFormData.name,
       sku: poFormData.sku,
       category: poFormData.category || '',
-      quantity_ordered: parseInt(poFormData.quantity_ordered),
+      quantity_ordered: parseFloat(poFormData.quantity_ordered) || 0,
       cost_price: parseFloat(poFormData.cost_price || 0),
       selling_price: parseFloat(poFormData.selling_price || 0),
       unit: poFormData.unit
@@ -124,7 +124,7 @@ export default function Suppliers() {
       name: poFormData.name || productSearch.split(' (')[0],
       sku: poFormData.sku || productSearch.match(/\(([^)]+)\)/)?.[1] || '',
       category: poFormData.category || '',
-      quantity_ordered: parseInt(poFormData.quantity_ordered),
+      quantity_ordered: parseFloat(poFormData.quantity_ordered) || 0,
       cost_price: parseFloat(poFormData.cost_price || 0),
       selling_price: parseFloat(poFormData.selling_price || 0),
       unit: poFormData.unit
@@ -170,11 +170,14 @@ export default function Suppliers() {
   const [poFilterStatus, setPoFilterStatus] = useState('all');
   const [poPaymentAmount, setPoPaymentAmount] = useState('');
 
-  // Supplier Profile — PO history filters
+  // Supplier Profile - PO history filters
   const [profilePoFilter, setProfilePoFilter] = useState('all');   // 'all' | 'paid' | 'due'
   const [profilePoDateFrom, setProfilePoDateFrom] = useState('');
   const [profilePoDateTo, setProfilePoDateTo] = useState('');
   const [profilePoMonth, setProfilePoMonth] = useState('');         // 'YYYY-MM' format
+
+  // Supplier Profile - Supplied Products search
+  const [suppliedProductSearch, setSuppliedProductSearch] = useState('');
 
   // Pagination states
   const [supplierPage, setSupplierPage] = useState(1);
@@ -490,14 +493,14 @@ export default function Suppliers() {
       });
       if (!response.ok) throw new Error('Could not retrieve PO details for editing.');
       const poDetails = await response.json();
-      
+
       setSelectedPo(poDetails);
       const existingSupplier = suppliers.find(s => String(s.id) === String(poDetails.supplier_id));
       setSupplierSearch(existingSupplier ? existingSupplier.name : '');
       setProductSearch('');
       setShowSupplierSuggestions(false);
       setShowProductSuggestions(false);
-      
+
       setPoFormData({
         supplier_id: String(poDetails.supplier_id),
         notes: poDetails.notes || '',
@@ -514,7 +517,7 @@ export default function Suppliers() {
         payment_basis: poDetails.payment_basis || 'cash',
         paid_amount: poDetails.paid_amount || ''
       });
-      
+
       setPoCart(poDetails.items.map(item => ({
         product_id: item.product_id,
         is_new: false,
@@ -526,7 +529,7 @@ export default function Suppliers() {
         selling_price: item.selling_price || 0,
         unit: item.unit || 'piece'
       })));
-      
+
       setIsEditPoMode(true);
       setShowAddPoModal(true);
     } catch (err) {
@@ -562,10 +565,10 @@ export default function Suppliers() {
 
     try {
       const token = localStorage.getItem('token');
-      const url = isEditPoMode && selectedPo 
+      const url = isEditPoMode && selectedPo
         ? `${API_BASE_URL}/suppliers/purchase-orders/${selectedPo.id}`
         : `${API_BASE_URL}/suppliers/purchase-orders`;
-      
+
       const response = await fetch(url, {
         method: isEditPoMode && selectedPo ? 'PUT' : 'POST',
         headers: {
@@ -963,7 +966,7 @@ export default function Suppliers() {
           sku: productEditForm.sku,
           cost_price: parseFloat(productEditForm.cost_price),
           price: parseFloat(productEditForm.price),
-          stock_quantity: parseInt(productEditForm.stock_quantity, 10),
+          stock_quantity: parseFloat(productEditForm.stock_quantity),
           category: productEditForm.category
         })
       });
@@ -974,7 +977,7 @@ export default function Suppliers() {
       triggerAlert('success', data.message || 'Product updated successfully.');
       setShowEditProductModal(false);
       setEditingProductId(null);
-      
+
       // Refresh products list and reload profile data
       await fetchProducts();
       if (selectedSupplierId) {
@@ -1021,7 +1024,7 @@ export default function Suppliers() {
 
       setShowSupplierCsvModal(false);
       setSupplierCsvFile(null);
-      
+
       // Reload profile data & baseline products
       await Promise.all([
         loadProfileData(selectedSupplierId),
@@ -1210,7 +1213,7 @@ export default function Suppliers() {
     const filteredProfilePOs = sPOs.filter(po => {
       // Payment status filter
       if (profilePoFilter === 'paid' && parseFloat(po.due_amount || 0) > 0) return false;
-      if (profilePoFilter === 'due'  && parseFloat(po.due_amount || 0) <= 0) return false;
+      if (profilePoFilter === 'due' && parseFloat(po.due_amount || 0) <= 0) return false;
 
       // Date range filter
       const poDate = new Date(po.order_date);
@@ -1233,17 +1236,17 @@ export default function Suppliers() {
 
       return true;
     });
-    
+
     // Unique list of products this supplier has supplied or historically adjusted
-    const logProductIds = sLogs.map(l => l.product_id);
+    const logProductIds = sLogs.map(l => String(l.product_id));
     const directProductIds = productsList
-      .filter(p => p.supplier_id === supplier.id)
-      .map(p => p.id);
-      
+      .filter(p => String(p.supplier_id) === String(supplier.id))
+      .map(p => String(p.id));
+
     const uniqueProducts = Array.from(new Set([...logProductIds, ...directProductIds]))
       .map(id => {
-        const pDetails = productsList.find(p => p.id === id);
-        const log = sLogs.find(l => l.product_id === id);
+        const pDetails = productsList.find(p => String(p.id) === String(id));
+        const log = sLogs.find(l => String(l.product_id) === String(id));
         return {
           id,
           name: pDetails ? pDetails.name : (log ? log.product_name : 'Unknown Product'),
@@ -1255,21 +1258,35 @@ export default function Suppliers() {
         };
       });
 
+    // Filter uniqueProducts by search term
+    const filteredUniqueProducts = uniqueProducts.filter(p => {
+      if (!suppliedProductSearch) return true;
+      const search = suppliedProductSearch.toLowerCase();
+      return (p.name && p.name.toLowerCase().includes(search)) ||
+        (p.sku && p.sku.toLowerCase().includes(search));
+    });
+
     // Group supplied products by category
-    const groupedProducts = uniqueProducts.reduce((acc, p) => {
+    const groupedProducts = filteredUniqueProducts.reduce((acc, p) => {
       const cat = p.category && p.category.trim() !== '' ? p.category.trim() : 'Uncategorized';
       if (!acc[cat]) acc[cat] = [];
       acc[cat].push(p);
       return acc;
     }, {});
 
+    // Calculate Total Spent based on Cost Price * Active Stock
+    const calculatedTotalSpent = uniqueProducts.reduce((sum, p) => {
+      const cost = parseFloat(p.current_cost) || 0;
+      const stock = parseFloat(p.stock_quantity) || 0;
+      return sum + (cost * stock);
+    }, 0);
+
     return (
       <div className="space-y-6">
         {/* Alerts Banner */}
         {alert && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${
-            alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-          }`}>
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+            }`}>
             <span className="text-sm font-semibold">{alert.message}</span>
           </div>
         )}
@@ -1304,7 +1321,7 @@ export default function Suppliers() {
                 Edit Vendor Details
               </button>
             </div>
-            
+
             <div className="space-y-3.5 text-sm">
               <div>
                 <span className="block text-xs font-semibold text-slate-400">CONTACT REPRESENTATIVE</span>
@@ -1352,8 +1369,8 @@ export default function Suppliers() {
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Spent</span>
               </div>
               <div className="mt-4">
-                <span className="block text-2xl font-black text-slate-800">{formatCurrency(stats.totalSpent)}</span>
-                <span className="text-xs text-slate-400">On all completed purchases</span>
+                <span className="block text-2xl font-black text-slate-800">{formatCurrency(calculatedTotalSpent)}</span>
+                <span className="text-xs text-slate-400">Based on Cost Price × Active Stock</span>
               </div>
             </div>
 
@@ -1398,41 +1415,37 @@ export default function Suppliers() {
           <div className="flex border-b border-slate-100 bg-slate-50/50">
             <button
               onClick={() => setProfileTab('pos_history')}
-              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                profileTab === 'pos_history'
-                  ? 'border-indigo-600 text-indigo-600 bg-white'
-                  : 'border-transparent text-slate-450 hover:text-slate-700'
-              }`}
+              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${profileTab === 'pos_history'
+                ? 'border-indigo-600 text-indigo-600 bg-white'
+                : 'border-transparent text-slate-450 hover:text-slate-700'
+                }`}
             >
               Purchase Orders ({sPOs.length})
             </button>
             <button
               onClick={() => setProfileTab('cost_history')}
-              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                profileTab === 'cost_history'
-                  ? 'border-indigo-600 text-indigo-600 bg-white'
-                  : 'border-transparent text-slate-450 hover:text-slate-700'
-              }`}
+              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${profileTab === 'cost_history'
+                ? 'border-indigo-600 text-indigo-600 bg-white'
+                : 'border-transparent text-slate-450 hover:text-slate-700'
+                }`}
             >
               Cost Logs ({sLogs.length})
             </button>
             <button
               onClick={() => setProfileTab('supplied_products')}
-              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                profileTab === 'supplied_products'
-                  ? 'border-indigo-600 text-indigo-600 bg-white'
-                  : 'border-transparent text-slate-450 hover:text-slate-700'
-              }`}
+              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${profileTab === 'supplied_products'
+                ? 'border-indigo-600 text-indigo-600 bg-white'
+                : 'border-transparent text-slate-450 hover:text-slate-700'
+                }`}
             >
               Supplied Products ({uniqueProducts.length})
             </button>
             <button
               onClick={() => setProfileTab('expired_products')}
-              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                profileTab === 'expired_products'
-                  ? 'border-indigo-600 text-indigo-600 bg-white'
-                  : 'border-transparent text-slate-450 hover:text-slate-700'
-              }`}
+              className={`px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${profileTab === 'expired_products'
+                ? 'border-indigo-600 text-indigo-600 bg-white'
+                : 'border-transparent text-slate-450 hover:text-slate-700'
+                }`}
             >
               Expired & Returns ({profileData.expiredProducts?.length || 0})
             </button>
@@ -1450,15 +1463,14 @@ export default function Suppliers() {
                         <button
                           key={f}
                           onClick={() => setProfilePoFilter(f)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
-                            profilePoFilter === f
-                              ? f === 'paid'
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                : f === 'due'
-                                  ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                                  : 'bg-slate-700 text-white border-slate-700 shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
-                          }`}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${profilePoFilter === f
+                            ? f === 'paid'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : f === 'due'
+                                ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                                : 'bg-slate-700 text-white border-slate-700 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                            }`}
                         >
                           {f === 'all' ? 'All POs' : f === 'paid' ? '✓ Fully Paid' : '⚠ Has Due'}
                         </button>
@@ -1541,11 +1553,10 @@ export default function Suppliers() {
                             <td className="p-3 font-mono font-bold text-slate-700">#PO-{po.id}</td>
                             <td className="p-3 text-slate-600">{formatDate(po.order_date).split(',')[0]}</td>
                             <td className="p-3">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                                po.payment_basis === 'credit'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              }`}>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${po.payment_basis === 'credit'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
                                 {po.payment_basis || 'cash'}
                               </span>
                             </td>
@@ -1661,17 +1672,34 @@ export default function Suppliers() {
 
             {profileTab === 'supplied_products' && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center bg-white p-1 rounded-xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-1 rounded-xl gap-3">
                   <h4 className="font-bold text-slate-700 text-sm">Products currently cataloged from this vendor</h4>
-                  <button
-                    onClick={() => setShowSupplierCsvModal(true)}
-                    className="bg-indigo-650 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-xs transition-colors flex items-center space-x-1.5"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <span>Import Supplied Products (CSV)</span>
-                  </button>
+                  <div className="flex items-center space-x-3 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-64">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search by name or SKU..."
+                        value={suppliedProductSearch}
+                        onChange={(e) => setSuppliedProductSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowSupplierCsvModal(true)}
+                      className="bg-indigo-650 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-lg text-xs shadow-xs transition-colors flex items-center space-x-1.5 shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span className="hidden sm:inline">Import CSV</span>
+                      <span className="sm:hidden">CSV</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto border border-slate-100 rounded-xl">
                   <table className="w-full text-left border-collapse">
@@ -1725,7 +1753,7 @@ export default function Suppliers() {
                                           {isAdmin && (
                                             <button
                                               onClick={() => {
-                                                const fullProd = productsList.find(item => item.id === p.id);
+                                                const fullProd = productsList.find(item => String(item.id) === String(p.id));
                                                 if (fullProd) {
                                                   setEditingProductId(p.id);
                                                   setProductEditForm({
@@ -1751,11 +1779,10 @@ export default function Suppliers() {
                                               setShowReturnModal(true);
                                             }}
                                             disabled={!(p.stock_quantity > 0)}
-                                            className={`font-bold py-1 px-2.5 rounded border transition-colors ${
-                                              p.stock_quantity > 0
-                                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                                                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
-                                            }`}
+                                            className={`font-bold py-1 px-2.5 rounded border transition-colors ${p.stock_quantity > 0
+                                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                                              : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                                              }`}
                                             title={p.stock_quantity > 0 ? "Return to Supplier" : "No stock available to return"}
                                           >
                                             Return
@@ -1866,11 +1893,10 @@ export default function Suppliers() {
                               <td className="p-3 font-semibold text-slate-800">{log.product_name}</td>
                               <td className="p-3 font-bold">{log.quantity}</td>
                               <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                  log.action_type === 'return'
-                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                }`}>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${log.action_type === 'return'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  }`}>
                                   {log.action_type === 'return' ? 'Returned' : 'Replaced'}
                                 </span>
                               </td>
@@ -1943,12 +1969,11 @@ export default function Suppliers() {
   // --- GENERAL LAYOUTS RENDER (selectedSupplierId is null) ---
   return (
     <div className="space-y-6">
-      
+
       {/* Alerts Banner */}
       {alert && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${
-          alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-        }`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+          }`}>
           <span className="text-sm font-semibold">{alert.message}</span>
         </div>
       )}
@@ -1962,9 +1987,9 @@ export default function Suppliers() {
         <div className="flex items-center space-x-3 w-full sm:w-auto">
           <button
             onClick={() => openAddPo()}
-            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+            className="bg-[#C4A484] hover:bg-[#A67B5B] text-white font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
           >
-            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             <span>Create Purchase Order</span>
@@ -1984,32 +2009,30 @@ export default function Suppliers() {
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 space-x-2 bg-slate-100/50 p-1.5 rounded-xl">
         <button
-          onClick={() => setActiveTab('directory')}
-          className={`flex-1 sm:flex-initial text-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-            activeTab === 'directory'
-              ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/40'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Vendors Directory
-        </button>
-        <button
           onClick={() => setActiveTab('pos')}
-          className={`flex-1 sm:flex-initial text-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-            activeTab === 'pos'
-              ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/40'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
+          className={`flex-1 sm:flex-initial text-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'pos'
+            ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/40'
+            : 'text-slate-500 hover:text-slate-800'
+            }`}
         >
           Purchase Orders
         </button>
         <button
+          onClick={() => setActiveTab('directory')}
+          className={`flex-1 sm:flex-initial text-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'directory'
+            ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/40'
+            : 'text-slate-500 hover:text-slate-800'
+            }`}
+        >
+          Vendors Directory
+        </button>
+
+        <button
           onClick={() => setActiveTab('logs')}
-          className={`flex-1 sm:flex-initial text-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-            activeTab === 'logs'
-              ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/40'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
+          className={`flex-1 sm:flex-initial text-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'logs'
+            ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/40'
+            : 'text-slate-500 hover:text-slate-800'
+            }`}
         >
           Cost Price Logs
         </button>
@@ -2104,16 +2127,15 @@ export default function Suppliers() {
                   >
                     Previous
                   </button>
-                  
+
                   {Array.from({ length: totalSupplierPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
                       onClick={() => setSupplierPage(page)}
-                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                        supplierPage === page
-                          ? 'bg-slate-600 text-white shadow-xs'
-                          : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
-                      }`}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${supplierPage === page
+                        ? 'bg-slate-600 text-white shadow-xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}
                     >
                       {page}
                     </button>
@@ -2155,11 +2177,10 @@ export default function Suppliers() {
                         setPoFilterStatus(st);
                         setPoPage(1);
                       }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all border ${
-                        poFilterStatus === st
-                          ? 'bg-slate-600 border-indigo-600 text-white'
-                          : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
-                      }`}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all border ${poFilterStatus === st
+                        ? 'bg-slate-600 border-indigo-600 text-white'
+                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
+                        }`}
                     >
                       {st}
                     </button>
@@ -2227,11 +2248,10 @@ export default function Suppliers() {
                           <td className="p-4 font-semibold text-slate-800">{po.supplier_name}</td>
                           <td className="p-4 text-slate-600">{formatDate(po.order_date).split(',')[0]}</td>
                           <td className="p-4">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                              po.payment_basis === 'credit'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${po.payment_basis === 'credit'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}>
                               {po.payment_basis || 'cash'}
                             </span>
                           </td>
@@ -2303,16 +2323,15 @@ export default function Suppliers() {
                   >
                     Previous
                   </button>
-                  
+
                   {Array.from({ length: totalPoPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
                       onClick={() => setPoPage(page)}
-                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                        poPage === page
-                          ? 'bg-slate-600 text-white shadow-xs'
-                          : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
-                      }`}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${poPage === page
+                        ? 'bg-slate-600 text-white shadow-xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}
                     >
                       {page}
                     </button>
@@ -2334,10 +2353,20 @@ export default function Suppliers() {
 
       {/* --- TAB: COST PRICE LOGS --- */}
       {activeTab === 'logs' && (() => {
-        const totalLogPages = Math.ceil(costLogs.length / itemsPerPage);
-        const indexOfFirstLog = (logsPage - 1) * itemsPerPage;
-        const indexOfLastLog = logsPage * itemsPerPage;
+        const logsItemsPerPage = 50;
+        const totalLogPages = Math.ceil(costLogs.length / logsItemsPerPage);
+        const indexOfFirstLog = (logsPage - 1) * logsItemsPerPage;
+        const indexOfLastLog = logsPage * logsItemsPerPage;
         const paginatedLogs = costLogs.slice(indexOfFirstLog, indexOfLastLog);
+
+        let startPage = Math.max(1, logsPage - 9);
+        let endPage = startPage + 19;
+        if (endPage > totalLogPages) {
+          endPage = totalLogPages;
+          startPage = Math.max(1, endPage - 19);
+        }
+
+        const visiblePages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
 
         return (
           <div className="space-y-4">
@@ -2439,20 +2468,25 @@ export default function Suppliers() {
                   >
                     Previous
                   </button>
-                  
-                  {Array.from({ length: totalLogPages }, (_, i) => i + 1).map((page) => (
+
+                  {startPage > 1 && (
+                    <span className="text-slate-400 text-xs font-bold px-1">...</span>
+                  )}
+                  {visiblePages.map((page) => (
                     <button
                       key={page}
                       onClick={() => setLogsPage(page)}
-                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                        logsPage === page
-                          ? 'bg-slate-600 text-white shadow-xs'
-                          : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
-                      }`}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${logsPage === page
+                        ? 'bg-slate-600 text-white shadow-xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}
                     >
                       {page}
                     </button>
                   ))}
+                  {endPage < totalLogPages && (
+                    <span className="text-slate-400 text-xs font-bold px-1">...</span>
+                  )}
 
                   <button
                     onClick={() => setLogsPage(prev => Math.min(prev + 1, totalLogPages))}
@@ -2611,7 +2645,7 @@ export default function Suppliers() {
               </svg>
             </button>
           </div>
-          
+
           <form onSubmit={handleSaveProductEdit} className="mt-4 space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Product Name *</label>
@@ -2663,14 +2697,14 @@ export default function Suppliers() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Current Active Stock *</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Current Active Stock</label>
               <input
                 type="number"
+                step="any"
                 min="0"
                 value={productEditForm.stock_quantity}
-                onChange={(e) => setProductEditForm(prev => ({ ...prev, stock_quantity: e.target.value }))}
-                required
-                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                readOnly
+                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none bg-slate-50 cursor-not-allowed text-slate-500 font-medium"
               />
             </div>
 
@@ -2734,7 +2768,7 @@ export default function Suppliers() {
               </svg>
             </button>
           </div>
-          
+
           <form onSubmit={isEdit ? handleEditSubmit : handleAddSubmit} className="mt-4 space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Company / Vendor Name *</label>
@@ -2854,7 +2888,7 @@ export default function Suppliers() {
                       placeholder="Search supplier name..."
                       className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-medium"
                     />
-                    
+
                     {showSupplierSuggestions && (() => {
                       const query = supplierSearch.toLowerCase();
                       const suggestions = suppliers.filter(s =>
@@ -3020,14 +3054,14 @@ export default function Suppliers() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Quantity to Order *</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Quantity to Order</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
+                  step="any"
                   value={poFormData.quantity_ordered}
                   onChange={(e) => setPoFormData({ ...poFormData, quantity_ordered: e.target.value })}
-                  required
-                  placeholder="1"
+                  placeholder="0"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -3210,11 +3244,10 @@ export default function Suppliers() {
               </div>
               <div>
                 <span className="block text-xs font-bold text-slate-400">PAYMENT BASIS</span>
-                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border mt-1 uppercase ${
-                  selectedPo.payment_basis === 'credit'
-                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                }`}>
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold border mt-1 uppercase ${selectedPo.payment_basis === 'credit'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  }`}>
                   {selectedPo.payment_basis || 'cash'}
                 </span>
               </div>

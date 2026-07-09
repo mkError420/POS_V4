@@ -112,7 +112,7 @@ class ManualOrderController {
                 $item['order_id'] = (int)$item['order_id'];
                 $item['shop_id'] = (int)$item['shop_id'];
                 $item['product_id'] = (int)$item['product_id'];
-                $item['quantity'] = (int)$item['quantity'];
+                $item['quantity'] = (float)$item['quantity'];
                 $item['unit_price'] = (float)$item['unit_price'];
                 $item['subtotal'] = (float)$item['subtotal'];
             }
@@ -177,7 +177,7 @@ class ManualOrderController {
             // Insert items
             foreach ($items as $item) {
                 $productId = (int)$item['product_id'];
-                $quantity = (int)$item['quantity'];
+                $quantity = (float)$item['quantity'];
                 $unitPrice = (float)$item['unit_price'];
                 $subtotal = $quantity * $unitPrice;
 
@@ -274,7 +274,7 @@ class ManualOrderController {
 
                 foreach ($items as $item) {
                     $productId = (int)$item['product_id'];
-                    $quantity = (int)$item['quantity'];
+                    $quantity = (float)$item['quantity'];
                     $unitPrice = (float)$item['unit_price'];
                     $subtotal = $quantity * $unitPrice;
 
@@ -390,7 +390,7 @@ class ManualOrderController {
             // Lock products & deduct stocks
             foreach ($orderItems as $item) {
                 $productId = (int)$item['product_id'];
-                $quantity = (int)$item['quantity'];
+                $quantity = (float)$item['quantity'];
                 $unitPrice = (float)$item['unit_price'];
 
                 $pStmt = DB::query('SELECT id, name, price, cost_price, stock_quantity, low_stock_threshold FROM products WHERE id = ? AND shop_id = ? FOR UPDATE', [$productId, $shopId]);
@@ -400,7 +400,7 @@ class ManualOrderController {
                     throw new \Exception("Product with ID $productId not found in this shop.");
                 }
 
-                if ((int)$product['stock_quantity'] < $quantity) {
+                if ((float)$product['stock_quantity'] < $quantity) {
                     throw new \Exception("Insufficient stock for product \"{$product['name']}\". Available: {$product['stock_quantity']}, requested: $quantity.");
                 }
 
@@ -415,7 +415,7 @@ class ManualOrderController {
                     'subtotal' => $subtotal
                 ];
 
-                $newStock = (int)$product['stock_quantity'] - $quantity;
+                $newStock = (float)$product['stock_quantity'] - $quantity;
                 DB::query('UPDATE products SET stock_quantity = ? WHERE id = ? AND shop_id = ?', [$newStock, $productId, $shopId]);
             }
 
