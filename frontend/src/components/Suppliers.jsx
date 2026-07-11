@@ -12,7 +12,7 @@ export default function Suppliers() {
   const [alert, setAlert] = useState(null);
 
   // Sub-navigation tabs: 'directory', 'pos', 'logs'
-  const [activeTab, setActiveTab] = useState('directory');
+  const [activeTab, setActiveTab] = useState('pos');
 
   // Supplier Profile view state (null = show tabs, non-null = supplier ID)
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);

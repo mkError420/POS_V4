@@ -495,7 +495,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
       updatedCart[existingIndex].quantity += 1;
       updateActiveTabState('cart', updatedCart);
     } else {
-      updateActiveTabState('cart', [...activeTab.cart, { ...product, quantity: 1, price: '' }]);
+      updateActiveTabState('cart', [...activeTab.cart, { ...product, quantity: 1, price: product.price }]);
     }
   };
 
@@ -559,6 +559,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     if (!activeTab) return;
     updateActiveTabState('cart', activeTab.cart.map(item =>
       item.id === productId ? { ...item, price: newPriceVal } : item
+    ));
+  };
+
+  const updateSubtotal = (productId, newSubtotalVal) => {
+    if (!activeTab) return;
+    const item = activeTab.cart.find(item => item.id === productId);
+    if (!item || item.quantity <= 0) return;
+    
+    const newPrice = parseFloat(newSubtotalVal) / item.quantity;
+    updateActiveTabState('cart', activeTab.cart.map(cartItem =>
+      cartItem.id === productId ? { ...cartItem, price: newPrice.toFixed(2) } : cartItem
     ));
   };
 
@@ -1210,9 +1221,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                        <th className="p-3 pl-4 w-24">SKU</th>
-                        <th className="p-3">Product Name</th>
-                        <th className="p-3 text-right">Cost Price</th>
+                        <th className="p-3 pl-4">Product Name</th>
                         <th className="p-3 text-right">Price</th>
                         <th className="p-3 text-center">Stock</th>
                         <th className="p-3 text-center">Actions</th>
@@ -1226,15 +1235,13 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
                         return (
                           <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-3 pl-4 font-mono text-xs font-bold text-slate-500">{product.sku}</td>
                             <td
-                              className="p-3 font-semibold text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors"
+                              className="p-3 pl-4 font-semibold text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors"
                               onClick={() => !isOutOfStock && addToCart(product)}
                               title={isOutOfStock ? 'Out of stock' : 'Click to add to cart'}
                             >
                               {product.name}
                             </td>
-                            <td className="p-3 text-right text-slate-500 font-medium">৳{parseFloat(product.cost_price || 0).toFixed(2)}</td>
                             <td className="p-3 text-right font-extrabold text-slate-700">৳{parseFloat(product.price).toFixed(2)}</td>
                             <td className="p-3 text-center">
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${remainingQty <= product.low_stock_threshold
@@ -2448,8 +2455,15 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           className="w-20 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-indigo-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
                         />
                       </td>
-                      <td className="p-2 text-right font-extrabold text-slate-700">
-                        ৳{(parseFloat(item.price || 0) * item.quantity).toFixed(2)}
+                      <td className="p-2 text-right">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={parseFloat(item.price || 0) * item.quantity || ''}
+                          onChange={(e) => updateSubtotal(item.id, e.target.value)}
+                          className="w-20 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
+                        />
                       </td>
                       <td className="p-2 text-center">
                         <button

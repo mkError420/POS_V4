@@ -430,49 +430,6 @@ export default function SalesHistory() {
         </div>
       </div>
 
-      {/* Date Filters bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center gap-4 shadow-xs">
-        <div className="flex items-center space-x-2">
-          <label className="text-xs font-bold text-slate-500 uppercase">From:</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-          />
-        </div>
-        <div className="flex items-center space-x-2">
-          <label className="text-xs font-bold text-slate-500 uppercase">To:</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-          />
-        </div>
-        {(startDate || endDate) && (
-          <button
-            onClick={() => { setStartDate(''); setEndDate(''); }}
-            className="text-xs font-semibold text-rose-500 hover:text-rose-700 bg-rose-50 px-3 py-2 rounded-lg border border-rose-100 transition-colors"
-          >
-            Clear Filter
-          </button>
-        )}
-
-        {/* Search Input */}
-        <div className="relative flex-1 min-w-[240px] max-w-md md:ml-auto">
-          <input
-            type="text"
-            placeholder="Search by Invoice ID, customer, cashier, or method..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-      </div>
 
       {/* Daily Product Sales Summary */}
       {productDailySales && (
@@ -814,6 +771,50 @@ export default function SalesHistory() {
           </div>
         </div>
       )}
+
+      {/* Date Filters bar */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center gap-4 shadow-xs">
+        <div className="flex items-center space-x-2">
+          <label className="text-xs font-bold text-slate-500 uppercase">From:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <label className="text-xs font-bold text-slate-500 uppercase">To:</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+          />
+        </div>
+        {(startDate || endDate) && (
+          <button
+            onClick={() => { setStartDate(''); setEndDate(''); }}
+            className="text-xs font-semibold text-rose-500 hover:text-rose-700 bg-rose-50 px-3 py-2 rounded-lg border border-rose-100 transition-colors"
+          >
+            Clear Filter
+          </button>
+        )}
+
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-[240px] max-w-md md:ml-auto">
+          <input
+            type="text"
+            placeholder="Search by Invoice ID, customer, cashier, or method..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
 
       {/* Sales Logs Table */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
