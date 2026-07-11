@@ -428,9 +428,9 @@ export default function Adjustments() {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Shop</th>
                 )}
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Previous Qty</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Adjusted Qty</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Difference</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Previous Qty (Unit)</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Adjusted Qty (Unit)</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Difference (Unit)</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Reason</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Adjusted By</th>
@@ -459,10 +459,10 @@ export default function Adjustments() {
                       <div className="text-sm font-medium text-slate-900">{adj.product_name}</div>
                       <div className="text-xs text-slate-500">{adj.product_sku}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{+Number(adj.previous_quantity).toFixed(3)}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{+Number(adj.adjusted_quantity).toFixed(3)}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{+Number(adj.previous_quantity).toFixed(3)} <span className="text-xs uppercase text-slate-500">{adj.product_unit}</span></td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{+Number(adj.adjusted_quantity).toFixed(3)} <span className="text-xs uppercase text-slate-500">{adj.product_unit}</span></td>
                     <td className={`px-6 py-4 text-sm font-semibold ${adj.difference >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {adj.difference >= 0 ? '+' : ''}{+Number(adj.difference).toFixed(3)}
+                      {adj.difference >= 0 ? '+' : ''}{+Number(adj.difference).toFixed(3)} <span className="text-xs uppercase opacity-75">{adj.product_unit}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getAdjustmentBadge(adj.adjustment_type)}`}>

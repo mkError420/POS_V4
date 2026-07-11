@@ -527,7 +527,7 @@ class OtherController {
         $endDate = $_GET['end_date'] ?? null;
 
         try {
-            $sql = 'SELECT ia.*, p.name AS product_name, p.sku AS product_sku, u.name AS adjusted_by_name, s.name AS shop_name
+            $sql = 'SELECT ia.*, p.name AS product_name, p.sku AS product_sku, p.unit AS product_unit, u.name AS adjusted_by_name, s.name AS shop_name
                     FROM inventory_adjustments ia
                     JOIN products p ON ia.product_id = p.id
                     JOIN users u ON ia.adjusted_by = u.id
