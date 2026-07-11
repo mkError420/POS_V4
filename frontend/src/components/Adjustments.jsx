@@ -13,6 +13,9 @@ export default function Adjustments() {
   const [editAdjustmentId, setEditAdjustmentId] = useState(null);
   const [editShopId, setEditShopId] = useState(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
   const userStr = localStorage.getItem('user');
   const userObj = userStr ? JSON.parse(userStr) : {};
   const isSuperAdmin = userObj.role === 'super_admin';
@@ -59,6 +62,7 @@ export default function Adjustments() {
       });
       if (!response.ok) throw new Error('Failed to retrieve adjustments.');
       setAdjustments(await response.json());
+      setCurrentPage(1);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -408,7 +412,13 @@ export default function Adjustments() {
       </div>
 
       {/* Adjustments Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+      {(() => {
+        const totalPages = Math.ceil(adjustments.length / itemsPerPage);
+        const currentAdjustments = adjustments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+        
+        return (
+          <>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -437,7 +447,7 @@ export default function Adjustments() {
                   <td colSpan="9" className="px-6 py-8 text-center text-slate-500">No adjustments found</td>
                 </tr>
               ) : (
-                adjustments.map(adj => (
+                currentAdjustments.map(adj => (
                   <tr key={adj.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm text-slate-700">{formatDate(adj.created_at)}</td>
                     {isSuperAdmin && (
@@ -490,6 +500,64 @@ export default function Adjustments() {
           </table>
         </div>
       </div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between bg-white px-4 py-3 border border-slate-200 rounded-2xl shadow-xs">
+          <div className="flex flex-1 items-center justify-between">
+            <div className="hidden sm:block">
+              <p className="text-sm text-slate-700">
+                Showing <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-semibold">{Math.min(currentPage * itemsPerPage, adjustments.length)}</span> of <span className="font-semibold">{adjustments.length}</span> results
+              </p>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => {
+                    if (totalPages <= 15) return true;
+                    const start = Math.max(1, Math.min(currentPage - 7, totalPages - 14));
+                    return p >= start && p < start + 15;
+                  })
+                  .map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 ${
+                      currentPage === p 
+                        ? 'bg-indigo-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 z-10' 
+                        : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
+          </>
+        );
+      })()}
 
       {/* Add Adjustment Modal */}
       {showAddModal && (
@@ -549,6 +617,17 @@ export default function Adjustments() {
                     </div>
                   )}
                 </div>
+                {formData.product_id && (() => {
+                  const selectedProduct = products.find(p => p.id === parseInt(formData.product_id));
+                  return selectedProduct ? (
+                    <p className="text-xs font-semibold text-slate-500 mt-2 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Base Unit: <span className="text-indigo-600 uppercase tracking-wider">{selectedProduct.unit}</span>
+                    </p>
+                  ) : null;
+                })()}
               </div>
 
               <div>
@@ -567,17 +646,19 @@ export default function Adjustments() {
                   placeholder="Enter the physical count"
                 />
                 {formData.product_id && (() => {
-                  const currentStock = products.find(p => p.id === parseInt(formData.product_id))?.stock_quantity || 0;
+                  const selectedProduct = products.find(p => p.id === parseInt(formData.product_id));
+                  const currentStock = selectedProduct?.stock_quantity || 0;
+                  const unit = selectedProduct?.unit || '';
                   const newQty = parseFloat(formData.adjusted_quantity);
                   const diff = newQty - currentStock;
                   return (
-                    <p className="text-xs text-slate-500 mt-1.5 flex items-center">
-                      <span>Current stock: {currentStock}</span>
+                    <p className="text-xs text-slate-500 mt-1.5 flex items-center flex-wrap">
+                      <span>Current stock: <span className="font-semibold text-slate-700">{currentStock}</span> {unit}</span>
                       {!isNaN(newQty) && diff > 0 && (
-                        <span className="text-emerald-600 ml-2 font-medium">→ Increase by {+diff.toFixed(3)}</span>
+                        <span className="text-emerald-600 ml-2 font-medium">→ Increase by {+diff.toFixed(3)} {unit}</span>
                       )}
                       {!isNaN(newQty) && diff < 0 && (
-                        <span className="text-rose-600 ml-2 font-medium">→ Decrease by {+(-diff).toFixed(3)}</span>
+                        <span className="text-rose-600 ml-2 font-medium">→ Decrease by {+(-diff).toFixed(3)} {unit}</span>
                       )}
                       {!isNaN(newQty) && diff === 0 && (
                         <span className="text-slate-500 ml-2 font-medium">→ No change</span>

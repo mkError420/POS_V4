@@ -421,6 +421,9 @@ export default function Inventory() {
   const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
   const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
 
+  const selectedHistoryProduct = products.find(p => String(p.id) === String(selectedHistoryProductId));
+  const historyProductUnit = selectedHistoryProduct ? selectedHistoryProduct.unit : '';
+
   return (
     <div className="space-y-6">
 
@@ -1566,7 +1569,7 @@ export default function Inventory() {
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Stock</span>
                   <div className="mt-2 flex items-baseline">
                     <span className="text-3xl font-black text-slate-800">{historyData.current_stock}</span>
-                    <span className="text-xs text-slate-500 ml-2">units left</span>
+                    <span className="text-xs text-slate-500 ml-2">{historyProductUnit} left</span>
                   </div>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
@@ -1575,7 +1578,7 @@ export default function Inventory() {
                     <span className="text-3xl font-black text-emerald-600">
                       {historyData.daily.reduce((sum, d) => sum + d.qty_sold, 0)}
                     </span>
-                    <span className="text-xs text-slate-500 ml-2">units sold</span>
+                    <span className="text-xs text-slate-500 ml-2">{historyProductUnit} sold</span>
                   </div>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
@@ -1587,7 +1590,7 @@ export default function Inventory() {
                       {historyData.daily.reduce((sum, d) => sum + d.qty_change, 0) >= 0 ? '+' : ''}
                       {historyData.daily.reduce((sum, d) => sum + d.qty_change, 0)}
                     </span>
-                    <span className="text-xs text-slate-500 ml-2">units net</span>
+                    <span className="text-xs text-slate-500 ml-2">{historyProductUnit} net</span>
                   </div>
                 </div>
               </div>
@@ -1658,11 +1661,15 @@ export default function Inventory() {
                           historyData.daily.map((d, index) => (
                             <tr key={index} className="hover:bg-slate-50/20 transition-colors">
                               <td className="p-4 font-semibold text-slate-700">{d.date}</td>
-                              <td className="p-4 text-center font-bold text-slate-600">{d.qty_sold}</td>
-                              <td className={`p-4 text-center font-bold ${d.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {d.qty_change >= 0 ? '+' : ''}{d.qty_change}
+                              <td className="p-4 text-center font-bold text-slate-600">
+                                {d.qty_sold} <span className="text-xs font-semibold text-slate-400 ml-1">{historyProductUnit}</span>
                               </td>
-                              <td className="p-4 text-right font-black text-slate-800">{d.stock_left}</td>
+                              <td className={`p-4 text-center font-bold ${d.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {d.qty_change >= 0 ? '+' : ''}{d.qty_change} <span className="text-xs font-semibold opacity-75 ml-1">{historyProductUnit}</span>
+                              </td>
+                              <td className="p-4 text-right font-black text-slate-800">
+                                {d.stock_left} <span className="text-xs font-semibold text-slate-500 ml-1">{historyProductUnit}</span>
+                              </td>
                             </tr>
                           ))
                         )
@@ -1677,11 +1684,15 @@ export default function Inventory() {
                           historyData.monthly.map((m, index) => (
                             <tr key={index} className="hover:bg-slate-50/20 transition-colors">
                               <td className="p-4 font-semibold text-slate-700">{m.month}</td>
-                              <td className="p-4 text-center font-bold text-slate-600">{m.qty_sold}</td>
-                              <td className={`p-4 text-center font-bold ${m.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {m.qty_change >= 0 ? '+' : ''}{m.qty_change}
+                              <td className="p-4 text-center font-bold text-slate-600">
+                                {m.qty_sold} <span className="text-xs font-semibold text-slate-400 ml-1">{historyProductUnit}</span>
                               </td>
-                              <td className="p-4 text-right font-black text-slate-800">{m.stock_left}</td>
+                              <td className={`p-4 text-center font-bold ${m.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {m.qty_change >= 0 ? '+' : ''}{m.qty_change} <span className="text-xs font-semibold opacity-75 ml-1">{historyProductUnit}</span>
+                              </td>
+                              <td className="p-4 text-right font-black text-slate-800">
+                                {m.stock_left} <span className="text-xs font-semibold text-slate-500 ml-1">{historyProductUnit}</span>
+                              </td>
                             </tr>
                           ))
                         )
@@ -1713,7 +1724,7 @@ export default function Inventory() {
                                 {d.sold_price !== null ? Number(d.sold_price).toFixed(2) : '-'}
                               </td>
                               <td className={`p-4 text-center font-bold ${d.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {d.qty_change >= 0 ? '+' : ''}{d.qty_change}
+                                {d.qty_change >= 0 ? '+' : ''}{d.qty_change} <span className="text-xs font-semibold opacity-75 ml-1">{historyProductUnit}</span>
                               </td>
                               <td className="p-4 text-center font-semibold text-slate-800">
                                 {d.subtotal !== null && d.subtotal !== 0 ? Number(d.subtotal).toFixed(2) : '-'}
@@ -1721,7 +1732,9 @@ export default function Inventory() {
                               <td className="p-4 text-center text-slate-500">
                                 {d.discount > 0 ? <span className="text-rose-500">-{Number(d.discount).toFixed(2)}</span> : '-'}
                               </td>
-                              <td className="p-4 text-right font-black text-slate-800">{d.stock_left}</td>
+                              <td className="p-4 text-right font-black text-slate-800">
+                                {d.stock_left} <span className="text-xs font-semibold text-slate-500 ml-1">{historyProductUnit}</span>
+                              </td>
                             </tr>
                           ))
                         )
