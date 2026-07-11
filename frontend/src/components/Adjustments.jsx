@@ -136,7 +136,7 @@ export default function Adjustments() {
       return;
     }
 
-    let finalQuantity = parseInt(formData.adjusted_quantity);
+    let finalQuantity = parseFloat(formData.adjusted_quantity);
     const selectedProduct = products.find(p => p.id === parseInt(formData.product_id));
 
     try {
@@ -449,10 +449,10 @@ export default function Adjustments() {
                       <div className="text-sm font-medium text-slate-900">{adj.product_name}</div>
                       <div className="text-xs text-slate-500">{adj.product_sku}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{adj.previous_quantity}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{adj.adjusted_quantity}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{+Number(adj.previous_quantity).toFixed(3)}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{+Number(adj.adjusted_quantity).toFixed(3)}</td>
                     <td className={`px-6 py-4 text-sm font-semibold ${adj.difference >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {adj.difference >= 0 ? '+' : ''}{adj.difference}
+                      {adj.difference >= 0 ? '+' : ''}{+Number(adj.difference).toFixed(3)}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getAdjustmentBadge(adj.adjustment_type)}`}>
@@ -562,22 +562,24 @@ export default function Adjustments() {
                   onChange={handleInputChange}
                   required
                   min="0"
+                  step="any"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                   placeholder="Enter the physical count"
                 />
                 {formData.product_id && (() => {
                   const currentStock = products.find(p => p.id === parseInt(formData.product_id))?.stock_quantity || 0;
-                  const newQty = parseInt(formData.adjusted_quantity);
+                  const newQty = parseFloat(formData.adjusted_quantity);
+                  const diff = newQty - currentStock;
                   return (
                     <p className="text-xs text-slate-500 mt-1.5 flex items-center">
                       <span>Current stock: {currentStock}</span>
-                      {!isNaN(newQty) && newQty > currentStock && (
-                        <span className="text-emerald-600 ml-2 font-medium">→ Increase by {newQty - currentStock}</span>
+                      {!isNaN(newQty) && diff > 0 && (
+                        <span className="text-emerald-600 ml-2 font-medium">→ Increase by {+diff.toFixed(3)}</span>
                       )}
-                      {!isNaN(newQty) && newQty < currentStock && (
-                        <span className="text-rose-600 ml-2 font-medium">→ Decrease by {currentStock - newQty}</span>
+                      {!isNaN(newQty) && diff < 0 && (
+                        <span className="text-rose-600 ml-2 font-medium">→ Decrease by {+(-diff).toFixed(3)}</span>
                       )}
-                      {!isNaN(newQty) && newQty === currentStock && (
+                      {!isNaN(newQty) && diff === 0 && (
                         <span className="text-slate-500 ml-2 font-medium">→ No change</span>
                       )}
                     </p>

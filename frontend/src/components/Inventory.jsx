@@ -191,8 +191,8 @@ export default function Inventory() {
           ...formData,
           price: parseFloat(formData.price),
           cost_price: parseFloat(formData.cost_price),
-          stock_quantity: parseInt(formData.stock_quantity || 0),
-          low_stock_threshold: parseInt(formData.low_stock_threshold || 10),
+          stock_quantity: parseFloat(formData.stock_quantity || 0),
+          low_stock_threshold: parseFloat(formData.low_stock_threshold || 10),
           expiry_date: formData.expiry_date || null,
           supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null
         })
@@ -243,8 +243,8 @@ export default function Inventory() {
           ...formData,
           price: parseFloat(formData.price),
           cost_price: parseFloat(formData.cost_price),
-          stock_quantity: parseInt(formData.stock_quantity),
-          low_stock_threshold: parseInt(formData.low_stock_threshold),
+          stock_quantity: parseFloat(formData.stock_quantity),
+          low_stock_threshold: parseFloat(formData.low_stock_threshold),
           expiry_date: formData.expiry_date || null,
           supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null
         })
@@ -1072,6 +1072,7 @@ export default function Inventory() {
                       <input
                         type="number"
                         name="stock_quantity"
+                        step="any"
                         value={formData.stock_quantity}
                         onChange={handleInputChange}
                         placeholder="0"
@@ -1097,6 +1098,7 @@ export default function Inventory() {
                       <input
                         type="number"
                         name="low_stock_threshold"
+                        step="any"
                         value={formData.low_stock_threshold}
                         onChange={handleInputChange}
                         placeholder="10"
@@ -1265,6 +1267,7 @@ export default function Inventory() {
                       <input
                         type="number"
                         name="low_stock_threshold"
+                        step="any"
                         value={formData.low_stock_threshold}
                         onChange={handleInputChange}
                         className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
@@ -1609,18 +1612,39 @@ export default function Inventory() {
                     >
                       Monthly History
                     </button>
+                    <button
+                      onClick={() => setHistoryViewTab('detailed')}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        historyViewTab === 'detailed' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      Detailed Ledger
+                    </button>
                   </div>
                 </div>
  
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                        <th className="p-4">{historyViewTab === 'daily' ? 'Date' : 'Month'}</th>
-                        <th className="p-4 text-center">Quantity Sold</th>
-                        <th className="p-4 text-center">Net Change</th>
-                        <th className="p-4 text-right">Remaining Stock</th>
-                      </tr>
+                      {historyViewTab === 'detailed' ? (
+                        <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                          <th className="p-4">Date</th>
+                          <th className="p-4">Type</th>
+                          <th className="p-4 text-center">Cost Price</th>
+                          <th className="p-4 text-center">Sold Price</th>
+                          <th className="p-4 text-center">Quantity</th>
+                          <th className="p-4 text-center">Subtotal</th>
+                          <th className="p-4 text-center">Total Sale Discount</th>
+                          <th className="p-4 text-right">Remaining Stock</th>
+                        </tr>
+                      ) : (
+                        <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                          <th className="p-4">{historyViewTab === 'daily' ? 'Date' : 'Month'}</th>
+                          <th className="p-4 text-center">Quantity Sold</th>
+                          <th className="p-4 text-center">Net Change</th>
+                          <th className="p-4 text-right">Remaining Stock</th>
+                        </tr>
+                      )}
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
                       {historyViewTab === 'daily' ? (
@@ -1642,7 +1666,7 @@ export default function Inventory() {
                             </tr>
                           ))
                         )
-                      ) : (
+                      ) : historyViewTab === 'monthly' ? (
                         historyData.monthly.length === 0 ? (
                           <tr>
                             <td colSpan="4" className="p-8 text-center text-slate-400 font-medium">
@@ -1658,6 +1682,46 @@ export default function Inventory() {
                                 {m.qty_change >= 0 ? '+' : ''}{m.qty_change}
                               </td>
                               <td className="p-4 text-right font-black text-slate-800">{m.stock_left}</td>
+                            </tr>
+                          ))
+                        )
+                      ) : (
+                        historyData.detailed && historyData.detailed.length === 0 ? (
+                          <tr>
+                            <td colSpan="8" className="p-8 text-center text-slate-400 font-medium">
+                              No detailed transactions recorded for this product in the selected period.
+                            </td>
+                          </tr>
+                        ) : (
+                          historyData.detailed && historyData.detailed.map((d, index) => (
+                            <tr key={index} className="hover:bg-slate-50/20 transition-colors">
+                              <td className="p-4 font-semibold text-slate-700">{d.date}</td>
+                              <td className="p-4">
+                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                                  d.type === 'sale' ? 'bg-emerald-100 text-emerald-700' :
+                                  d.type === 'purchase' ? 'bg-indigo-100 text-indigo-700' :
+                                  d.type === 'adjustment' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {d.type.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="p-4 text-center text-slate-600">
+                                {d.cost_price !== null ? Number(d.cost_price).toFixed(2) : '-'}
+                              </td>
+                              <td className="p-4 text-center text-slate-600">
+                                {d.sold_price !== null ? Number(d.sold_price).toFixed(2) : '-'}
+                              </td>
+                              <td className={`p-4 text-center font-bold ${d.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {d.qty_change >= 0 ? '+' : ''}{d.qty_change}
+                              </td>
+                              <td className="p-4 text-center font-semibold text-slate-800">
+                                {d.subtotal !== null && d.subtotal !== 0 ? Number(d.subtotal).toFixed(2) : '-'}
+                              </td>
+                              <td className="p-4 text-center text-slate-500">
+                                {d.discount > 0 ? <span className="text-rose-500">-{Number(d.discount).toFixed(2)}</span> : '-'}
+                              </td>
+                              <td className="p-4 text-right font-black text-slate-800">{d.stock_left}</td>
                             </tr>
                           ))
                         )

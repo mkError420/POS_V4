@@ -63,7 +63,7 @@ class ProductController {
                 $p['shop_id'] = (int)$p['shop_id'];
                 $p['price'] = (float)$p['price'];
                 $p['cost_price'] = (float)$p['cost_price'];
-                $p['stock_quantity'] = (int)$p['stock_quantity'];
+                $p['stock_quantity'] = (float)$p['stock_quantity'];
                 $p['low_stock_threshold'] = (int)$p['low_stock_threshold'];
                 $p['supplier_id'] = $p['supplier_id'] !== null ? (int)$p['supplier_id'] : null;
             }
@@ -108,7 +108,7 @@ class ProductController {
             $product['shop_id'] = (int)$product['shop_id'];
             $product['price'] = (float)$product['price'];
             $product['cost_price'] = (float)$product['cost_price'];
-            $product['stock_quantity'] = (int)$product['stock_quantity'];
+            $product['stock_quantity'] = (float)$product['stock_quantity'];
             $product['low_stock_threshold'] = (int)$product['low_stock_threshold'];
             $product['supplier_id'] = $product['supplier_id'] !== null ? (int)$product['supplier_id'] : null;
 
@@ -158,7 +158,7 @@ class ProductController {
                     $sku,
                     $price,
                     $cost_price,
-                    (int)$stock_quantity,
+                    (float)$stock_quantity,
                     (int)$low_stock_threshold,
                     !empty($expiry_date) ? $expiry_date : null,
                     !empty($supplier_id) ? (int)$supplier_id : null,
@@ -538,7 +538,7 @@ class ProductController {
                     if ($price <= 0) {
                         $price = $costPrice;
                     }
-                    $stockQuantity = $columnMap['stock_quantity'] !== false ? intval($row[$columnMap['stock_quantity']] ?? 0) : 0;
+                    $stockQuantity = $columnMap['stock_quantity'] !== false ? floatval($row[$columnMap['stock_quantity']] ?? 0) : 0;
                     $lowStockThreshold = $columnMap['low_stock_threshold'] !== false ? intval($row[$columnMap['low_stock_threshold']] ?? 10) : 10;
                     $expiryDateRaw = $columnMap['expiry_date'] !== false ? trim($row[$columnMap['expiry_date']] ?? '') : '';
                     $expiryDate = '';
@@ -865,9 +865,10 @@ class ProductController {
             }
 
             // Retrieve history of events within date range
-            $eventsSql = "SELECT event_date, qty_change, qty_sold FROM (
+            $eventsSql = "SELECT event_date, qty_change, qty_sold, type, cost_price, sold_price, subtotal, discount FROM (
                 -- Sales
-                SELECT s.created_at AS event_date, -si.quantity AS qty_change, si.quantity AS qty_sold
+                SELECT s.created_at AS event_date, -si.quantity AS qty_change, si.quantity AS qty_sold,
+                       'sale' AS type, si.cost_price AS cost_price, si.unit_price AS sold_price, si.subtotal AS subtotal, s.discount AS discount
                 FROM sale_items si
                 JOIN sales s ON si.sale_id = s.id
                 WHERE si.product_id = ? AND si.shop_id = ?
@@ -875,7 +876,8 @@ class ProductController {
                 UNION ALL
                 
                 -- Purchases
-                SELECT COALESCE(po.received_date, po.created_at) AS event_date, COALESCE(poi.quantity_received, poi.quantity_ordered) AS qty_change, 0 AS qty_sold
+                SELECT COALESCE(po.received_date, po.created_at) AS event_date, COALESCE(poi.quantity_received, poi.quantity_ordered) AS qty_change, 0 AS qty_sold,
+                       'purchase' AS type, poi.cost_price AS cost_price, NULL AS sold_price, poi.subtotal AS subtotal, 0 AS discount
                 FROM purchase_order_items poi
                 JOIN purchase_orders po ON poi.purchase_order_id = po.id
                 WHERE poi.product_id = ? AND poi.shop_id = ? AND po.status = 'received'
@@ -883,21 +885,24 @@ class ProductController {
                 UNION ALL
                 
                 -- Customer Returns
-                SELECT cr.created_at AS event_date, cr.quantity AS qty_change, -cr.quantity AS qty_sold
+                SELECT cr.created_at AS event_date, cr.quantity AS qty_change, -cr.quantity AS qty_sold,
+                       'customer_return' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
                 FROM customer_returns cr
                 WHERE cr.product_id = ? AND cr.shop_id = ?
                 
                 UNION ALL
                 
                 -- Supplier Returns
-                SELECT sr.created_at AS event_date, -sr.quantity AS qty_change, 0 AS qty_sold
+                SELECT sr.created_at AS event_date, -sr.quantity AS qty_change, 0 AS qty_sold,
+                       'supplier_return' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
                 FROM supplier_returns sr
                 WHERE sr.product_id = ? AND sr.shop_id = ?
                 
                 UNION ALL
                 
                 -- Wastages
-                SELECT w.adjusted_at AS event_date, -w.quantity AS qty_change, 0 AS qty_sold
+                SELECT w.adjusted_at AS event_date, -w.quantity AS qty_change, 0 AS qty_sold,
+                       'wastage' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
                 FROM wastages w
                 WHERE w.product_id = ? AND w.shop_id = ?
                 
@@ -906,7 +911,8 @@ class ProductController {
                 -- Adjustments
                 SELECT ia.created_at AS event_date, 
                        ia.difference AS qty_change,
-                       0 AS qty_sold
+                       0 AS qty_sold,
+                       'adjustment' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
                 FROM inventory_adjustments ia
                 WHERE ia.product_id = ? AND ia.shop_id = ?
             ) ev";
@@ -990,13 +996,31 @@ class ProductController {
                 $runningStockMonthly -= $data['qty_change'];
             }
 
+            $detailedHistory = [];
+            $runningStockDetailed = (float)$product['stock_quantity'] - $futureChange;
+            foreach ($rawEvents as $ev) {
+                $detailedHistory[] = [
+                    'date' => date('Y-m-d H:i:s', strtotime($ev['event_date'])),
+                    'type' => $ev['type'],
+                    'qty_change' => (float)$ev['qty_change'],
+                    'qty_sold' => (float)$ev['qty_sold'],
+                    'cost_price' => $ev['cost_price'] !== null ? (float)$ev['cost_price'] : null,
+                    'sold_price' => $ev['sold_price'] !== null ? (float)$ev['sold_price'] : null,
+                    'subtotal' => (float)$ev['subtotal'],
+                    'discount' => (float)$ev['discount'],
+                    'stock_left' => $runningStockDetailed
+                ];
+                $runningStockDetailed -= (float)$ev['qty_change'];
+            }
+
             header('Content-Type: application/json');
             echo json_encode([
                 'product_name' => $product['name'],
                 'sku' => $product['sku'],
-                'current_stock' => (int)$product['stock_quantity'],
+                'current_stock' => (float)$product['stock_quantity'],
                 'daily' => $dailyHistory,
-                'monthly' => $monthlyHistory
+                'monthly' => $monthlyHistory,
+                'detailed' => $detailedHistory
             ]);
 
         } catch (\Exception $e) {

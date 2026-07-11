@@ -567,9 +567,9 @@ class OtherController {
                 $ia['id'] = (int)$ia['id'];
                 $ia['shop_id'] = (int)$ia['shop_id'];
                 $ia['product_id'] = (int)$ia['product_id'];
-                $ia['previous_quantity'] = (int)$ia['previous_quantity'];
-                $ia['adjusted_quantity'] = (int)$ia['adjusted_quantity'];
-                $ia['difference'] = (int)$ia['difference'];
+                $ia['previous_quantity'] = (float)$ia['previous_quantity'];
+                $ia['adjusted_quantity'] = (float)$ia['adjusted_quantity'];
+                $ia['difference'] = (float)$ia['difference'];
                 $ia['adjusted_by'] = (int)$ia['adjusted_by'];
             }
 
@@ -598,7 +598,7 @@ class OtherController {
             Auth::jsonError('Product ID, adjusted quantity, and reason are required.', 400);
         }
 
-        $newQty = (int)$adjustedQuantity;
+        $newQty = (float)$adjustedQuantity;
         if ($newQty < 0) {
             Auth::jsonError('Adjusted quantity cannot be negative.', 400);
         }
@@ -614,7 +614,7 @@ class OtherController {
                 Auth::jsonError('Product not found.', 404);
             }
 
-            $prevQty = (int)$product['stock_quantity'];
+            $prevQty = (float)$product['stock_quantity'];
             $diff = $newQty - $prevQty;
             $type = $diff >= 0 ? 'increase' : 'decrease';
 
@@ -661,7 +661,7 @@ class OtherController {
             Auth::jsonError('Adjusted quantity and reason are required.', 400);
         }
 
-        $newQty = (int)$newAdjustedQuantity;
+        $newQty = (float)$newAdjustedQuantity;
         if ($newQty < 0) {
             Auth::jsonError('Adjusted quantity cannot be negative.', 400);
         }
@@ -678,8 +678,8 @@ class OtherController {
             }
 
             $productId = $adjustment['product_id'];
-            $oldDiff = (int)$adjustment['difference'];
-            $prevQty = (int)$adjustment['previous_quantity'];
+            $oldDiff = (float)$adjustment['difference'];
+            $prevQty = (float)$adjustment['previous_quantity'];
 
             $stmt = DB::query('SELECT id, stock_quantity FROM products WHERE id = ? AND shop_id = ? FOR UPDATE', [$productId, $shopId]);
             $product = $stmt->fetch();
@@ -694,7 +694,7 @@ class OtherController {
 
             $netChange = $newDiff - $oldDiff;
 
-            if ($netChange !== 0) {
+            if ($netChange != 0) {
                 DB::query('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?', [$netChange, $productId, $shopId]);
             }
 
@@ -706,7 +706,7 @@ class OtherController {
             DB::commit();
 
             header('Content-Type: application/json');
-            echo json_encode(['message' => 'Adjustment successfully updated.', 'newStock' => (int)$product['stock_quantity'] + $netChange]);
+            echo json_encode(['message' => 'Adjustment successfully updated.', 'newStock' => (float)$product['stock_quantity'] + $netChange]);
 
         } catch (\Exception $e) {
             DB::rollBack();

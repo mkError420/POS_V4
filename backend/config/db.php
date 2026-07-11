@@ -425,17 +425,23 @@ class DB {
             ];
             foreach ($tablesToAlter as $tbl => $col) {
                 if ($tableExists($tbl)) {
-                    $pdo->exec("ALTER TABLE `$tbl` MODIFY COLUMN `$col` DECIMAL(10,3) NOT NULL");
+                    try {
+                        $pdo->exec("ALTER TABLE `$tbl` MODIFY COLUMN `$col` DECIMAL(10,3) NOT NULL");
+                    } catch (\Exception $e) {}
                 }
             }
             if ($tableExists('products')) {
-                $pdo->exec("ALTER TABLE `products` MODIFY COLUMN `stock_quantity` DECIMAL(10,3) NOT NULL DEFAULT '0.000'");
-                $pdo->exec("ALTER TABLE `products` MODIFY COLUMN `low_stock_threshold` DECIMAL(10,3) NOT NULL DEFAULT '5.000'");
+                try {
+                    $pdo->exec("ALTER TABLE `products` MODIFY COLUMN `stock_quantity` DECIMAL(10,3) NOT NULL DEFAULT '0.000'");
+                    $pdo->exec("ALTER TABLE `products` MODIFY COLUMN `low_stock_threshold` DECIMAL(10,3) NOT NULL DEFAULT '5.000'");
+                } catch (\Exception $e) {}
             }
             if ($tableExists('inventory_adjustments')) {
-                $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `previous_quantity` DECIMAL(10,3) NOT NULL");
-                $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `adjusted_quantity` DECIMAL(10,3) NOT NULL");
-                $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `difference` DECIMAL(10,3) NOT NULL");
+                try {
+                    $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `previous_quantity` DECIMAL(10,3) NOT NULL");
+                    $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `adjusted_quantity` DECIMAL(10,3) NOT NULL");
+                    $pdo->exec("ALTER TABLE `inventory_adjustments` MODIFY COLUMN `difference` DECIMAL(10,3) NOT NULL");
+                } catch (\Exception $e) {}
             }
 
             // Seed Super Admin if table has no users
@@ -449,6 +455,7 @@ class DB {
 
         } catch (\PDOException $e) {
             error_log("Migration error: " . $e->getMessage());
+            file_put_contents(__DIR__ . '/migration_error.txt', "Migration error: " . $e->getMessage());
         }
     }
 }

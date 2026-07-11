@@ -567,9 +567,19 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const item = activeTab.cart.find(item => item.id === productId);
     if (!item || item.quantity <= 0) return;
     
-    const newPrice = parseFloat(newSubtotalVal) / item.quantity;
+    if (newSubtotalVal === '') {
+      updateActiveTabState('cart', activeTab.cart.map(cartItem =>
+        cartItem.id === productId ? { ...cartItem, price: '' } : cartItem
+      ));
+      return;
+    }
+
+    const parsedSubtotal = parseFloat(newSubtotalVal);
+    if (isNaN(parsedSubtotal)) return;
+
+    const newPrice = parsedSubtotal / item.quantity;
     updateActiveTabState('cart', activeTab.cart.map(cartItem =>
-      cartItem.id === productId ? { ...cartItem, price: newPrice.toFixed(2) } : cartItem
+      cartItem.id === productId ? { ...cartItem, price: newPrice } : cartItem
     ));
   };
 
