@@ -504,7 +504,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const targetItem = activeTab.cart.find(item => item.id === productId);
     if (!targetItem) return;
 
-    const newQty = targetItem.quantity + change;
+    const newQty = parseFloat((targetItem.quantity + change).toFixed(2));
 
     if (newQty <= 0) {
       removeFromCart(productId);
@@ -523,7 +523,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
   const handleQuantityInput = (productId, valStr) => {
     if (!activeTab) return;
-    let parsedVal = parseInt(valStr, 10);
+    let parsedVal = parseFloat(valStr);
     const targetItem = activeTab.cart.find(item => item.id === productId);
     if (!targetItem) return;
 
@@ -1255,7 +1255,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                                   </button>
                                   <input
                                     type="number"
-                                    min="1"
+                                    min="0.01"
+                                    step="0.01"
                                     max={product.stock_quantity}
                                     value={inCartItem.quantity === 0 ? '' : inCartItem.quantity}
                                     onChange={(e) => handleQuantityInput(product.id, e.target.value)}
@@ -2417,7 +2418,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           </button>
                           <input
                             type="number"
-                            min="1"
+                            min="0.01"
+                            step="0.01"
                             max={item.stock_quantity}
                             value={item.quantity === 0 ? '' : item.quantity}
                             onChange={(e) => handleQuantityInput(item.id, e.target.value)}

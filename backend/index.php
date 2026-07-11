@@ -250,6 +250,7 @@ $routes = [
         // Manual Orders
         '/^manual-orders$/' => function() { ManualOrderController::listManualOrders(); },
         '/^manual-orders\/(\d+)$/' => function($args) { ManualOrderController::getManualOrder($args[0]); },
+        '/^manual-orders\/sales-history$/' => function() { ManualOrderController::listSalesHistory(); },
         // Other Costs
         '/^other-costs$/' => function() { OtherController::listOtherCosts(); },
         // Other Sales

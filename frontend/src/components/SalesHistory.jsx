@@ -18,6 +18,7 @@ export default function SalesHistory() {
   const [productName, setProductName] = useState('');
   const [productDailySales, setProductDailySales] = useState(null);
   const [dailySalesLoading, setDailySalesLoading] = useState(false);
+  const [trendCollapsed, setTrendCollapsed] = useState(true);
 
   // Modal viewer state
   const [selectedSale, setSelectedSale] = useState(null);
@@ -604,35 +605,51 @@ export default function SalesHistory() {
 
         return (
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs relative">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Sales Transactions Trend</h3>
-                <p className="text-xs text-slate-500">Chronological summary of successful sales volume and transaction count</p>
+            <div
+              className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer"
+              onClick={() => setTrendCollapsed(!trendCollapsed)}
+            >
+              <div className="flex items-center space-x-3">
+                <svg
+                  className={`w-5 h-5 text-slate-500 transition-transform duration-200 ${trendCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Sales Transactions Trend</h3>
+                  <p className="text-xs text-slate-500">Chronological summary of successful sales volume and transaction count</p>
+                </div>
               </div>
 
-              <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/60 self-end sm:self-auto">
-                <button
-                  onClick={() => setChartType('revenue')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'revenue'
-                    ? 'bg-white text-indigo-650 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                >
-                  Revenue (৳)
-                </button>
-                <button
-                  onClick={() => setChartType('sales')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'sales'
-                    ? 'bg-white text-indigo-650 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                >
-                  Sales Volume
-                </button>
-              </div>
+              {!trendCollapsed && (
+                <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/60 self-end sm:self-auto" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setChartType('revenue')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'revenue'
+                      ? 'bg-white text-indigo-650 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                  >
+                    Revenue (৳)
+                  </button>
+                  <button
+                    onClick={() => setChartType('sales')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'sales'
+                      ? 'bg-white text-indigo-650 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                  >
+                    Sales Volume
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="relative w-full h-[180px]">
+            {!trendCollapsed && (
+              <div className="relative w-full h-[180px]">
               {/* SVG Plot */}
               <svg
                 viewBox="0 0 600 180"
@@ -761,6 +778,7 @@ export default function SalesHistory() {
                 </div>
               )}
             </div>
+            )}
           </div>
         );
       })()}

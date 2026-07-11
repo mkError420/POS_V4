@@ -42,7 +42,7 @@ class SaleController {
             // 1. Validate products and lock rows to prevent race conditions on stock
             foreach ($items as $item) {
                 $productId = $item['product_id'] ?? null;
-                $quantity = (int)($item['quantity'] ?? 0);
+                $quantity = (float)($item['quantity'] ?? 0);
 
                 if (empty($productId) || $quantity <= 0) {
                     throw new \Exception("Invalid item details for product ID $productId.");
@@ -59,7 +59,7 @@ class SaleController {
                     throw new \Exception("Product with ID $productId not found in this shop.");
                 }
 
-                if ((int)$product['stock_quantity'] < $quantity) {
+                if ((float)$product['stock_quantity'] < $quantity) {
                     throw new \Exception("Insufficient stock for product \"{$product['name']}\". Available: {$product['stock_quantity']}, requested: $quantity.");
                 }
 
@@ -76,19 +76,19 @@ class SaleController {
                 ];
 
                 // Deduct stock quantity
-                $newStock = (int)$product['stock_quantity'] - $quantity;
+                $newStock = (float)$product['stock_quantity'] - $quantity;
                 DB::query(
                     'UPDATE products SET stock_quantity = ? WHERE id = ? AND shop_id = ?',
                     [$newStock, $productId, $shopId]
                 );
 
                 // Check low stock threshold
-                if ($newStock <= (int)$product['low_stock_threshold']) {
+                if ($newStock <= (float)$product['low_stock_threshold']) {
                     $stockAlerts[] = [
                         'product_id' => $productId,
                         'name' => $product['name'],
                         'remaining_stock' => $newStock,
-                        'threshold' => (int)$product['low_stock_threshold']
+                        'threshold' => (float)$product['low_stock_threshold']
                     ];
                 }
             }

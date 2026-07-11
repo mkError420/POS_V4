@@ -389,6 +389,7 @@ class SupplierController {
 
         $shopId = Auth::$shopId;
         $supplierId = $requestData['supplier_id'] ?? null;
+        $orderDate = $requestData['order_date'] ?? null;
         $status = $requestData['status'] ?? 'draft';
         $notes = $requestData['notes'] ?? null;
         $paymentBasis = $requestData['payment_basis'] ?? 'cash';
@@ -408,9 +409,9 @@ class SupplierController {
 
             // Insert PO with temporary total_amount = 0 (will update it after inserting items)
             DB::query(
-                'INSERT INTO purchase_orders (shop_id, supplier_id, status, total_amount, paid_amount, due_amount, payment_basis, notes) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [$shopId, $supplierId, $status, 0.00, 0.00, 0.00, $paymentBasis, $notes]
+                'INSERT INTO purchase_orders (shop_id, supplier_id, order_date, status, total_amount, paid_amount, due_amount, payment_basis, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$shopId, $supplierId, $orderDate, $status, 0.00, 0.00, 0.00, $paymentBasis, $notes]
             );
             $poId = DB::lastInsertId();
 
@@ -534,6 +535,7 @@ class SupplierController {
 
         $poId = (int)$id;
         $shopId = Auth::$shopId;
+        $orderDate = $requestData['order_date'] ?? null;
         $notes = $requestData['notes'] ?? null;
         $items = $requestData['items'] ?? [];
 
@@ -582,9 +584,9 @@ class SupplierController {
 
             // Update main PO total
             DB::query(
-                'UPDATE purchase_orders SET total_amount = ?, paid_amount = ?, due_amount = ?, payment_basis = ?, notes = ? 
+                'UPDATE purchase_orders SET order_date = ?, total_amount = ?, paid_amount = ?, due_amount = ?, payment_basis = ?, notes = ?
                  WHERE id = ? AND shop_id = ?',
-                [$totalAmount, $paidAmount, $dueAmount, $paymentBasis, $notes, $poId, $shopId]
+                [$orderDate, $totalAmount, $paidAmount, $dueAmount, $paymentBasis, $notes, $poId, $shopId]
             );
 
             DB::commit();

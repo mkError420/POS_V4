@@ -70,6 +70,7 @@ export default function Suppliers() {
   // PO form state
   const [poFormData, setPoFormData] = useState({
     supplier_id: '',
+    order_date: '',
     notes: '',
     product_id: '',
     is_new: false,
@@ -420,8 +421,10 @@ export default function Suppliers() {
     setShowProductSuggestions(false);
     setIsEditPoMode(false);
     setPoCart([]);
+    const today = new Date().toISOString().split('T')[0];
     setPoFormData({
       supplier_id: supplierId,
+      order_date: today,
       notes: '',
       product_id: '',
       is_new: false,
@@ -503,6 +506,7 @@ export default function Suppliers() {
 
       setPoFormData({
         supplier_id: String(poDetails.supplier_id),
+        order_date: poDetails.order_date ? poDetails.order_date.split('T')[0] : new Date().toISOString().split('T')[0],
         notes: poDetails.notes || '',
         product_id: '',
         is_new: false,
@@ -577,6 +581,7 @@ export default function Suppliers() {
         },
         body: JSON.stringify({
           supplier_id: parseInt(poFormData.supplier_id),
+          order_date: poFormData.order_date || null,
           notes: poFormData.notes,
           status: poStatus,
           payment_basis: poFormData.payment_basis,
@@ -596,6 +601,7 @@ export default function Suppliers() {
       setPoCart([]);
       setPoFormData({
         supplier_id: '',
+        order_date: '',
         notes: '',
         product_id: '',
         is_new: false,
@@ -1577,7 +1583,7 @@ export default function Suppliers() {
                               </button>
                               {po.status === 'ordered' && (
                                 <button
-                                  onClick={() => openReceiveModal(po)}
+                                  onClick={() => openPoDetails(po.id)}
                                   className="text-emerald-600 hover:text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"
                                 >
                                   Receive
@@ -2272,7 +2278,7 @@ export default function Suppliers() {
                             </button>
                             {po.status === 'ordered' && (
                               <button
-                                onClick={() => openReceiveModal(po)}
+                                onClick={() => openPoDetails(po.id)}
                                 className="text-emerald-600 hover:text-emerald-900 font-bold text-xs border border-emerald-100 bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors animate-pulse"
                               >
                                 Receive Stocks
@@ -2862,6 +2868,16 @@ export default function Suppliers() {
 
           <form className="mt-4 space-y-3 overflow-y-auto pr-1 flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Order Date</label>
+                <input
+                  type="date"
+                  value={poFormData.order_date}
+                  onChange={(e) => setPoFormData({ ...poFormData, order_date: e.target.value })}
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-medium"
+                />
+              </div>
+
               <div className="relative">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Supplier *</label>
                 {selectedSupplierId ? (

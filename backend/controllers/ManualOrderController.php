@@ -561,4 +561,50 @@ class ManualOrderController {
             Auth::jsonError($e->getMessage(), 400);
         }
     }
+
+    public static function listSalesHistory() {
+        Auth::authenticate();
+        Auth::enforceTenant();
+
+        $shopId = Auth::$shopId;
+
+        try {
+            $stmt = DB::query(
+                'SELECT s.*, 
+                        u.name as cashier_name,
+                        c.name as customer_name,
+                        c.phone as customer_phone
+                 FROM sales s 
+                 LEFT JOIN users u ON s.user_id = u.id 
+                 LEFT JOIN customers c ON s.customer_id = c.id 
+                 WHERE s.shop_id = ? 
+                 ORDER BY s.created_at DESC',
+                [$shopId]
+            );
+            $sales = $stmt->fetchAll();
+
+            foreach ($sales as &$sale) {
+                $sale['id'] = (int)$sale['id'];
+                $sale['shop_id'] = (int)$sale['shop_id'];
+                $sale['customer_id'] = $sale['customer_id'] !== null ? (int)$sale['customer_id'] : null;
+                $sale['user_id'] = (int)$sale['user_id'];
+                $sale['total_amount'] = (float)$sale['total_amount'];
+                $sale['discount'] = (float)$sale['discount'];
+                $sale['tax'] = (float)$sale['tax'];
+                $sale['final_amount'] = (float)$sale['final_amount'];
+                $sale['paid_amount'] = (float)$sale['paid_amount'];
+                $sale['due_amount'] = (float)$sale['due_amount'];
+                $sale['points_earned'] = (int)$sale['points_earned'];
+                $sale['points_redeemed'] = (int)$sale['points_redeemed'];
+                $sale['points_redeemed_value'] = (float)$sale['points_redeemed_value'];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($sales);
+
+        } catch (\Exception $e) {
+            error_log('Fetch sales history error: ' . $e->getMessage());
+            Auth::jsonError('Server error retrieving sales history.', 500);
+        }
+    }
 }

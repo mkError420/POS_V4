@@ -5,6 +5,7 @@ import API_BASE_URL from '../config';
 export default function ManualOrders() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [salesHistory, setSalesHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [alert, setAlert] = useState(null);
@@ -83,6 +84,7 @@ export default function ManualOrders() {
     fetchOrders();
     fetchProducts();
     fetchShopInfo();
+    fetchSalesHistory();
   }, []);
 
   const triggerAlert = (type, message) => {
@@ -140,6 +142,20 @@ export default function ManualOrders() {
       }
     } catch (e) {
       console.error('Failed to fetch shop info', e);
+    }
+  };
+
+  const fetchSalesHistory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/manual-orders/sales-history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setSalesHistory(await response.json());
+      }
+    } catch (e) {
+      console.error('Failed to fetch sales history', e);
     }
   };
 
@@ -380,6 +396,7 @@ export default function ManualOrders() {
       } else {
         fetchOrders();
         fetchProducts(); // refresh stock numbers
+        fetchSalesHistory(); // refresh sales history
       }
     } catch (err) {
       triggerAlert('error', err.message);
@@ -401,6 +418,7 @@ export default function ManualOrders() {
       triggerAlert('success', 'Order confirmed and invoice generated successfully!');
       fetchOrders();
       fetchProducts(); // refresh stock details
+      fetchSalesHistory(); // refresh sales history
 
       // Load invoice modal details
       await loadInvoiceDetails(data.sale_id);
@@ -424,6 +442,7 @@ export default function ManualOrders() {
       triggerAlert('success', 'Manual order draft deleted successfully.');
       fetchOrders();
       fetchProducts();
+      fetchSalesHistory();
     } catch (err) {
       triggerAlert('error', err.message);
     }
@@ -536,6 +555,7 @@ export default function ManualOrders() {
       setShowPayDueModal(false);
       setPayingOrder(null);
       fetchOrders();
+      fetchSalesHistory();
     } catch (err) {
       triggerAlert('error', err.message);
     } finally {
@@ -808,6 +828,87 @@ export default function ManualOrders() {
                             <button onClick={() => loadInvoiceDetails(order.sale_id)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold">Receipt</button>
                           </>
                         )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* COLUMN 3: SALES HISTORY */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-xs">
+          <div className="border-b border-slate-100 pb-3 flex justify-between items-center bg-slate-50/50 -mx-4 -mt-4 p-4 rounded-t-2xl">
+            <div>
+              <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shrink-0"></span>
+                <span>All Sales History</span>
+              </h3>
+              <p className="text-xs text-slate-400">Complete sales record with invoice details</p>
+            </div>
+            <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded border border-indigo-100">{salesHistory.length} Sales</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-450 font-bold uppercase tracking-wider">
+                  <th className="pb-2">Invoice ID</th>
+                  <th className="pb-2">Date</th>
+                  <th className="pb-2">Customer</th>
+                  <th className="pb-2">Cashier</th>
+                  <th className="pb-2">Method</th>
+                  <th className="pb-2 text-right">Total Final</th>
+                  <th className="pb-2 text-right">Paid</th>
+                  <th className="pb-2 text-right">Due</th>
+                  <th className="pb-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-650">
+                {loading ? (
+                  <tr>
+                    <td colSpan="9" className="py-8 text-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-indigo-600 mx-auto"></div>
+                    </td>
+                  </tr>
+                ) : salesHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="py-8 text-center text-slate-400">No sales history recorded.</td>
+                  </tr>
+                ) : (
+                  salesHistory.map((sale) => (
+                    <tr key={sale.id} className="hover:bg-slate-50/40">
+                      <td className="py-2.5 pr-2 font-semibold text-indigo-600">#{sale.id}</td>
+                      <td className="py-2.5 pr-2 text-[10px] text-slate-400">{new Date(sale.created_at).toLocaleDateString()}</td>
+                      <td className="py-2.5 pr-2 font-medium text-slate-700">{sale.customer_name || 'Walk-in'}</td>
+                      <td className="py-2.5 pr-2 text-[10px] text-slate-500">{sale.cashier_name || 'System'}</td>
+                      <td className="py-2.5 pr-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold capitalize ${
+                          sale.payment_method === 'cash' ? 'bg-emerald-50 text-emerald-700' : 
+                          sale.payment_method === 'card' ? 'bg-blue-50 text-blue-700' : 
+                          sale.payment_method === 'mobile_pay' ? 'bg-purple-50 text-purple-700' : 
+                          'bg-slate-50 text-slate-700'
+                        }`}>
+                          {sale.payment_method === 'other' ? 'Credit' : sale.payment_method}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-2 text-right font-semibold text-slate-800">৳{parseFloat(sale.final_amount).toFixed(2)}</td>
+                      <td className="py-2.5 pr-2 text-right text-emerald-600 font-medium">৳{parseFloat(sale.paid_amount).toFixed(2)}</td>
+                      <td className="py-2.5 pr-2 text-right">
+                        {parseFloat(sale.due_amount) > 0 ? (
+                          <span className="text-rose-600 font-bold">৳{parseFloat(sale.due_amount).toFixed(2)}</span>
+                        ) : (
+                          <span className="text-emerald-500 font-medium">৳0.00</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <button 
+                          onClick={() => loadInvoiceDetails(sale.id)}
+                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold text-[10px]"
+                        >
+                          Receipt
+                        </button>
                       </td>
                     </tr>
                   ))
