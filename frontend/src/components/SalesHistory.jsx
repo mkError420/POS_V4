@@ -607,134 +607,134 @@ export default function SalesHistory() {
 
             {!trendCollapsed && (
               <div className="relative w-full h-[180px]">
-              {/* SVG Plot */}
-              <svg
-                viewBox="0 0 600 180"
-                className="w-full h-full overflow-visible"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient id="salesAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#818cf8" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#818cf8" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Grid Lines */}
-                {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
-                  const y = 15 + (1 - ratio) * 125;
-                  const labelVal = ratio * maxVal;
-                  return (
-                    <g key={idx}>
-                      <line
-                        x1={55}
-                        y1={y}
-                        x2={575}
-                        y2={y}
-                        stroke="#f1f5f9"
-                        strokeWidth="1.5"
-                      />
-                      <text
-                        x={43}
-                        y={y + 4}
-                        textAnchor="end"
-                        className="text-[10px] font-bold text-slate-400 fill-current font-sans"
-                      >
-                        {chartType === 'revenue' ? `৳${Math.round(labelVal)}` : Math.round(labelVal)}
-                      </text>
-                    </g>
-                  );
-                })}
-
-                {/* Path Logic */}
-                {(() => {
-                  const chartPoints = chartData.map((d, index) => {
-                    const val = chartType === 'revenue' ? d.revenue : d.count;
-                    const x = 55 + (index * (600 - 55 - 25) / 6);
-                    const y = 140 - ((val / maxVal) * 125);
-                    return { x, y, val, date: d.date };
-                  });
-
-                  const linePath = chartPoints.reduce((path, pt, i) => {
-                    return path + (i === 0 ? `M ${pt.x} ${pt.y}` : ` L ${pt.x} ${pt.y}`);
-                  }, '');
-
-                  const areaPath = `${linePath} L ${chartPoints[chartPoints.length - 1].x} 140 L ${chartPoints[0].x} 140 Z`;
-
-                  return (
-                    <>
-                      <path d={areaPath} fill="url(#salesAreaGradient)" />
-                      <path
-                        d={linePath}
-                        fill="none"
-                        stroke="#6366f1"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-
-                      {chartPoints.map((pt, idx) => (
-                        <g key={idx}>
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r="15"
-                            fill="transparent"
-                            className="cursor-pointer"
-                            onMouseEnter={() => setHoveredPoint({ ...pt, index: idx })}
-                            onMouseLeave={() => setHoveredPoint(null)}
-                          />
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={hoveredPoint?.index === idx ? "5" : "3.5"}
-                            fill={hoveredPoint?.index === idx ? "#6366f1" : "#ffffff"}
-                            stroke="#6366f1"
-                            strokeWidth={hoveredPoint?.index === idx ? "2.5" : "1.5"}
-                            className="pointer-events-none transition-all duration-150"
-                          />
-                        </g>
-                      ))}
-
-                      {chartPoints.map((pt, idx) => {
-                        const dateObj = new Date(pt.date);
-                        const label = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        return (
-                          <text
-                            key={idx}
-                            x={pt.x}
-                            y={160}
-                            textAnchor="middle"
-                            className="text-[10px] font-bold text-slate-400 fill-current font-sans"
-                          >
-                            {label}
-                          </text>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
-              </svg>
-
-              {/* Tooltip */}
-              {hoveredPoint && (
-                <div
-                  className="absolute bg-slate-900/95 backdrop-blur-md text-white rounded-xl p-2.5 shadow-xl border border-slate-700 pointer-events-none text-xs flex flex-col space-y-0.5 transition-all duration-75 z-10"
-                  style={{
-                    left: `${(hoveredPoint.x / 600) * 100}%`,
-                    top: `${(hoveredPoint.y / 180) * 100 - 5}%`,
-                    transform: 'translate(-50%, -100%)'
-                  }}
+                {/* SVG Plot */}
+                <svg
+                  viewBox="0 0 600 180"
+                  className="w-full h-full overflow-visible"
+                  preserveAspectRatio="none"
                 >
-                  <span className="font-semibold text-slate-400">
-                    {new Date(hoveredPoint.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                  </span>
-                  <span className="font-extrabold text-white text-sm">
-                    {chartType === 'revenue' ? `Revenue: ৳${parseFloat(hoveredPoint.val).toFixed(2)}` : `Sales: ${hoveredPoint.val}`}
-                  </span>
-                </div>
-              )}
-            </div>
+                  <defs>
+                    <linearGradient id="salesAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#818cf8" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#818cf8" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Grid Lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+                    const y = 15 + (1 - ratio) * 125;
+                    const labelVal = ratio * maxVal;
+                    return (
+                      <g key={idx}>
+                        <line
+                          x1={55}
+                          y1={y}
+                          x2={575}
+                          y2={y}
+                          stroke="#f1f5f9"
+                          strokeWidth="1.5"
+                        />
+                        <text
+                          x={43}
+                          y={y + 4}
+                          textAnchor="end"
+                          className="text-[10px] font-bold text-slate-400 fill-current font-sans"
+                        >
+                          {chartType === 'revenue' ? `৳${Math.round(labelVal)}` : Math.round(labelVal)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Path Logic */}
+                  {(() => {
+                    const chartPoints = chartData.map((d, index) => {
+                      const val = chartType === 'revenue' ? d.revenue : d.count;
+                      const x = 55 + (index * (600 - 55 - 25) / 6);
+                      const y = 140 - ((val / maxVal) * 125);
+                      return { x, y, val, date: d.date };
+                    });
+
+                    const linePath = chartPoints.reduce((path, pt, i) => {
+                      return path + (i === 0 ? `M ${pt.x} ${pt.y}` : ` L ${pt.x} ${pt.y}`);
+                    }, '');
+
+                    const areaPath = `${linePath} L ${chartPoints[chartPoints.length - 1].x} 140 L ${chartPoints[0].x} 140 Z`;
+
+                    return (
+                      <>
+                        <path d={areaPath} fill="url(#salesAreaGradient)" />
+                        <path
+                          d={linePath}
+                          fill="none"
+                          stroke="#6366f1"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {chartPoints.map((pt, idx) => (
+                          <g key={idx}>
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r="15"
+                              fill="transparent"
+                              className="cursor-pointer"
+                              onMouseEnter={() => setHoveredPoint({ ...pt, index: idx })}
+                              onMouseLeave={() => setHoveredPoint(null)}
+                            />
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={hoveredPoint?.index === idx ? "5" : "3.5"}
+                              fill={hoveredPoint?.index === idx ? "#6366f1" : "#ffffff"}
+                              stroke="#6366f1"
+                              strokeWidth={hoveredPoint?.index === idx ? "2.5" : "1.5"}
+                              className="pointer-events-none transition-all duration-150"
+                            />
+                          </g>
+                        ))}
+
+                        {chartPoints.map((pt, idx) => {
+                          const dateObj = new Date(pt.date);
+                          const label = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          return (
+                            <text
+                              key={idx}
+                              x={pt.x}
+                              y={160}
+                              textAnchor="middle"
+                              className="text-[10px] font-bold text-slate-400 fill-current font-sans"
+                            >
+                              {label}
+                            </text>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </svg>
+
+                {/* Tooltip */}
+                {hoveredPoint && (
+                  <div
+                    className="absolute bg-slate-900/95 backdrop-blur-md text-white rounded-xl p-2.5 shadow-xl border border-slate-700 pointer-events-none text-xs flex flex-col space-y-0.5 transition-all duration-75 z-10"
+                    style={{
+                      left: `${(hoveredPoint.x / 600) * 100}%`,
+                      top: `${(hoveredPoint.y / 180) * 100 - 5}%`,
+                      transform: 'translate(-50%, -100%)'
+                    }}
+                  >
+                    <span className="font-semibold text-slate-400">
+                      {new Date(hoveredPoint.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className="font-extrabold text-white text-sm">
+                      {chartType === 'revenue' ? `Revenue: ৳${parseFloat(hoveredPoint.val).toFixed(2)}` : `Sales: ${hoveredPoint.val}`}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         );
@@ -826,12 +826,12 @@ export default function SalesHistory() {
             </div>
             <button
               onClick={exportDueBillsToCSV}
-              className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2 px-4 border border-slate-200 rounded-xl text-xs shadow-xs transition-colors flex items-center space-x-2"
+              className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 border border-gray-200 rounded-xl text-xs shadow-xs transition-colors flex items-center space-x-2"
             >
-              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>Export Due Bills CSV</span>
+              <span>Export All Sales CSV</span>
             </button>
           </div>
           <table className="w-full text-left border-collapse">

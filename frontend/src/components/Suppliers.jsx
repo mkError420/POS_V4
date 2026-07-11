@@ -2856,7 +2856,7 @@ export default function Suppliers() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-        <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] p-5 shadow-2xl overflow-hidden flex flex-col">
+        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] p-5 shadow-2xl overflow-hidden flex flex-col">
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <h3 className="text-lg font-bold text-slate-800">{isEditPoMode ? 'Edit Purchase Order' : 'Create Purchase Order'}</h3>
             <button onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); }} className="text-slate-400 hover:text-slate-600">
@@ -2866,8 +2866,8 @@ export default function Suppliers() {
             </button>
           </div>
 
-          <form className="mt-4 space-y-3 overflow-y-auto pr-1 flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form className="mt-4 space-y-4 overflow-y-auto pr-1 flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Order Date</label>
                 <input
@@ -2997,7 +2997,7 @@ export default function Suppliers() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Product Name *</label>
                 <input
@@ -3023,26 +3023,26 @@ export default function Suppliers() {
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50 disabled:bg-slate-50 font-semibold font-mono"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+                <input
+                  list="po-categories-list"
+                  type="text"
+                  value={poFormData.category || ''}
+                  onChange={(e) => setPoFormData({ ...poFormData, category: e.target.value })}
+                  placeholder="Search or enter category"
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-semibold"
+                />
+                <datalist id="po-categories-list">
+                  {Array.from(new Set(productsList.map(p => p.category).filter(Boolean))).map(cat => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
-              <input
-                list="po-categories-list"
-                type="text"
-                value={poFormData.category || ''}
-                onChange={(e) => setPoFormData({ ...poFormData, category: e.target.value })}
-                placeholder="Search or enter category (e.g. Grains, Snacks)"
-                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-semibold"
-              />
-              <datalist id="po-categories-list">
-                {Array.from(new Set(productsList.map(p => p.category).filter(Boolean))).map(cat => (
-                  <option key={cat} value={cat} />
-                ))}
-              </datalist>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cost Price (৳) *</label>
                 <input
@@ -3066,9 +3066,7 @@ export default function Suppliers() {
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Quantity to Order</label>
                 <input
@@ -3097,7 +3095,7 @@ export default function Suppliers() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Payment Basis *</label>
                 <select
@@ -3126,17 +3124,16 @@ export default function Suppliers() {
                   </>
                 )}
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Notes / Instructions</label>
-              <input
-                type="text"
-                value={poFormData.notes}
-                onChange={(e) => setPoFormData({ ...poFormData, notes: e.target.value })}
-                placeholder="e.g. Rush order for holiday stock"
-                className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 mb-4"
-              />
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Notes / Instructions</label>
+                <input
+                  type="text"
+                  value={poFormData.notes}
+                  onChange={(e) => setPoFormData({ ...poFormData, notes: e.target.value })}
+                  placeholder="e.g. Rush order for holiday stock"
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 mb-4"
+                />
+              </div>
             </div>
 
             {/* Add to Cart Button */}
