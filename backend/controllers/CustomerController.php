@@ -16,7 +16,7 @@ class CustomerController {
 
         try {
             $stmt = DB::query(
-                'SELECT id, name, phone, email, address, due_balance, loyalty_points FROM customers WHERE shop_id = ? ORDER BY name ASC',
+                'SELECT id, name, phone, email, address, due_balance, loyalty_points, created_at FROM customers WHERE shop_id = ? ORDER BY name ASC',
                 [$shopId]
             );
             $customers = $stmt->fetchAll();

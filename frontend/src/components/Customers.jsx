@@ -867,6 +867,7 @@ export default function Customers() {
             <thead>
               <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
                 <th className="p-4">Customer Name</th>
+                <th className="p-4">Date & Time</th>
                 <th className="p-4">Phone Number</th>
                 <th className="p-4">Email</th>
                 <th className="p-4">Address</th>
@@ -878,7 +879,7 @@ export default function Customers() {
             <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center">
+                  <td colSpan="8" className="p-12 text-center">
                     <div className="flex justify-center items-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
                     </div>
@@ -886,7 +887,7 @@ export default function Customers() {
                 </tr>
               ) : filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center text-slate-400">
+                  <td colSpan="8" className="p-12 text-center text-slate-400">
                     No matching customers found.
                   </td>
                 </tr>
@@ -894,6 +895,9 @@ export default function Customers() {
                 currentCustomers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 font-semibold text-slate-800">{customer.name}</td>
+                    <td className="p-4 text-slate-500 text-xs font-medium">
+                      {customer.created_at ? new Date(customer.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </td>
                     <td className="p-4 text-slate-600">{customer.phone || '-'}</td>
                     <td className="p-4 text-slate-600">{customer.email || '-'}</td>
                     <td className="p-4 text-slate-600 max-w-[200px] truncate" title={customer.address}>{customer.address || '-'}</td>

@@ -492,7 +492,7 @@ class SupplierController {
 
             // Fetch PO items
             $stmt = DB::query(
-                'SELECT poi.*, p.name AS product_name, p.sku AS product_sku, p.category AS product_category 
+                'SELECT poi.*, p.name AS product_name, p.sku AS product_sku, p.category AS product_category, p.unit AS product_unit 
                  FROM purchase_order_items poi 
                  JOIN products p ON poi.product_id = p.id 
                  WHERE poi.purchase_order_id = ? AND poi.shop_id = ?',
@@ -542,7 +542,6 @@ class SupplierController {
         try {
             DB::beginTransaction();
 
-            // Verify status is draft and retrieve supplier_id
             $stmt = DB::query('SELECT status, supplier_id FROM purchase_orders WHERE id = ? AND shop_id = ?', [$poId, $shopId]);
             $po = $stmt->fetch();
 
@@ -551,19 +550,42 @@ class SupplierController {
                 Auth::jsonError('Purchase Order not found.', 404);
             }
 
-            if ($po['status'] !== 'draft') {
+            if ($po['status'] === 'cancelled') {
                 DB::rollBack();
-                Auth::jsonError('Can only update Purchase Orders in draft status.', 400);
+                Auth::jsonError('Cannot update cancelled Purchase Orders.', 400);
             }
 
             $supplierId = (int)$po['supplier_id'];
+            $poStatus = $po['status'];
 
             // Retrieve current PO info to get payment basis & paid amount fallback
-            $poStmt = DB::query('SELECT payment_basis, paid_amount FROM purchase_orders WHERE id = ? AND shop_id = ?', [$poId, $shopId]);
+            $poStmt = DB::query('SELECT payment_basis, paid_amount, due_amount FROM purchase_orders WHERE id = ? AND shop_id = ?', [$poId, $shopId]);
             $poInfo = $poStmt->fetch();
 
             $paymentBasis = $requestData['payment_basis'] ?? ($poInfo ? $poInfo['payment_basis'] : 'cash');
             $requestedPaidAmount = isset($requestData['paid_amount']) ? (float)$requestData['paid_amount'] : ($poInfo ? (float)$poInfo['paid_amount'] : 0.00);
+
+            // REVERT PREVIOUS PO EFFECTS IF IT WAS ALREADY RECEIVED OR ORDERED
+            if ($poStatus === 'received') {
+                $stmt = DB::query('SELECT product_id, quantity_received FROM purchase_order_items WHERE purchase_order_id = ? AND shop_id = ?', [$poId, $shopId]);
+                $oldItems = $stmt->fetchAll();
+
+                foreach ($oldItems as $item) {
+                    if ((int)$item['quantity_received'] > 0) {
+                        DB::query(
+                            'UPDATE products SET stock_quantity = GREATEST(stock_quantity - ?, 0) WHERE id = ? AND shop_id = ?',
+                            [(int)$item['quantity_received'], (int)$item['product_id'], $shopId]
+                        );
+                    }
+                }
+            }
+            
+            if (($poStatus === 'ordered' || $poStatus === 'received') && $poInfo['payment_basis'] === 'credit' && (float)$poInfo['due_amount'] > 0) {
+                DB::query(
+                    'UPDATE suppliers SET due_balance = GREATEST(due_balance - ?, 0) WHERE id = ? AND shop_id = ?',
+                    [(float)$poInfo['due_amount'], $supplierId, $shopId]
+                );
+            }
 
             // Sync items (delete and re-insert)
             DB::query('DELETE FROM purchase_order_items WHERE purchase_order_id = ? AND shop_id = ?', [$poId, $shopId]);
@@ -582,12 +604,57 @@ class SupplierController {
                 $dueAmount = 0.00;
             }
 
+            // Apply new stock if PO was already received
+            if ($poStatus === 'received') {
+                $stmt = DB::query('SELECT product_id, quantity_ordered, cost_price, selling_price FROM purchase_order_items WHERE purchase_order_id = ? AND shop_id = ?', [$poId, $shopId]);
+                $newItems = $stmt->fetchAll();
+
+                foreach ($newItems as $nItem) {
+                    $productId = (int)$nItem['product_id'];
+                    $qtyOrdered = (int)$nItem['quantity_ordered'];
+                    $costPrice = (float)$nItem['cost_price'];
+                    $sellingPrice = (float)$nItem['selling_price'];
+
+                    DB::query(
+                        'UPDATE purchase_order_items SET quantity_received = ? WHERE purchase_order_id = ? AND product_id = ? AND shop_id = ?',
+                        [$qtyOrdered, $poId, $productId, $shopId]
+                    );
+
+                    DB::query(
+                        'UPDATE products SET stock_quantity = stock_quantity + ?, cost_price = ?, price = ? WHERE id = ? AND shop_id = ?',
+                        [$qtyOrdered, $costPrice, $sellingPrice > 0 ? $sellingPrice : $costPrice, $productId, $shopId]
+                    );
+                }
+            }
+
             // Update main PO total
             DB::query(
                 'UPDATE purchase_orders SET order_date = ?, total_amount = ?, paid_amount = ?, due_amount = ?, payment_basis = ?, notes = ?
                  WHERE id = ? AND shop_id = ?',
                 [$orderDate, $totalAmount, $paidAmount, $dueAmount, $paymentBasis, $notes, $poId, $shopId]
             );
+
+            // Re-apply supplier due balance
+            if (($poStatus === 'ordered' || $poStatus === 'received') && $paymentBasis === 'credit' && $dueAmount > 0) {
+                DB::query(
+                    'UPDATE suppliers SET due_balance = due_balance + ? WHERE id = ? AND shop_id = ?',
+                    [$dueAmount, $supplierId, $shopId]
+                );
+            }
+
+            if ($poStatus === 'received') {
+                $columnCheck = DB::query("SHOW COLUMNS FROM suppliers LIKE 'total_spent'");
+                if ($columnCheck->fetch() !== false) {
+                    DB::query(
+                        'UPDATE suppliers s SET total_spent = (
+                             SELECT COALESCE(SUM(stock_quantity * cost_price), 0)
+                             FROM products
+                             WHERE supplier_id = s.id AND shop_id = s.shop_id
+                         ) WHERE id = ? AND shop_id = ?',
+                        [$supplierId, $shopId]
+                    );
+                }
+            }
 
             DB::commit();
 

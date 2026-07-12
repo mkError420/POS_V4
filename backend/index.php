@@ -1,4 +1,8 @@
 <?php
+// Prevent PHP warnings/notices from outputting HTML and breaking JSON responses
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
 // Set default timezone to Bangladesh Standard Time
 date_default_timezone_set('Asia/Dhaka');
 

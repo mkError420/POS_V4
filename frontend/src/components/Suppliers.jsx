@@ -169,6 +169,7 @@ export default function Suppliers() {
 
   // PO Filter (global PO list tab)
   const [poFilterStatus, setPoFilterStatus] = useState('all');
+  const [poSearchTerm, setPoSearchTerm] = useState('');
   const [poPaymentAmount, setPoPaymentAmount] = useState('');
 
   // Supplier Profile - PO history filters
@@ -1055,8 +1056,18 @@ export default function Suppliers() {
 
   // FILTERED PURCHASE ORDERS FOR LISTINGS
   const getFilteredPOs = (ordersList) => {
-    if (poFilterStatus === 'all') return ordersList;
-    return ordersList.filter(o => o.status === poFilterStatus);
+    let filtered = ordersList;
+    if (poFilterStatus !== 'all') {
+      filtered = filtered.filter(o => o.status === poFilterStatus);
+    }
+    if (poSearchTerm.trim() !== '') {
+      const term = poSearchTerm.toLowerCase();
+      filtered = filtered.filter(o => 
+        o.supplier_name?.toLowerCase().includes(term) || 
+        String(o.id).includes(term)
+      );
+    }
+    return filtered;
   };
 
   const handleDownloadPOCSV = async () => {
@@ -1589,21 +1600,19 @@ export default function Suppliers() {
                                   Receive
                                 </button>
                               )}
+                              <button
+                                onClick={() => openEditPo(po)}
+                                className="text-indigo-600 hover:text-indigo-800 font-semibold mr-3"
+                              >
+                                Edit
+                              </button>
                               {po.status === 'draft' && (
-                                <>
-                                  <button
-                                    onClick={() => openEditPo(po)}
-                                    className="text-indigo-600 hover:text-indigo-800 font-semibold mr-3"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => updatePoStatus(po.id, 'ordered')}
-                                    className="text-amber-600 hover:text-gray-850 font-semibold mr-3"
-                                  >
-                                    Place Order
-                                  </button>
-                                </>
+                                <button
+                                  onClick={() => updatePoStatus(po.id, 'ordered')}
+                                  className="text-amber-600 hover:text-gray-850 font-semibold mr-3"
+                                >
+                                  Place Order
+                                </button>
                               )}
                               <button
                                 onClick={() => handleDeletePo(po)}
@@ -2172,28 +2181,48 @@ export default function Suppliers() {
         return (
           <div className="space-y-4">
             {/* PO Filters bar */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
-              <div className="flex items-center space-x-2.5">
-                <span className="text-xs font-bold text-slate-400 uppercase">Filter Status:</span>
-                <div className="flex space-x-1.5">
-                  {['all', 'draft', 'ordered', 'received', 'cancelled'].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => {
-                        setPoFilterStatus(st);
-                        setPoPage(1);
-                      }}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all border ${poFilterStatus === st
-                        ? 'bg-slate-600 border-indigo-600 text-white'
-                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
-                        }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Filter Status:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['all', 'draft', 'ordered', 'received', 'cancelled'].map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => {
+                          setPoFilterStatus(st);
+                          setPoPage(1);
+                        }}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all border ${poFilterStatus === st
+                          ? 'bg-slate-600 border-indigo-600 text-white'
+                          : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
+                          }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="relative w-full sm:w-64">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search by supplier or PO#..."
+                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                    value={poSearchTerm}
+                    onChange={(e) => {
+                      setPoSearchTerm(e.target.value);
+                      setPoPage(1);
+                    }}
+                  />
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 w-full lg:w-auto justify-end">
                 <button
                   onClick={handleDownloadPOCSV}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl text-sm shadow transition-colors flex items-center space-x-2"
@@ -2284,21 +2313,19 @@ export default function Suppliers() {
                                 Receive Stocks
                               </button>
                             )}
+                            <button
+                              onClick={() => openEditPo(po)}
+                              className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
+                            >
+                              Edit
+                            </button>
                             {po.status === 'draft' && (
-                              <>
-                                <button
-                                  onClick={() => openEditPo(po)}
-                                  className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => updatePoStatus(po.id, 'ordered')}
-                                  className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
-                                >
-                                  Place Order
-                                </button>
-                              </>
+                              <button
+                                onClick={() => updatePoStatus(po.id, 'ordered')}
+                                className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors mr-2"
+                              >
+                                Place Order
+                              </button>
                             )}
                             <button
                               onClick={() => handleDeletePo(po)}
@@ -3162,8 +3189,42 @@ export default function Suppliers() {
                         <div className="font-semibold text-slate-800">
                           {item.name} {item.category && <span className="ml-1.5 px-1.5 py-0.25 bg-indigo-50 text-indigo-700 rounded text-[9px] font-bold border border-indigo-100">{item.category}</span>}
                         </div>
-                        <div className="text-slate-500">
-                          {item.sku} • Qty: {item.quantity_ordered} • Tk {item.cost_price.toFixed(2)} × {item.quantity_ordered} = Tk {(item.cost_price * item.quantity_ordered).toFixed(2)}
+                        <div className="text-slate-500 mt-1 flex items-center gap-2">
+                          <span>{item.sku}</span>
+                          <span>•</span>
+                          <div className="flex items-center border border-slate-200 rounded">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newCart = [...poCart];
+                                newCart[index].quantity_ordered = Math.max(1, (newCart[index].quantity_ordered || 1) - 1);
+                                setPoCart(newCart);
+                              }}
+                              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                            >-</button>
+                            <input
+                              type="number"
+                              min="1"
+                              step="any"
+                              value={item.quantity_ordered}
+                              onChange={(e) => {
+                                const newCart = [...poCart];
+                                newCart[index].quantity_ordered = e.target.value === '' ? '' : Math.max(1, parseFloat(e.target.value) || 1);
+                                setPoCart(newCart);
+                              }}
+                              className="w-12 text-center text-xs outline-none py-0.5 hide-arrow"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newCart = [...poCart];
+                                newCart[index].quantity_ordered = (parseFloat(newCart[index].quantity_ordered) || 0) + 1;
+                                setPoCart(newCart);
+                              }}
+                              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                            >+</button>
+                          </div>
+                          <span>• Tk {item.cost_price.toFixed(2)} × {item.quantity_ordered} = Tk {(item.cost_price * (parseFloat(item.quantity_ordered) || 0)).toFixed(2)}</span>
                         </div>
                       </div>
                       <button
@@ -3202,20 +3263,32 @@ export default function Suppliers() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={(e) => handlePoSubmit(e, 'draft')}
-                  className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
-                >
-                  {isEditPoMode ? 'Save Draft' : 'Draft'}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handlePoSubmit(e, 'ordered')}
-                  className="w-full sm:w-auto px-5 py-2 bg-slate-600 hover:bg-yellow-700 text-white rounded-xl text-sm font-semibold transition-colors shadow"
-                >
-                  {isEditPoMode ? 'Update Order' : 'Place Order'}
-                </button>
+                {isEditPoMode && selectedPo?.status === 'received' ? (
+                  <button
+                    type="button"
+                    onClick={(e) => handlePoSubmit(e, 'received')}
+                    className="w-full sm:w-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors shadow"
+                  >
+                    Update Received Order
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => handlePoSubmit(e, 'draft')}
+                      className="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
+                    >
+                      {isEditPoMode ? 'Save Draft' : 'Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handlePoSubmit(e, 'ordered')}
+                      className="w-full sm:w-auto px-5 py-2 bg-slate-600 hover:bg-yellow-700 text-white rounded-xl text-sm font-semibold transition-colors shadow"
+                    >
+                      {isEditPoMode ? 'Update Order' : 'Place Order'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </form>
@@ -3235,11 +3308,22 @@ export default function Suppliers() {
               <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Purchase Order Detail</span>
               <h3 className="text-lg font-black text-slate-800">#PO-{selectedPo.id}</h3>
             </div>
-            <button onClick={() => setShowPoDetailsModal(false)} className="text-slate-400 hover:text-slate-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  setShowPoDetailsModal(false);
+                  openEditPo(selectedPo);
+                }}
+                className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm border border-indigo-200 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Edit
+              </button>
+              <button onClick={() => setShowPoDetailsModal(false)} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 space-y-4 overflow-y-auto flex-1 pr-1 text-sm">
@@ -3314,19 +3398,28 @@ export default function Suppliers() {
                         <td className="p-3 font-mono font-bold text-slate-500">{item.product_sku}</td>
                         <td className="p-3 font-semibold text-slate-800">
                           <div>{item.product_name}</div>
-                          {item.product_category && (
-                            <span className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.25 rounded border border-indigo-100 mt-0.5">
-                              {item.product_category}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap gap-1 items-center mt-0.5">
+                            {item.product_category && (
+                              <span className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.25 rounded border border-indigo-100">
+                                {item.product_category}
+                              </span>
+                            )}
+                            {item.product_unit && (
+                              <span className="inline-block bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.25 rounded border border-emerald-100">
+                                {item.product_unit}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3 text-slate-650">{formatCurrency(item.cost_price !== undefined ? item.cost_price : item.unit_price)}</td>
                         <td className="p-3 text-slate-650">{formatCurrency(item.selling_price || 0)}</td>
-                        <td className="p-3 text-slate-700 font-semibold">{item.quantity_ordered !== undefined ? item.quantity_ordered : item.quantity}</td>
+                        <td className="p-3 text-slate-700 font-semibold">
+                          {item.quantity_ordered !== undefined ? item.quantity_ordered : item.quantity} {item.product_unit && <span className="text-xs font-normal text-slate-500">{item.product_unit}</span>}
+                        </td>
                         <td className="p-3 text-slate-750">
                           {selectedPo.status === 'received' ? (
                             <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                              {item.quantity_received}
+                              {item.quantity_received} {item.product_unit && <span className="font-normal">{item.product_unit}</span>}
                             </span>
                           ) : (
                             <span className="text-slate-400">-</span>

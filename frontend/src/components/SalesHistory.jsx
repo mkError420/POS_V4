@@ -20,6 +20,13 @@ export default function SalesHistory() {
   const [dailySalesLoading, setDailySalesLoading] = useState(false);
   const [trendCollapsed, setTrendCollapsed] = useState(true);
 
+  // Edit Sale state
+  const [products, setProducts] = useState([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSaleData, setEditSaleData] = useState(null);
+  const [editSaleLoading, setEditSaleLoading] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+
   // Modal viewer state
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetails, setSaleDetails] = useState(null);
@@ -112,12 +119,30 @@ export default function SalesHistory() {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch products', e);
+    }
+  };
+
   const fetchSaleDetails = async (saleId) => {
     setDetailsLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/sales/${saleId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
       });
       if (!response.ok) throw new Error('Failed to load transaction details.');
       const data = await response.json();
@@ -129,6 +154,10 @@ export default function SalesHistory() {
       setDetailsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -146,6 +175,130 @@ export default function SalesHistory() {
   const openReceipt = (sale) => {
     setSelectedSale(sale);
     fetchSaleDetails(sale.id);
+  };
+
+  const openEditSale = async (sale) => {
+    setDetailsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/sales/${sale.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to load transaction details.');
+
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("Invalid JSON response:", text);
+        throw new Error("Server returned an invalid response. Check the console for details.");
+      }
+      const initialData = {
+        ...data,
+        items: data.items.map(i => ({
+          product_id: i.product_id || i.id,
+          name: i.product_name || i.name,
+          quantity: parseInt(i.quantity),
+          unit_price: parseFloat(i.unit_price || i.price),
+          subtotal: parseFloat(i.unit_price || i.price) * parseInt(i.quantity)
+        })),
+        discount: parseFloat(data.discount || 0),
+        tax: parseFloat(data.tax || 0),
+        paid_amount: parseFloat(data.paid_amount || 0)
+      };
+
+      updateEditSaleTotals(initialData);
+      setShowEditModal(true);
+    } catch (err) {
+      triggerAlert('error', err.message);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleEditItemQty = (idx, newQty) => {
+    if (newQty < 1) return;
+    const newData = { ...editSaleData };
+    newData.items[idx].quantity = newQty;
+    newData.items[idx].subtotal = newData.items[idx].unit_price * newQty;
+    updateEditSaleTotals(newData);
+  };
+
+  const handleRemoveEditItem = (idx) => {
+    const newData = { ...editSaleData };
+    newData.items.splice(idx, 1);
+    updateEditSaleTotals(newData);
+  };
+
+  const handleAddEditProduct = (prod) => {
+    const newData = { ...editSaleData };
+    const existing = newData.items.find(i => i.product_id === prod.id);
+    if (existing) {
+      existing.quantity += 1;
+      existing.subtotal = existing.quantity * existing.unit_price;
+    } else {
+      newData.items.push({
+        product_id: prod.id,
+        name: prod.name,
+        quantity: 1,
+        unit_price: parseFloat(prod.price),
+        subtotal: parseFloat(prod.price)
+      });
+    }
+    setProductSearch('');
+    updateEditSaleTotals(newData);
+  };
+
+  const updateEditSaleTotals = (data) => {
+    const subtotal = data.items.reduce((sum, item) => sum + item.subtotal, 0);
+    data.subtotal = subtotal;
+    const final_amount = subtotal - parseFloat(data.discount || 0) + parseFloat(data.tax || 0);
+    data.final_amount = final_amount;
+    setEditSaleData(data);
+  };
+
+  const saveEditSale = async () => {
+    if (editSaleData.items.length === 0) {
+      return triggerAlert('error', 'Sale must have at least one item.');
+    }
+    setEditSaleLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const payload = {
+        customer_id: editSaleData.customer_id,
+        items: editSaleData.items,
+        discount: editSaleData.discount,
+        tax: editSaleData.tax,
+        payment_method: editSaleData.payment_method,
+        paid_amount: editSaleData.paid_amount,
+        created_at: editSaleData.created_at
+      };
+
+      const response = await fetch(`${API_BASE_URL}/sales/${editSaleData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Failed to update sale.');
+
+      triggerAlert('success', 'Sale updated successfully.');
+      setShowEditModal(false);
+      fetchSales();
+    } catch (err) {
+      triggerAlert('error', err.message);
+    } finally {
+      setEditSaleLoading(false);
+    }
   };
 
   const openProfitModal = async (sale) => {
@@ -399,6 +552,159 @@ export default function SalesHistory() {
   const indexOfLastSale = currentPage * itemsPerPage;
   const indexOfFirstSale = indexOfLastSale - itemsPerPage;
   const currentSales = filteredSales.slice(indexOfFirstSale, indexOfLastSale);
+
+  const renderEditSaleModal = () => {
+    if (!editSaleData) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowEditModal(false)}></div>
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Edit Sale #{editSaleData.id}</h2>
+              <p className="text-sm text-slate-500 mt-1">Modify items, discount, tax, or payment method</p>
+            </div>
+            <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {/* Search Product */}
+            <div className="mb-6 relative">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Add Product</label>
+              <input
+                type="text"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                placeholder="Search products by name or SKU..."
+                value={productSearch}
+                onChange={e => setProductSearch(e.target.value)}
+              />
+              {productSearch && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))).map(prod => (
+                    <button
+                      key={prod.id}
+                      onClick={() => handleAddEditProduct(prod)}
+                      className="w-full text-left px-4 py-2 hover:bg-indigo-50 flex justify-between items-center text-sm"
+                    >
+                      <span>{prod.name} <span className="text-xs text-slate-500 ml-2">Stock: {prod.stock_quantity}</span></span>
+                      <span className="font-semibold text-indigo-600">৳{parseFloat(prod.price).toFixed(2)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Cart Items Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                  <tr>
+                    <th className="p-3 font-semibold">Product</th>
+                    <th className="p-3 font-semibold text-center w-24">Price</th>
+                    <th className="p-3 font-semibold text-center w-32">Qty</th>
+                    <th className="p-3 font-semibold text-right w-24">Subtotal</th>
+                    <th className="p-3 font-semibold text-center w-12"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {editSaleData.items.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="p-3 font-medium text-slate-700">{item.name}</td>
+                      <td className="p-3 text-center text-slate-500">৳{item.unit_price.toFixed(2)}</td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-center">
+                          <button onClick={() => handleEditItemQty(idx, item.quantity - 1)} className="w-8 h-8 rounded-l-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">-</button>
+                          <input
+                            type="number"
+                            className="w-12 h-8 text-center border-y border-slate-100 text-sm font-semibold focus:outline-none focus:ring-0"
+                            value={item.quantity}
+                            onChange={(e) => handleEditItemQty(idx, parseInt(e.target.value) || 1)}
+                            min="1"
+                          />
+                          <button onClick={() => handleEditItemQty(idx, item.quantity + 1)} className="w-8 h-8 rounded-r-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">+</button>
+                        </div>
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-700">৳{item.subtotal.toFixed(2)}</td>
+                      <td className="p-3 text-center">
+                        <button onClick={() => handleRemoveEditItem(idx)} className="text-rose-400 hover:text-rose-600 p-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {editSaleData.items.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="p-6 text-center text-slate-400 italic">No items in this sale.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals & Payment */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Discount (৳)</label>
+                  <input type="number" step="0.01" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" value={editSaleData.discount || ''} onChange={e => updateEditSaleTotals({ ...editSaleData, discount: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Tax (৳)</label>
+                  <input type="number" step="0.01" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" value={editSaleData.tax || ''} onChange={e => updateEditSaleTotals({ ...editSaleData, tax: parseFloat(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 text-sm">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Subtotal:</span>
+                    <span className="font-semibold text-slate-700">৳{editSaleData.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-indigo-600 font-bold text-lg pt-2 border-t border-slate-200">
+                    <span>Final Amount:</span>
+                    <span>৳{editSaleData.final_amount.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Paid Amount (৳)</label>
+                  <input type="number" step="0.01" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-emerald-600" value={editSaleData.paid_amount === null ? '' : editSaleData.paid_amount} onChange={e => setEditSaleData({ ...editSaleData, paid_amount: e.target.value === '' ? 0 : parseFloat(e.target.value) })} />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Payment Method</label>
+                  <select className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" value={editSaleData.payment_method} onChange={e => setEditSaleData({ ...editSaleData, payment_method: e.target.value })}>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="mobile_banking">Mobile Banking</option>
+                  </select>
+                </div>
+
+                {editSaleData.final_amount > editSaleData.paid_amount && (
+                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-semibold flex justify-between">
+                    <span>New Due Created:</span>
+                    <span>৳{(editSaleData.final_amount - editSaleData.paid_amount).toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50">
+            <button onClick={() => setShowEditModal(false)} className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
+            <button
+              onClick={saveEditSale}
+              disabled={editSaleLoading || editSaleData.items.length === 0}
+              className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-200 transition-all"
+            >
+              {editSaleLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -914,6 +1220,12 @@ export default function SalesHistory() {
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center space-x-1.5">
+                        <button
+                          onClick={() => openEditSale(sale)}
+                          className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => openReceipt(sale)}
                           className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
@@ -1640,6 +1952,7 @@ export default function SalesHistory() {
         </div>
       )}
 
+      {showEditModal && renderEditSaleModal()}
     </div>
   );
 }

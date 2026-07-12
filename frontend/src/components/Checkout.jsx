@@ -2151,26 +2151,53 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         {/* Customer & Cart items header */}
         <div className="p-2.5 border-b border-slate-100 bg-slate-50 space-y-2">
           <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2">
+            <div className="col-span-2 relative">
               <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
                 Select Customer
               </label>
-              <select
-                value={activeTab.selectedCustomerId}
-                onChange={(e) => updateActiveTabState('selectedCustomerId', e.target.value)}
+              <input
+                type="text"
+                placeholder="Walk-in Customer"
+                value={activeTab.selectedCustomerId ? (customers.find(c => String(c.id) === String(activeTab.selectedCustomerId))?.name || activeTab.customerName || '') : (activeTab.customerName || '')}
+                onChange={(e) => {
+                  updateActiveTabState('customerName', e.target.value);
+                  if (activeTab.selectedCustomerId !== '') {
+                    updateActiveTabState('selectedCustomerId', '');
+                  }
+                }}
                 className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                <option value="">Walk-in Customer</option>
-                {customers.map(c => {
-                  const balance = parseFloat(c.due_balance || 0);
-                  const balanceStr = balance > 0 ? ` [Due: ৳${balance.toFixed(2)}]` : '';
-                  return (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.phone && c.phone !== '-' ? `(${c.phone})` : ''}{balanceStr}
-                    </option>
-                  );
-                })}
-              </select>
+              />
+              
+              {/* Autocomplete Customer Suggestions */}
+              {activeTab.selectedCustomerId === '' && activeTab.customerName && activeTab.customerName.trim() !== '' && (() => {
+                const query = activeTab.customerName.toLowerCase();
+                const suggestions = customers.filter(c =>
+                  c.name.toLowerCase().includes(query) || (c.phone && c.phone.includes(query))
+                );
+                if (suggestions.length === 0) return null;
+                return (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-[60] max-h-40 overflow-y-auto divide-y divide-slate-100">
+                    {suggestions.map(c => (
+                      <div
+                        key={c.id} 
+                        onClick={() => {
+                           updateActiveTabState('selectedCustomerId', c.id);
+                           updateActiveTabState('customerName', c.name);
+                           updateActiveTabState('customerPhone', c.phone || '');
+                           updateActiveTabState('customerAddress', c.address || '');
+                        }}
+                        className="p-2 px-3 hover:bg-indigo-50 cursor-pointer text-left transition-colors"
+                      >
+                        <div className="text-xs font-semibold text-slate-800">{c.name}</div>
+                        <div className="text-[10px] text-slate-500 flex justify-between mt-0.5">
+                          <span>Phone: {c.phone || '-'}</span>
+                          {parseFloat(c.due_balance) > 0 && <span className="text-rose-600">Due: ৳{parseFloat(c.due_balance).toFixed(2)}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <div className="col-span-1">
               <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
@@ -2304,16 +2331,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               );
             })()}
 
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className="col-span-1">
-                <input
-                  type="text"
-                  placeholder="Customer Name"
-                  value={activeTab.customerName}
-                  onChange={(e) => updateActiveTabState('customerName', e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-1.5">
+              {/* Customer Name input removed per user request */}
 
               <div className="col-span-1 relative">
                 <input
@@ -2355,15 +2374,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 })()}
               </div>
 
-              <div className="col-span-2">
-                <input
-                  type="text"
-                  placeholder="Address"
-                  value={activeTab.customerAddress}
-                  onChange={(e) => updateActiveTabState('customerAddress', e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
+              {/* Address input removed per user request */}
             </div>
 
             {/* Checkbox for saving / syncing to database */}
