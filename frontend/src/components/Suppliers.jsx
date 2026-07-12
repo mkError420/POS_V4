@@ -3108,17 +3108,20 @@ export default function Suppliers() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Unit *</label>
-                <select
+                <input
+                  list="unit-options"
                   value={poFormData.unit}
                   onChange={(e) => setPoFormData({ ...poFormData, unit: e.target.value })}
+                  placeholder="e.g. piece, kg, box"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-medium"
-                >
-                  <option value="piece">Piece</option>
-                  <option value="kg">kg</option>
-                  <option value="gm">gm</option>
-                  <option value="liter">Liter</option>
-                  <option value="packet">Packet</option>
-                </select>
+                />
+                <datalist id="unit-options">
+                  <option value="piece" />
+                  <option value="kg" />
+                  <option value="gm" />
+                  <option value="liter" />
+                  <option value="packet" />
+                </datalist>
               </div>
             </div>
 

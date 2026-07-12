@@ -485,6 +485,26 @@ export default function TotalRevenue() {
               </div>
             </div>
 
+            {/* Sales Profit Card */}
+            <div className={`border rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between ${(parseFloat(revenueData.sales_revenue || 0) - parseFloat(revenueData.cost_of_goods_sold || 0)) >= 0
+              ? 'bg-indigo-50/40 border-indigo-200 text-indigo-800'
+              : 'bg-rose-50/40 border-rose-200 text-rose-800'
+              }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-455 uppercase tracking-wider">Sales Profit</span>
+                <div className={`p-2.5 rounded-xl ${(parseFloat(revenueData.sales_revenue || 0) - parseFloat(revenueData.cost_of_goods_sold || 0)) >= 0 ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'
+                  }`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="block text-2xl font-black">{formatCurrency((parseFloat(revenueData.sales_revenue || 0) - parseFloat(revenueData.cost_of_goods_sold || 0)))}</span>
+                <span className="text-xs opacity-75 mt-1 block">Sales Amount: {formatCurrency(revenueData.sales_revenue || 0)}</span>
+              </div>
+            </div>
+
           </div>
 
           {/* Two profit breakdown boxes side-by-side (Net cashflow profit vs Trading margin COGS profit) */}

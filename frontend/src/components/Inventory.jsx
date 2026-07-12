@@ -1723,8 +1723,14 @@ export default function Inventory() {
                               <td className="p-4 text-center text-slate-600">
                                 {d.sold_price !== null ? Number(d.sold_price).toFixed(2) : '-'}
                               </td>
-                              <td className={`p-4 text-center font-bold ${d.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {d.qty_change >= 0 ? '+' : ''}{d.qty_change} <span className="text-xs font-semibold opacity-75 ml-1">{historyProductUnit}</span>
+                              <td className="p-4 text-center">
+                                <span className={`font-bold ${d.qty_change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {d.qty_change >= 0 ? '+' : ''}{d.qty_change}
+                                </span>
+                                <span className="text-xs font-semibold opacity-75 mx-1">{historyProductUnit}</span>
+                                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                                  ({Number(d.stock_left) - Number(d.qty_change)})
+                                </span>
                               </td>
                               <td className="p-4 text-center font-semibold text-slate-800">
                                 {d.subtotal !== null && d.subtotal !== 0 ? Number(d.subtotal).toFixed(2) : '-'}
