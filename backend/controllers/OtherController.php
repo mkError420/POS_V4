@@ -1316,7 +1316,8 @@ class OtherController {
             $updateFields = ['name = ?', 'email = ?'];
             $params = [$name, $email];
 
-            if (!empty($password)) {
+            // Update password only if it's provided (non-empty string)
+            if (isset($requestData['password']) && $requestData['password'] !== '') {
                 if (strlen($password) < 6) {
                     Auth::jsonError('Password must be at least 6 characters long.', 400);
                 }

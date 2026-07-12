@@ -2680,14 +2680,14 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
             <button
               onClick={handleCheckout}
               disabled={activeTab?.cart?.length === 0 || submitting}
-              className="col-span-2 bg-slate-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold py-2 px-3 rounded-xl shadow-md transition-colors flex justify-center items-center space-x-1.5"
+              className="col-span-2 bg-slate-600 hover:bg-gray-700 disabled:bg-slate-300 text-white font-bold py-2 px-3 rounded-xl shadow-md transition-colors flex justify-center items-center space-x-1.5"
             >
               {submitting ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
               ) : (
                 <>
                   <span className="text-xs">Complete Checkout</span>
-                  <span className="font-extrabold bg-indigo-500/80 px-1.5 py-0.5 rounded text-[10px]">
+                  <span className="font-extrabold bg-yellow-500/80 px-1.5 py-0.5 rounded text-[10px]">
                     ৳{getFinalTotal().toFixed(3)}
                   </span>
                 </>

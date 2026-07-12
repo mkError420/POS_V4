@@ -123,7 +123,7 @@ export default function Sidebar({
             section: 'Directory',
             items: [
               { label: 'Product Purchases', path: '/suppliers', icon: <SuppliersIcon /> },
-              { label: 'Customer Directory', path: '/customers', icon: <UsersIcon /> }
+              { label: 'Customers', path: '/customers', icon: <UsersIcon /> }
             ]
           },
           {

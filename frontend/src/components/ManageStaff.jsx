@@ -142,6 +142,7 @@ export default function ManageStaff() {
       const token = localStorage.getItem('token');
       const payload = {
         name: formData.name,
+        email: formData.email,
         role: formData.role,
         status: formData.status,
         allowed_sections: formData.allowed_sections
@@ -472,6 +473,18 @@ export default function ManageStaff() {
                   type="text"
                   name="name"
                   value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleInputChange}
                   required
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
