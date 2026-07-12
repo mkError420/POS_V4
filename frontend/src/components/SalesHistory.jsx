@@ -40,6 +40,10 @@ export default function SalesHistory() {
   const [profitModal, setProfitModal] = useState(null); // { sale, details } | null
   const [profitLoading, setProfitLoading] = useState(false);
 
+  // Revenue data for Sales Profit section
+  const [revenueData, setRevenueData] = useState(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+
   const handlePrint = (mode) => {
     document.body.classList.add(`print-mode-${mode}`);
     window.print();
@@ -51,6 +55,11 @@ export default function SalesHistory() {
   const triggerAlert = (type, message) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 4000);
+  };
+
+  const formatCurrency = (val) => {
+    const numericVal = parseFloat(val || 0);
+    return `Tk ${numericVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const fetchSales = async () => {
@@ -101,6 +110,36 @@ export default function SalesHistory() {
       triggerAlert('error', err.message);
     } finally {
       setDailySalesLoading(false);
+    }
+  };
+
+  const fetchRevenue = async () => {
+    setRevenueLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      let url = `${API_BASE_URL}/analytics/revenue`;
+      const queryParams = [];
+      if (startDate) queryParams.push(`start_date=${startDate}`);
+      if (endDate) queryParams.push(`end_date=${endDate}`);
+
+      if (queryParams.length > 0) {
+        url += `?${queryParams.join('&')}`;
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to retrieve financial analytics data.');
+      }
+
+      const data = await response.json();
+      setRevenueData(data);
+    } catch (err) {
+      console.error('Failed to fetch revenue data:', err);
+    } finally {
+      setRevenueLoading(false);
     }
   };
 
@@ -165,6 +204,7 @@ export default function SalesHistory() {
     fetchSales();
     fetchHeldBills();
     fetchProductDailySales();
+    fetchRevenue();
   }, [startDate, endDate, productName]);
 
   useEffect(() => {
@@ -818,7 +858,28 @@ export default function SalesHistory() {
 
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Sales Profit Card */}
+        {revenueData && (
+          <div className={`border rounded-2xl p-4 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between ${(parseFloat(revenueData.sales_revenue || 0) - parseFloat(revenueData.cost_of_goods_sold || 0)) >= 0
+            ? 'bg-indigo-50/40 border-indigo-200 text-indigo-800'
+            : 'bg-rose-50/40 border-rose-200 text-rose-800'
+            }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sales Profit</span>
+              <div className={`p-2 rounded-xl ${(parseFloat(revenueData.sales_revenue || 0) - parseFloat(revenueData.cost_of_goods_sold || 0)) >= 0 ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'
+                }`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="block text-xl font-black">{formatCurrency((parseFloat(revenueData.sales_revenue || 0) - parseFloat(revenueData.cost_of_goods_sold || 0)))}</span>
+              <span className="text-xs opacity-75 mt-1 block">Sales: {formatCurrency(revenueData.sales_revenue || 0)}</span>
+            </div>
+          </div>
+        )}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center space-x-3">
           <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

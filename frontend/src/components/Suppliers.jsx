@@ -88,6 +88,9 @@ export default function Suppliers() {
 
   // PO cart for multiple products
   const [poCart, setPoCart] = useState([]);
+  
+  // Track which cart item is being edited
+  const [editingCartItemIndex, setEditingCartItemIndex] = useState(null);
 
   // Add product to PO cart
   const addToPoCart = () => {
@@ -131,7 +134,17 @@ export default function Suppliers() {
       unit: poFormData.unit
     };
 
-    setPoCart([...poCart, cartItem]);
+    // If editing an existing cart item, update it instead of adding new
+    if (editingCartItemIndex !== null) {
+      const updatedCart = [...poCart];
+      updatedCart[editingCartItemIndex] = cartItem;
+      setPoCart(updatedCart);
+      setEditingCartItemIndex(null);
+      triggerAlert('success', 'Product updated in cart!');
+    } else {
+      setPoCart([...poCart, cartItem]);
+      triggerAlert('success', 'Product added to cart!');
+    }
 
     // Reset product form fields
     setProductSearch('');
@@ -147,13 +160,75 @@ export default function Suppliers() {
       quantity_ordered: 1,
       unit: 'piece'
     }));
-
-    triggerAlert('success', 'Product added to cart!');
   };
 
   // Remove product from PO cart
   const removeFromPoCart = (index) => {
     setPoCart(poCart.filter((_, i) => i !== index));
+    // If removing the item being edited, cancel edit mode
+    if (editingCartItemIndex === index) {
+      setEditingCartItemIndex(null);
+      // Reset form
+      setProductSearch('');
+      setPoFormData(prev => ({
+        ...prev,
+        product_id: '',
+        is_new: false,
+        name: '',
+        sku: '',
+        category: '',
+        cost_price: '',
+        selling_price: '',
+        quantity_ordered: 1,
+        unit: 'piece'
+      }));
+    }
+  };
+
+  // Edit product in PO cart
+  const editCartItem = (index) => {
+    const item = poCart[index];
+    setEditingCartItemIndex(index);
+    
+    // Populate form with cart item data
+    setPoFormData(prev => ({
+      ...prev,
+      product_id: item.product_id ? String(item.product_id) : '',
+      is_new: item.is_new || false,
+      name: item.name || '',
+      sku: item.sku || '',
+      category: item.category || '',
+      cost_price: String(item.cost_price || ''),
+      selling_price: String(item.selling_price || ''),
+      quantity_ordered: item.quantity_ordered || 1,
+      unit: item.unit || 'piece'
+    }));
+
+    // Set product search if it's an existing product
+    if (item.product_id) {
+      const product = productsList.find(p => p.id === item.product_id);
+      if (product) {
+        setProductSearch(`${product.name} (${product.sku})`);
+      }
+    }
+  };
+
+  // Cancel editing cart item
+  const cancelEditCartItem = () => {
+    setEditingCartItemIndex(null);
+    setProductSearch('');
+    setPoFormData(prev => ({
+      ...prev,
+      product_id: '',
+      is_new: false,
+      name: '',
+      sku: '',
+      category: '',
+      cost_price: '',
+      selling_price: '',
+      quantity_ordered: 1,
+      unit: 'piece'
+    }));
   };
 
   // Calculate PO total from cart
@@ -422,6 +497,7 @@ export default function Suppliers() {
     setShowProductSuggestions(false);
     setIsEditPoMode(false);
     setPoCart([]);
+    setEditingCartItemIndex(null);
     const today = new Date().toISOString().split('T')[0];
     setPoFormData({
       supplier_id: supplierId,
@@ -504,6 +580,7 @@ export default function Suppliers() {
       setProductSearch('');
       setShowSupplierSuggestions(false);
       setShowProductSuggestions(false);
+      setEditingCartItemIndex(null);
 
       setPoFormData({
         supplier_id: String(poDetails.supplier_id),
@@ -2886,7 +2963,7 @@ export default function Suppliers() {
         <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] p-5 shadow-2xl overflow-hidden flex flex-col">
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <h3 className="text-lg font-bold text-slate-800">{isEditPoMode ? 'Edit Purchase Order' : 'Create Purchase Order'}</h3>
-            <button onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); }} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); setEditingCartItemIndex(null); }} className="text-slate-400 hover:text-slate-600">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -3031,7 +3108,7 @@ export default function Suppliers() {
                   type="text"
                   value={poFormData.name}
                   onChange={(e) => setPoFormData({ ...poFormData, name: e.target.value })}
-                  disabled={!poFormData.is_new}
+                  disabled={!poFormData.is_new && editingCartItemIndex === null}
                   required
                   placeholder="Product Name"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50 disabled:bg-slate-50 font-semibold"
@@ -3044,7 +3121,7 @@ export default function Suppliers() {
                   type="text"
                   value={poFormData.sku}
                   onChange={(e) => setPoFormData({ ...poFormData, sku: e.target.value })}
-                  disabled={!poFormData.is_new}
+                  disabled={!poFormData.is_new && editingCartItemIndex === null}
                   required
                   placeholder="SKU Code"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50 disabled:bg-slate-50 font-semibold font-mono"
@@ -3167,16 +3244,30 @@ export default function Suppliers() {
             </div>
 
             {/* Add to Cart Button */}
-            <button
-              type="button"
-              onClick={addToPoCart}
-              className="w-full bg-gray-600 hover:bg-yellow-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center space-x-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span>Add Product to Cart</span>
-            </button>
+            <div className="flex gap-2">
+              {editingCartItemIndex !== null && (
+                <button
+                  type="button"
+                  onClick={cancelEditCartItem}
+                  className="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Cancel Edit</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={addToPoCart}
+                className="flex-1 bg-gray-600 hover:bg-yellow-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center space-x-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={editingCartItemIndex !== null ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" : "M12 6v6m0 0v6m0-6h6m-6 0H6"} />
+                </svg>
+                <span>{editingCartItemIndex !== null ? 'Update Product in Cart' : 'Add Product to Cart'}</span>
+              </button>
+            </div>
 
             {/* Cart Display */}
             {poCart.length > 0 && (
@@ -3187,10 +3278,11 @@ export default function Suppliers() {
                 </h4>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {poCart.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between bg-white border border-slate-100 rounded-lg p-2 text-xs">
+                    <div key={index} className={`flex items-center justify-between bg-white border border-slate-100 rounded-lg p-2 text-xs ${editingCartItemIndex === index ? 'ring-2 ring-indigo-500' : ''}`}>
                       <div className="flex-1">
                         <div className="font-semibold text-slate-800">
                           {item.name} {item.category && <span className="ml-1.5 px-1.5 py-0.25 bg-indigo-50 text-indigo-700 rounded text-[9px] font-bold border border-indigo-100">{item.category}</span>}
+                          {editingCartItemIndex === index && <span className="ml-1.5 px-1.5 py-0.25 bg-amber-50 text-amber-700 rounded text-[9px] font-bold border border-amber-100">Editing</span>}
                         </div>
                         <div className="text-slate-500 mt-1 flex items-center gap-2">
                           <span>{item.sku}</span>
@@ -3230,15 +3322,28 @@ export default function Suppliers() {
                           <span>• Tk {item.cost_price.toFixed(2)} × {item.quantity_ordered} = Tk {(item.cost_price * (parseFloat(item.quantity_ordered) || 0)).toFixed(2)}</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFromPoCart(index)}
-                        className="ml-2 text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center gap-1 ml-2">
+                        <button
+                          type="button"
+                          onClick={() => editCartItem(index)}
+                          className="text-indigo-600 hover:text-indigo-800 p-1 hover:bg-indigo-50 rounded"
+                          title="Edit product"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromPoCart(index)}
+                          className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded"
+                          title="Remove product"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -3261,7 +3366,7 @@ export default function Suppliers() {
               <div className="flex space-x-3 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); }}
+                  onClick={() => { setShowAddPoModal(false); setIsEditPoMode(false); setEditingCartItemIndex(null); }}
                   className="w-full sm:w-auto px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
                 >
                   Cancel
@@ -3523,7 +3628,7 @@ export default function Suppliers() {
                         <td className="p-3 font-mono font-bold text-slate-500">{item.product_sku}</td>
                         <td className="p-3 font-semibold text-slate-800">
                           <div>{item.product_name}</div>
-                          <div className="flex flex-wrap gap-1 items-center mt-0.5">
+    {/*                       <div className="flex flex-wrap gap-1 items-center mt-0.5">
                             {item.product_category && (
                               <span className="inline-block bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.25 rounded border border-indigo-100">
                                 {item.product_category}
@@ -3534,7 +3639,7 @@ export default function Suppliers() {
                                 {item.product_unit}
                               </span>
                             )}
-                          </div>
+                          </div> */}
                         </td>
                         <td className="p-3 text-slate-650">{formatCurrency(item.cost_price !== undefined ? item.cost_price : item.unit_price)}</td>
                         <td className="p-3 text-slate-650">{formatCurrency(item.selling_price || 0)}</td>
