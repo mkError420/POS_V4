@@ -14,7 +14,7 @@ export default function Inventory() {
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
   const [historyData, setHistoryData] = useState(null);
-  const [historyViewTab, setHistoryViewTab] = useState('daily');
+  const [historyViewTab, setHistoryViewTab] = useState('detailed');
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
@@ -285,7 +285,7 @@ export default function Inventory() {
   const handleBulkDelete = async () => {
     if (selectedProducts.length === 0) return;
     if (!window.confirm(`Are you sure you want to delete ${selectedProducts.length} selected product(s)?`)) return;
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/products/bulk-delete`, {
@@ -304,7 +304,7 @@ export default function Inventory() {
       } else {
         triggerAlert('success', `Successfully deleted ${resData.success_count} products!`);
       }
-      
+
       setSelectedProducts([]);
       fetchProducts();
     } catch (err) {
@@ -604,11 +604,10 @@ export default function Inventory() {
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => { setSelectedLetter(''); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  selectedLetter === ''
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedLetter === ''
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
               >
                 All
               </button>
@@ -616,24 +615,22 @@ export default function Inventory() {
                 // Count products starting with this letter (using local products array)
                 const count = products.filter(p => p.name && p.name.trim().toUpperCase().startsWith(letter)).length;
                 const isSelected = selectedLetter === letter;
-                
+
                 return (
                   <button
                     key={letter}
                     onClick={() => { setSelectedLetter(letter); setCurrentPage(1); }}
-                    className={`min-w-[32px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : count > 0
+                    className={`min-w-[32px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${isSelected
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : count > 0
                         ? 'bg-indigo-50/50 text-indigo-700 hover:bg-indigo-50 border border-indigo-100/50'
                         : 'bg-slate-50/50 text-slate-400 opacity-60 cursor-pointer'
-                    }`}
+                      }`}
                   >
                     <span>{letter}</span>
                     {count > 0 && (
-                      <span className={`text-[9px] px-1.5 py-0.25 rounded-full ${
-                        isSelected ? 'bg-indigo-500 text-white' : 'bg-indigo-100 text-indigo-800 font-semibold'
-                      }`}>
+                      <span className={`text-[9px] px-1.5 py-0.25 rounded-full ${isSelected ? 'bg-indigo-500 text-white' : 'bg-indigo-100 text-indigo-800 font-semibold'
+                        }`}>
                         {count}
                       </span>
                     )}
@@ -913,32 +910,32 @@ export default function Inventory() {
                           </td>
                           <td className="p-4">{expiryBadge}</td>
                           <td className="p-4 text-center space-x-2">
-                             <button
-                               onClick={() => {
-                                 setSelectedHistoryProductId(product.id);
-                                 setActiveTab('history');
-                               }}
-                               className="text-emerald-600 hover:text-emerald-900 font-semibold text-xs border border-emerald-100 hover:bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors"
-                             >
-                               History
-                             </button>
-                             {!isSuperAdmin && (
-                               <>
-                                 <button
-                                   onClick={() => openEdit(product)}
-                                   className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
-                                 >
-                                   Edit
-                                 </button>
-                                 <button
-                                   onClick={() => handleDelete(product.id)}
-                                   className="text-rose-600 hover:text-rose-900 font-semibold text-xs border border-rose-100 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors"
-                                 >
-                                   Delete
-                                 </button>
-                               </>
-                             )}
-                           </td>
+                            <button
+                              onClick={() => {
+                                setSelectedHistoryProductId(product.id);
+                                setActiveTab('history');
+                              }}
+                              className="text-emerald-600 hover:text-emerald-900 font-semibold text-xs border border-emerald-100 hover:bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              History
+                            </button>
+                            {!isSuperAdmin && (
+                              <>
+                                <button
+                                  onClick={() => openEdit(product)}
+                                  className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(product.id)}
+                                  className="text-rose-600 hover:text-rose-900 font-semibold text-xs border border-rose-100 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -967,14 +964,14 @@ export default function Inventory() {
                   const maxPagesToShow = 20;
                   let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
                   let endPage = startPage + maxPagesToShow - 1;
-                  
+
                   if (endPage > totalPages) {
                     endPage = totalPages;
                     startPage = Math.max(1, endPage - maxPagesToShow + 1);
                   }
-                  
+
                   const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
-                  
+
                   return pages.map((page) => (
                     <button
                       key={page}
@@ -1431,25 +1428,75 @@ export default function Inventory() {
       {activeTab === 'adjustments' && (
         <Adjustments />
       )}
- 
+
       {/* Stock & Sales History Tab Content */}
       {activeTab === 'history' && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+            <div className="shrink-0">
               <h2 className="text-2xl font-bold text-slate-800">Stock & Sales History</h2>
               <p className="text-sm text-slate-500">Track historical product movements, quantities sold, and remaining balance</p>
             </div>
+
+            {/* Top KPI Stats Moved to Header */}
+            {historyData && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Total Purchase Amount</span>
+                  <div className="flex items-baseline flex-wrap">
+                    <span className="text-2xl font-black text-amber-500">
+                      ৳{(historyData.detailed ? historyData.detailed.filter(d => d.type === 'purchase').reduce((sum, d) => sum + (Number(d.subtotal) || 0), 0) : 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Total Purchased</span>
+                  <div className="flex items-baseline flex-wrap">
+                    <span className="text-2xl font-black text-sky-600">
+                      {historyData.daily.reduce((sum, d) => sum + (d.qty_purchased || 0), 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-500 ml-1.5">{historyProductUnit} purchased</span>
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Current Stock</span>
+                  <div className="flex items-baseline flex-wrap">
+                    <span className="text-2xl font-black text-slate-800">{historyData.current_stock}</span>
+                    <span className="text-[10px] text-slate-500 ml-1.5">{historyProductUnit} left</span>
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Total Sold</span>
+                  <div className="flex items-baseline flex-wrap">
+                    <span className="text-2xl font-black text-emerald-600">
+                      {historyData.daily.reduce((sum, d) => sum + d.qty_sold, 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-500 ml-1.5">{historyProductUnit} sold</span>
+                  </div>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Net Stock Change</span>
+                  <div className="flex items-baseline flex-wrap">
+                    <span className={`text-2xl font-black ${historyData.daily.reduce((sum, d) => sum + d.qty_change, 0) >= 0 ? 'text-indigo-600' : 'text-rose-600'
+                      }`}>
+                      {historyData.daily.reduce((sum, d) => sum + d.qty_change, 0) >= 0 ? '+' : ''}
+                      {historyData.daily.reduce((sum, d) => sum + d.qty_change, 0)}
+                    </span>
+                    <span className="text-[10px] text-slate-500 ml-1.5">{historyProductUnit} net</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
- 
+
           {/* Select Product & Filters Bar */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex-1 max-w-sm relative">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Select Product</label>
-              
+
               {isHistoryDropdownOpen && (
-                <div 
-                  className="fixed inset-0 z-40" 
+                <div
+                  className="fixed inset-0 z-40"
                   onClick={() => setIsHistoryDropdownOpen(false)}
                 />
               )}
@@ -1486,15 +1533,15 @@ export default function Inventory() {
               {isHistoryDropdownOpen && (
                 <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50 divide-y divide-slate-100">
                   {(() => {
-                    const filteredHistoryProducts = products.filter(p => 
+                    const filteredHistoryProducts = products.filter(p =>
                       p.name.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
                       p.sku.toLowerCase().includes(historySearchQuery.toLowerCase())
                     );
-                    
+
                     if (filteredHistoryProducts.length === 0) {
                       return <div className="p-3 text-sm text-slate-400 text-center">No products found</div>;
                     }
-                    
+
                     return filteredHistoryProducts.map(p => (
                       <button
                         key={p.id}
@@ -1504,9 +1551,8 @@ export default function Inventory() {
                           setHistorySearchQuery('');
                           setIsHistoryDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors font-medium block ${
-                          String(selectedHistoryProductId) === String(p.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-705'
-                        }`}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors font-medium block ${String(selectedHistoryProductId) === String(p.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-705'
+                          }`}
                       >
                         <div className="font-bold">{p.name}</div>
                         <div className="text-xs text-slate-400">SKU: {p.sku} | Stock: {p.stock_quantity} {p.unit || 'piece'}</div>
@@ -1516,7 +1562,7 @@ export default function Inventory() {
                 </div>
               )}
             </div>
- 
+
             <div className="flex flex-col sm:flex-row gap-4 items-end">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Start Date</label>
@@ -1544,7 +1590,7 @@ export default function Inventory() {
               </button>
             </div>
           </div>
- 
+
           {/* Ledger Content */}
           {!selectedHistoryProductId ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 font-medium">
@@ -1563,69 +1609,36 @@ export default function Inventory() {
             </div>
           ) : historyData ? (
             <div className="space-y-6">
-              {/* Top KPI Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Stock</span>
-                  <div className="mt-2 flex items-baseline">
-                    <span className="text-3xl font-black text-slate-800">{historyData.current_stock}</span>
-                    <span className="text-xs text-slate-500 ml-2">{historyProductUnit} left</span>
-                  </div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Sold (In Period)</span>
-                  <div className="mt-2 flex items-baseline">
-                    <span className="text-3xl font-black text-emerald-600">
-                      {historyData.daily.reduce((sum, d) => sum + d.qty_sold, 0)}
-                    </span>
-                    <span className="text-xs text-slate-500 ml-2">{historyProductUnit} sold</span>
-                  </div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Net Stock Change</span>
-                  <div className="mt-2 flex items-baseline">
-                    <span className={`text-3xl font-black ${
-                      historyData.daily.reduce((sum, d) => sum + d.qty_change, 0) >= 0 ? 'text-indigo-600' : 'text-rose-600'
-                    }`}>
-                      {historyData.daily.reduce((sum, d) => sum + d.qty_change, 0) >= 0 ? '+' : ''}
-                      {historyData.daily.reduce((sum, d) => sum + d.qty_change, 0)}
-                    </span>
-                    <span className="text-xs text-slate-500 ml-2">{historyProductUnit} net</span>
-                  </div>
-                </div>
-              </div>
- 
+
               {/* History Sub Tabs */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs flex flex-col">
                 <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                   <div className="flex space-x-2">
                     <button
+                      onClick={() => setHistoryViewTab('detailed')}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${historyViewTab === 'detailed' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                    >
+                      Detailed Ledger
+                    </button>
+                    <button
                       onClick={() => setHistoryViewTab('daily')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        historyViewTab === 'daily' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${historyViewTab === 'daily' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
                     >
                       Daily History
                     </button>
                     <button
                       onClick={() => setHistoryViewTab('monthly')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        historyViewTab === 'monthly' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${historyViewTab === 'monthly' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
                     >
                       Monthly History
                     </button>
-                    <button
-                      onClick={() => setHistoryViewTab('detailed')}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        historyViewTab === 'detailed' ? 'bg-slate-600 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      Detailed Ledger
-                    </button>
+
                   </div>
                 </div>
- 
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -1633,6 +1646,7 @@ export default function Inventory() {
                         <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
                           <th className="p-4">Date</th>
                           <th className="p-4">Type</th>
+                          <th className="p-4 text-center">Ref. ID</th>
                           <th className="p-4 text-center">Cost Price</th>
                           <th className="p-4 text-center">Sold Price</th>
                           <th className="p-4 text-center">Quantity</th>
@@ -1699,7 +1713,7 @@ export default function Inventory() {
                       ) : (
                         historyData.detailed && historyData.detailed.length === 0 ? (
                           <tr>
-                            <td colSpan="8" className="p-8 text-center text-slate-400 font-medium">
+                            <td colSpan="9" className="p-8 text-center text-slate-400 font-medium">
                               No detailed transactions recorded for this product in the selected period.
                             </td>
                           </tr>
@@ -1708,14 +1722,16 @@ export default function Inventory() {
                             <tr key={index} className="hover:bg-slate-50/20 transition-colors">
                               <td className="p-4 font-semibold text-slate-700">{d.date}</td>
                               <td className="p-4">
-                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                                  d.type === 'sale' ? 'bg-emerald-100 text-emerald-700' :
+                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${d.type === 'sale' ? 'bg-emerald-100 text-emerald-700' :
                                   d.type === 'purchase' ? 'bg-indigo-100 text-indigo-700' :
-                                  d.type === 'adjustment' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-slate-100 text-slate-700'
-                                }`}>
+                                    d.type === 'adjustment' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-slate-100 text-slate-700'
+                                  }`}>
                                   {d.type.replace('_', ' ')}
                                 </span>
+                              </td>
+                              <td className="p-4 text-center font-mono text-xs text-slate-500">
+                                {d.reference_number || '-'}
                               </td>
                               <td className="p-4 text-center text-slate-600">
                                 {d.cost_price !== null ? Number(d.cost_price).toFixed(2) : '-'}
@@ -1753,7 +1769,7 @@ export default function Inventory() {
           ) : null}
         </div>
       )}
- 
+
     </div>
   );
 }

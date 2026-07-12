@@ -83,7 +83,8 @@ export default function Suppliers() {
     unit: 'piece',
     low_stock_threshold: '10',
     payment_basis: 'cash',
-    paid_amount: ''
+    paid_amount: '',
+    received_date: ''
   });
 
   // PO cart for multiple products
@@ -514,7 +515,8 @@ export default function Suppliers() {
       unit: 'piece',
       low_stock_threshold: '10',
       payment_basis: 'cash',
-      paid_amount: ''
+      paid_amount: '',
+      received_date: ''
     });
     setShowAddPoModal(true);
   };
@@ -584,7 +586,7 @@ export default function Suppliers() {
 
       setPoFormData({
         supplier_id: String(poDetails.supplier_id),
-        order_date: poDetails.order_date ? poDetails.order_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        order_date: poDetails.order_date ? poDetails.order_date.split(/T|\s/)[0] : new Date().toISOString().split('T')[0],
         notes: poDetails.notes || '',
         product_id: '',
         is_new: false,
@@ -597,7 +599,8 @@ export default function Suppliers() {
         unit: 'piece',
         low_stock_threshold: '10',
         payment_basis: poDetails.payment_basis || 'cash',
-        paid_amount: poDetails.paid_amount || ''
+        paid_amount: poDetails.paid_amount || '',
+        received_date: poDetails.received_date ? poDetails.received_date.split(/T|\s/)[0] : ''
       });
 
       setPoCart(poDetails.items.map(item => ({
@@ -660,6 +663,7 @@ export default function Suppliers() {
         body: JSON.stringify({
           supplier_id: parseInt(poFormData.supplier_id),
           order_date: poFormData.order_date || null,
+          received_date: poFormData.received_date || null,
           notes: poFormData.notes,
           status: poStatus,
           payment_basis: poFormData.payment_basis,
@@ -692,7 +696,8 @@ export default function Suppliers() {
         unit: 'piece',
         low_stock_threshold: '10',
         payment_basis: 'cash',
-        paid_amount: ''
+        paid_amount: '',
+        received_date: ''
       });
       fetchPurchaseOrders();
       fetchProducts(); // Refresh products cache
@@ -2380,7 +2385,7 @@ export default function Suppliers() {
                               onClick={() => openPoDetails(po.id)}
                               className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
                             >
-                              Details
+                              View
                             </button>
                             {po.status === 'ordered' && (
                               <button
@@ -2971,7 +2976,7 @@ export default function Suppliers() {
           </div>
 
           <form className="mt-4 space-y-4 overflow-y-auto pr-1 flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className={`grid grid-cols-1 ${isEditPoMode ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4`}>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Order Date</label>
                 <input
@@ -2981,6 +2986,20 @@ export default function Suppliers() {
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-medium"
                 />
               </div>
+
+              {isEditPoMode && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Received Date</label>
+                  <input
+                    type="date"
+                    value={poFormData.received_date || ''}
+                    onChange={(e) => setPoFormData({ ...poFormData, received_date: e.target.value })}
+                    disabled={!isAdmin}
+                    title={!isAdmin ? "Only shop admins can modify the received date" : ""}
+                    className={`w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 font-medium ${!isAdmin ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                  />
+                </div>
+              )}
 
               <div className="relative">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Supplier *</label>

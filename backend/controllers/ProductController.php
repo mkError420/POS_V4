@@ -865,10 +865,11 @@ class ProductController {
             }
 
             // Retrieve history of events within date range
-            $eventsSql = "SELECT event_date, qty_change, qty_sold, type, cost_price, sold_price, subtotal, discount FROM (
+            $eventsSql = "SELECT event_date, qty_change, qty_sold, type, cost_price, sold_price, subtotal, discount, reference_id, reference_number FROM (
                 -- Sales
                 SELECT s.created_at AS event_date, -si.quantity AS qty_change, si.quantity AS qty_sold,
-                       'sale' AS type, si.cost_price AS cost_price, si.unit_price AS sold_price, si.subtotal AS subtotal, s.discount AS discount
+                       'sale' AS type, si.cost_price AS cost_price, si.unit_price AS sold_price, si.subtotal AS subtotal, s.discount AS discount,
+                       s.id AS reference_id, CONCAT('INV-', s.id) AS reference_number
                 FROM sale_items si
                 JOIN sales s ON si.sale_id = s.id
                 WHERE si.product_id = ? AND si.shop_id = ?
@@ -877,7 +878,8 @@ class ProductController {
                 
                 -- Purchases
                 SELECT COALESCE(po.received_date, po.created_at) AS event_date, COALESCE(poi.quantity_received, poi.quantity_ordered) AS qty_change, 0 AS qty_sold,
-                       'purchase' AS type, poi.cost_price AS cost_price, NULL AS sold_price, poi.subtotal AS subtotal, 0 AS discount
+                       'purchase' AS type, poi.cost_price AS cost_price, NULL AS sold_price, poi.subtotal AS subtotal, 0 AS discount,
+                       po.id AS reference_id, CONCAT('PO-', po.id) AS reference_number
                 FROM purchase_order_items poi
                 JOIN purchase_orders po ON poi.purchase_order_id = po.id
                 WHERE poi.product_id = ? AND poi.shop_id = ? AND po.status = 'received'
@@ -886,7 +888,8 @@ class ProductController {
                 
                 -- Customer Returns
                 SELECT cr.created_at AS event_date, cr.quantity AS qty_change, -cr.quantity AS qty_sold,
-                       'customer_return' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
+                       'customer_return' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount,
+                       cr.id AS reference_id, NULL AS reference_number
                 FROM customer_returns cr
                 WHERE cr.product_id = ? AND cr.shop_id = ?
                 
@@ -894,7 +897,8 @@ class ProductController {
                 
                 -- Supplier Returns
                 SELECT sr.created_at AS event_date, -sr.quantity AS qty_change, 0 AS qty_sold,
-                       'supplier_return' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
+                       'supplier_return' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount,
+                       sr.id AS reference_id, NULL AS reference_number
                 FROM supplier_returns sr
                 WHERE sr.product_id = ? AND sr.shop_id = ?
                 
@@ -902,7 +906,8 @@ class ProductController {
                 
                 -- Wastages
                 SELECT w.adjusted_at AS event_date, -w.quantity AS qty_change, 0 AS qty_sold,
-                       'wastage' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
+                       'wastage' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount,
+                       w.id AS reference_id, NULL AS reference_number
                 FROM wastages w
                 WHERE w.product_id = ? AND w.shop_id = ?
                 
@@ -912,7 +917,8 @@ class ProductController {
                 SELECT ia.created_at AS event_date, 
                        ia.difference AS qty_change,
                        0 AS qty_sold,
-                       'adjustment' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount
+                       'adjustment' AS type, NULL AS cost_price, NULL AS sold_price, 0 AS subtotal, 0 AS discount,
+                       ia.id AS reference_id, NULL AS reference_number
                 FROM inventory_adjustments ia
                 WHERE ia.product_id = ? AND ia.shop_id = ?
             ) ev";
@@ -950,11 +956,15 @@ class ProductController {
                     $dailyEvents[$day] = [
                         'date' => $day,
                         'qty_change' => 0.0,
-                        'qty_sold' => 0.0
+                        'qty_sold' => 0.0,
+                        'qty_purchased' => 0.0
                     ];
                 }
                 $dailyEvents[$day]['qty_change'] += (float)$ev['qty_change'];
                 $dailyEvents[$day]['qty_sold'] += (float)$ev['qty_sold'];
+                if ($ev['type'] === 'purchase') {
+                    $dailyEvents[$day]['qty_purchased'] += (float)$ev['qty_change'];
+                }
             }
 
             $dailyHistory = [];
@@ -964,6 +974,7 @@ class ProductController {
                     'date' => $day,
                     'qty_sold' => $data['qty_sold'],
                     'qty_change' => $data['qty_change'],
+                    'qty_purchased' => $data['qty_purchased'],
                     'stock_left' => $runningStock
                 ];
                 $runningStock -= $data['qty_change'];
@@ -977,11 +988,15 @@ class ProductController {
                     $monthlyEvents[$month] = [
                         'month' => $month,
                         'qty_change' => 0.0,
-                        'qty_sold' => 0.0
+                        'qty_sold' => 0.0,
+                        'qty_purchased' => 0.0
                     ];
                 }
                 $monthlyEvents[$month]['qty_change'] += (float)$ev['qty_change'];
                 $monthlyEvents[$month]['qty_sold'] += (float)$ev['qty_sold'];
+                if ($ev['type'] === 'purchase') {
+                    $monthlyEvents[$month]['qty_purchased'] += (float)$ev['qty_change'];
+                }
             }
 
             $monthlyHistory = [];
@@ -991,6 +1006,7 @@ class ProductController {
                     'month' => $month,
                     'qty_sold' => $data['qty_sold'],
                     'qty_change' => $data['qty_change'],
+                    'qty_purchased' => $data['qty_purchased'],
                     'stock_left' => $runningStockMonthly
                 ];
                 $runningStockMonthly -= $data['qty_change'];
@@ -1008,6 +1024,8 @@ class ProductController {
                     'sold_price' => $ev['sold_price'] !== null ? (float)$ev['sold_price'] : null,
                     'subtotal' => (float)$ev['subtotal'],
                     'discount' => (float)$ev['discount'],
+                    'reference_id' => $ev['reference_id'],
+                    'reference_number' => $ev['reference_number'],
                     'stock_left' => $runningStockDetailed
                 ];
                 $runningStockDetailed -= (float)$ev['qty_change'];

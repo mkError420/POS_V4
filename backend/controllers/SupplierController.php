@@ -536,11 +536,18 @@ class SupplierController {
         $poId = (int)$id;
         $shopId = Auth::$shopId;
         $orderDate = $requestData['order_date'] ?? null;
+        $receivedDate = $requestData['received_date'] ?? null;
         $notes = $requestData['notes'] ?? null;
         $items = $requestData['items'] ?? [];
 
         try {
             DB::beginTransaction();
+
+            // Ensure received_date column exists
+            $columnCheck = DB::query("SHOW COLUMNS FROM purchase_orders LIKE 'received_date'");
+            if ($columnCheck->fetch() === false) {
+                DB::query("ALTER TABLE purchase_orders ADD COLUMN received_date DATE NULL DEFAULT NULL");
+            }
 
             $stmt = DB::query('SELECT status, supplier_id FROM purchase_orders WHERE id = ? AND shop_id = ?', [$poId, $shopId]);
             $po = $stmt->fetch();
@@ -629,9 +636,9 @@ class SupplierController {
 
             // Update main PO total
             DB::query(
-                'UPDATE purchase_orders SET order_date = ?, total_amount = ?, paid_amount = ?, due_amount = ?, payment_basis = ?, notes = ?
+                'UPDATE purchase_orders SET order_date = ?, received_date = ?, total_amount = ?, paid_amount = ?, due_amount = ?, payment_basis = ?, notes = ?
                  WHERE id = ? AND shop_id = ?',
-                [$orderDate, $totalAmount, $paidAmount, $dueAmount, $paymentBasis, $notes, $poId, $shopId]
+                [$orderDate, $receivedDate, $totalAmount, $paidAmount, $dueAmount, $paymentBasis, $notes, $poId, $shopId]
             );
 
             // Re-apply supplier due balance
