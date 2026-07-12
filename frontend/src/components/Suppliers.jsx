@@ -3300,6 +3300,118 @@ export default function Suppliers() {
     );
   }
 
+  function handlePrintPo() {
+    if (!selectedPo) return;
+    const printWindow = window.open('', 'PRINT', 'height=800,width=1000');
+    const totalAmount = selectedPo.items.reduce((sum, item) => sum + ((item.quantity_ordered !== undefined ? item.quantity_ordered : item.quantity) * (item.cost_price !== undefined ? item.cost_price : item.unit_price)), 0);
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Purchase Order #${selectedPo.id}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #1e293b; line-height: 1.5; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+            .header h1 { margin: 0 0 10px 0; font-size: 28px; color: #0f172a; }
+            .header p { margin: 0; color: #64748b; font-size: 14px; }
+            .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+            .info-box { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+            .info-box h4 { margin: 0 0 5px 0; font-size: 12px; color: #64748b; text-transform: uppercase; }
+            .info-box p { margin: 0; font-size: 14px; font-weight: 600; color: #334155; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
+            th, td { border-bottom: 1px solid #e2e8f0; padding: 12px 8px; text-align: left; }
+            th { background-color: #f1f5f9; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 11px; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .totals { display: flex; justify-content: flex-end; margin-top: 20px; }
+            .totals table { width: 300px; border: none; }
+            .totals th, .totals td { border: none; padding: 8px; }
+            .totals th { text-align: left; background: none; color: #64748b; font-size: 13px; }
+            .totals td { text-align: right; font-weight: 600; font-size: 14px; }
+            .grand-total { border-top: 2px solid #cbd5e1 !important; font-size: 16px !important; color: #0f172a !important; }
+            @media print {
+              body { padding: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Purchase Order</h1>
+            <p>Order ID: #PO-${selectedPo.id} | Date: ${formatDate(selectedPo.order_date)}</p>
+          </div>
+          
+          <div class="info-grid">
+            <div class="info-box">
+              <h4>Supplier Details</h4>
+              <p>${selectedPo.supplier_name}</p>
+              <p style="font-weight: 400; font-size: 13px;">${selectedPo.supplier_phone || ''}</p>
+              <p style="font-weight: 400; font-size: 13px;">${selectedPo.supplier_email || ''}</p>
+            </div>
+            <div class="info-box">
+              <h4>Order Information</h4>
+              <p>Status: <span style="text-transform: uppercase;">${selectedPo.status}</span></p>
+              <p>Payment Basis: <span style="text-transform: uppercase;">${selectedPo.payment_basis || 'CASH'}</span></p>
+              <p>Received Date: ${selectedPo.received_date ? formatDate(selectedPo.received_date) : '-'}</p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Product Name</th>
+                <th class="text-center">Qty Ordered</th>
+                <th class="text-center">Qty Received</th>
+                <th class="text-right">Cost Price</th>
+                <th class="text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${selectedPo.items.map(item => `
+                <tr>
+                  <td>${item.product_sku}</td>
+                  <td>${item.product_name}</td>
+                  <td class="text-center">${item.quantity_ordered !== undefined ? item.quantity_ordered : item.quantity} ${item.product_unit || ''}</td>
+                  <td class="text-center">${selectedPo.status === 'received' ? item.quantity_received : '-'} ${selectedPo.status === 'received' && item.product_unit ? item.product_unit : ''}</td>
+                  <td class="text-right">Tk ${(item.cost_price !== undefined ? item.cost_price : item.unit_price).toFixed(2)}</td>
+                  <td class="text-right">Tk ${((item.quantity_ordered !== undefined ? item.quantity_ordered : item.quantity) * (item.cost_price !== undefined ? item.cost_price : item.unit_price)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <table>
+              <tr>
+                <th>Total Amount:</th>
+                <td>Tk ${totalAmount.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <th>Paid Amount:</th>
+                <td>Tk ${parseFloat(selectedPo.paid_amount || 0).toFixed(2)}</td>
+              </tr>
+              <tr>
+                <th class="grand-total">Due Amount:</th>
+                <td class="grand-total">Tk ${parseFloat(selectedPo.due_amount || 0).toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          
+          ${selectedPo.notes ? `<div style="margin-top: 30px; font-size: 13px;"><strong style="color: #64748b; text-transform: uppercase; font-size: 11px;">Notes:</strong><br/>${selectedPo.notes}</div>` : ''}
+          
+          <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px dashed #e2e8f0; padding-top: 20px;">
+            Generated by POS System
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  }
+
   // PO DETAILS VIEW MODAL
   function renderPoDetailsModal() {
     if (!selectedPo) return null;
@@ -3312,6 +3424,16 @@ export default function Suppliers() {
               <h3 className="text-lg font-black text-slate-800">#PO-{selectedPo.id}</h3>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={handlePrintPo}
+                className="text-emerald-600 hover:text-emerald-800 font-semibold text-sm border border-emerald-200 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1"
+                title="Print Invoice"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                <span>Print</span>
+              </button>
               <button
                 onClick={() => {
                   setShowPoDetailsModal(false);

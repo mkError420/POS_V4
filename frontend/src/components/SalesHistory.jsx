@@ -138,7 +138,7 @@ export default function SalesHistory() {
     setDetailsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/${saleId}`, {
+      const response = await fetch(`${API_BASE_URL}/sales/${saleId}?i=1`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Requested-With': 'XMLHttpRequest'
@@ -181,7 +181,7 @@ export default function SalesHistory() {
     setDetailsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/${sale.id}`, {
+      const response = await fetch(`${API_BASE_URL}/sales/${sale.id}?i=1`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-Requested-With': 'XMLHttpRequest'
@@ -189,14 +189,7 @@ export default function SalesHistory() {
       });
       if (!response.ok) throw new Error('Failed to load transaction details.');
 
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        console.error("Invalid JSON response:", text);
-        throw new Error("Server returned an invalid response. Check the console for details.");
-      }
+      const data = await response.json();
       const initialData = {
         ...data,
         items: data.items.map(i => ({
@@ -221,11 +214,31 @@ export default function SalesHistory() {
   };
 
   const handleEditItemQty = (idx, newQty) => {
-    if (newQty < 1) return;
+    const parsedQty = parseFloat(newQty);
+    let qtyVal = newQty;
+    if (newQty === '') {
+      qtyVal = '';
+    } else if (isNaN(parsedQty) || parsedQty < 0) {
+      qtyVal = 0;
+    }
     const newData = { ...editSaleData };
-    newData.items[idx].quantity = newQty;
-    newData.items[idx].subtotal = newData.items[idx].unit_price * newQty;
+    newData.items[idx].quantity = qtyVal;
+    newData.items[idx].subtotal = newData.items[idx].unit_price * (parseFloat(qtyVal) || 0);
     updateEditSaleTotals(newData);
+  };
+
+  const handleEditItemBlur = (idx, qtyStr) => {
+    const parsedQty = parseFloat(qtyStr) || 0;
+    if (parsedQty <= 0) {
+      const newData = { ...editSaleData };
+      newData.items[idx].quantity = 1;
+      newData.items[idx].subtotal = newData.items[idx].unit_price * 1;
+      updateEditSaleTotals(newData);
+    } else {
+      const newData = { ...editSaleData };
+      newData.items[idx].quantity = parsedQty;
+      updateEditSaleTotals(newData);
+    }
   };
 
   const handleRemoveEditItem = (idx) => {
@@ -278,7 +291,7 @@ export default function SalesHistory() {
         created_at: editSaleData.created_at
       };
 
-      const response = await fetch(`${API_BASE_URL}/sales/${editSaleData.id}`, {
+      const response = await fetch(`${API_BASE_URL}/sales/${editSaleData.id}?i=1`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -306,7 +319,7 @@ export default function SalesHistory() {
     setProfitLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/${sale.id}`, {
+      const response = await fetch(`${API_BASE_URL}/sales/${sale.id}?i=1`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to load profit details.');
@@ -327,7 +340,7 @@ export default function SalesHistory() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/sales/${saleId}`, {
+      const response = await fetch(`${API_BASE_URL}/sales/${saleId}?i=1`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -432,9 +445,9 @@ export default function SalesHistory() {
       escapeCSV(sale.customer_name || 'Walk-in Customer'),
       escapeCSV(sale.staff_name),
       escapeCSV(sale.payment_method.replace('_', ' ')),
-      parseFloat(sale.final_amount).toFixed(2),
-      parseFloat(sale.paid_amount !== null && sale.paid_amount !== undefined ? sale.paid_amount : sale.final_amount || 0).toFixed(2),
-      parseFloat(sale.due_amount || 0).toFixed(2)
+      parseFloat(sale.final_amount).toFixed(3),
+      parseFloat(sale.paid_amount !== null && sale.paid_amount !== undefined ? sale.paid_amount : sale.final_amount || 0).toFixed(3),
+      parseFloat(sale.due_amount || 0).toFixed(3)
     ]);
 
     const csvContent = "\uFEFF" + [
@@ -507,7 +520,7 @@ export default function SalesHistory() {
         originalSaleId,
         escapeCSV(bill.customer_name || 'Walk-in'),
         escapeCSV(bill.staff_name || 'N/A'),
-        parseFloat(bill.due_amount || 0).toFixed(2)
+        parseFloat(bill.due_amount || 0).toFixed(3)
       ];
     });
 
@@ -589,7 +602,7 @@ export default function SalesHistory() {
                       className="w-full text-left px-4 py-2 hover:bg-indigo-50 flex justify-between items-center text-sm"
                     >
                       <span>{prod.name} <span className="text-xs text-slate-500 ml-2">Stock: {prod.stock_quantity}</span></span>
-                      <span className="font-semibold text-indigo-600">৳{parseFloat(prod.price).toFixed(2)}</span>
+                      <span className="font-semibold text-indigo-600">৳{parseFloat(prod.price).toFixed(3)}</span>
                     </button>
                   ))}
                 </div>
@@ -612,7 +625,7 @@ export default function SalesHistory() {
                   {editSaleData.items.map((item, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50">
                       <td className="p-3 font-medium text-slate-700">{item.name}</td>
-                      <td className="p-3 text-center text-slate-500">৳{item.unit_price.toFixed(2)}</td>
+                      <td className="p-3 text-center text-slate-500">৳{item.unit_price.toFixed(3)}</td>
                       <td className="p-3">
                         <div className="flex items-center justify-center">
                           <button onClick={() => handleEditItemQty(idx, item.quantity - 1)} className="w-8 h-8 rounded-l-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">-</button>
@@ -620,13 +633,22 @@ export default function SalesHistory() {
                             type="number"
                             className="w-12 h-8 text-center border-y border-slate-100 text-sm font-semibold focus:outline-none focus:ring-0"
                             value={item.quantity}
-                            onChange={(e) => handleEditItemQty(idx, parseInt(e.target.value) || 1)}
-                            min="1"
+                            onChange={(e) => {
+                              let valStr = e.target.value;
+                              const parts = valStr.split('.');
+                              if (parts[1] && parts[1].length > 3) {
+                                valStr = parts[0] + '.' + parts[1].substring(0, 3);
+                              }
+                              handleEditItemQty(idx, valStr);
+                            }}
+                            onBlur={() => handleEditItemBlur(idx, item.quantity)}
+                            min="0"
+                            step="0.001"
                           />
                           <button onClick={() => handleEditItemQty(idx, item.quantity + 1)} className="w-8 h-8 rounded-r-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">+</button>
                         </div>
                       </td>
-                      <td className="p-3 text-right font-bold text-slate-700">৳{item.subtotal.toFixed(2)}</td>
+                      <td className="p-3 text-right font-bold text-slate-700">৳{item.subtotal.toFixed(3)}</td>
                       <td className="p-3 text-center">
                         <button onClick={() => handleRemoveEditItem(idx)} className="text-rose-400 hover:text-rose-600 p-1">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -659,11 +681,11 @@ export default function SalesHistory() {
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 text-sm">
                   <div className="flex justify-between text-slate-500">
                     <span>Subtotal:</span>
-                    <span className="font-semibold text-slate-700">৳{editSaleData.subtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-slate-700">৳{editSaleData.subtotal.toFixed(3)}</span>
                   </div>
                   <div className="flex justify-between text-indigo-600 font-bold text-lg pt-2 border-t border-slate-200">
                     <span>Final Amount:</span>
-                    <span>৳{editSaleData.final_amount.toFixed(2)}</span>
+                    <span>৳{editSaleData.final_amount.toFixed(3)}</span>
                   </div>
                 </div>
 
@@ -684,7 +706,7 @@ export default function SalesHistory() {
                 {editSaleData.final_amount > editSaleData.paid_amount && (
                   <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-semibold flex justify-between">
                     <span>New Due Created:</span>
-                    <span>৳{(editSaleData.final_amount - editSaleData.paid_amount).toFixed(2)}</span>
+                    <span>৳{(editSaleData.final_amount - editSaleData.paid_amount).toFixed(3)}</span>
                   </div>
                 )}
               </div>
@@ -772,7 +794,7 @@ export default function SalesHistory() {
                         </span>
                       </td>
                       <td className="p-3 text-right pr-4 font-extrabold text-emerald-600">
-                        ৳{parseFloat(item.total_revenue).toFixed(2)}
+                        ৳{parseFloat(item.total_revenue).toFixed(3)}
                       </td>
                     </tr>
                   ))}
@@ -784,7 +806,7 @@ export default function SalesHistory() {
                       {productDailySales.reduce((sum, item) => sum + item.total_quantity_sold, 0)} units
                     </td>
                     <td className="p-3 text-right pr-4 text-emerald-700">
-                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_revenue), 0).toFixed(2)}
+                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_revenue), 0).toFixed(3)}
                     </td>
                   </tr>
                 </tfoot>
@@ -816,7 +838,7 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Revenue</p>
-            <h3 className="text-xl font-extrabold text-indigo-600">৳{totalRevenue.toFixed(2)}</h3>
+            <h3 className="text-xl font-extrabold text-indigo-600">৳{totalRevenue.toFixed(3)}</h3>
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center space-x-3">
@@ -827,7 +849,7 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
-            <h3 className="text-xl font-extrabold text-emerald-600">৳{totalPaid.toFixed(2)}</h3>
+            <h3 className="text-xl font-extrabold text-emerald-600">৳{totalPaid.toFixed(3)}</h3>
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center space-x-3">
@@ -838,7 +860,7 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Due</p>
-            <h3 className={`text-xl font-extrabold ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>৳{totalDue.toFixed(2)}</h3>
+            <h3 className={`text-xl font-extrabold ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>৳{totalDue.toFixed(3)}</h3>
           </div>
         </div>
       </div>
@@ -1036,7 +1058,7 @@ export default function SalesHistory() {
                       {new Date(hoveredPoint.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </span>
                     <span className="font-extrabold text-white text-sm">
-                      {chartType === 'revenue' ? `Revenue: ৳${parseFloat(hoveredPoint.val).toFixed(2)}` : `Sales: ${hoveredPoint.val}`}
+                      {chartType === 'revenue' ? `Revenue: ৳${parseFloat(hoveredPoint.val).toFixed(3)}` : `Sales: ${hoveredPoint.val}`}
                     </span>
                   </div>
                 )}
@@ -1201,16 +1223,16 @@ export default function SalesHistory() {
                         {sale.payment_method.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="p-4 text-right font-extrabold text-indigo-600">৳{parseFloat(sale.final_amount).toFixed(2)}</td>
+                    <td className="p-4 text-right font-extrabold text-indigo-600">৳{parseFloat(sale.final_amount).toFixed(3)}</td>
                     <td className="p-4 text-right">
                       <span className="text-emerald-700 font-bold text-xs">
-                        ৳{parseFloat(sale.paid_amount !== null && sale.paid_amount !== undefined ? sale.paid_amount : sale.final_amount || 0).toFixed(2)}
+                        ৳{parseFloat(sale.paid_amount !== null && sale.paid_amount !== undefined ? sale.paid_amount : sale.final_amount || 0).toFixed(3)}
                       </span>
                     </td>
                     <td className="p-4 text-right">
                       {parseFloat(sale.due_amount || 0) > 0 ? (
                         <span className="bg-rose-50 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-lg border border-rose-100">
-                          ৳{parseFloat(sale.due_amount || 0).toFixed(2)}
+                          ৳{parseFloat(sale.due_amount || 0).toFixed(3)}
                         </span>
                       ) : (
                         <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-lg border border-emerald-100">
@@ -1379,16 +1401,16 @@ export default function SalesHistory() {
                                   <span className="font-bold text-slate-700">{qty}</span>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  <div className="text-slate-600 font-medium">৳{totalCostRow.toFixed(2)}</div>
-                                  <div className="text-xs text-slate-400">৳{costPerUnit.toFixed(2)}/unit</div>
+                                  <div className="text-slate-600 font-medium">৳{totalCostRow.toFixed(3)}</div>
+                                  <div className="text-xs text-slate-400">৳{costPerUnit.toFixed(3)}/unit</div>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  <div className="text-slate-800 font-semibold">৳{totalSellRow.toFixed(2)}</div>
-                                  <div className="text-xs text-slate-400">৳{sellPerUnit.toFixed(2)}/unit</div>
+                                  <div className="text-slate-800 font-semibold">৳{totalSellRow.toFixed(3)}</div>
+                                  <div className="text-xs text-slate-400">৳{sellPerUnit.toFixed(3)}/unit</div>
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <span className={`font-extrabold ${isLoss ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                    {isLoss ? '-' : '+'}৳{Math.abs(profitRow).toFixed(2)}
+                                    {isLoss ? '-' : '+'}৳{Math.abs(profitRow).toFixed(3)}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 text-center">
@@ -1412,12 +1434,12 @@ export default function SalesHistory() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Cost Price</p>
-                        <p className="text-xl font-extrabold text-slate-700">৳{totalCost.toFixed(2)}</p>
+                        <p className="text-xl font-extrabold text-slate-700">৳{totalCost.toFixed(3)}</p>
                         <p className="text-xs text-slate-400 mt-1">What you paid</p>
                       </div>
                       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center">
                         <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Total Selling Price</p>
-                        <p className="text-xl font-extrabold text-indigo-700">৳{totalRevenue.toFixed(2)}</p>
+                        <p className="text-xl font-extrabold text-indigo-700">৳{totalRevenue.toFixed(3)}</p>
                         <p className="text-xs text-indigo-400 mt-1">What customer paid</p>
                       </div>
                       <div className={`border rounded-xl p-4 text-center ${totalProfit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
@@ -1425,7 +1447,7 @@ export default function SalesHistory() {
                           Total Profit
                         </p>
                         <p className={`text-xl font-extrabold ${totalProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                          {totalProfit >= 0 ? '+' : '-'}৳{Math.abs(totalProfit).toFixed(2)}
+                          {totalProfit >= 0 ? '+' : '-'}৳{Math.abs(totalProfit).toFixed(3)}
                         </p>
                         <p className={`text-xs mt-1 font-semibold ${totalProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                           {profitMargin}% margin
@@ -1540,9 +1562,9 @@ export default function SalesHistory() {
                                       </td>
                                       <td className="py-2 text-center text-slate-600">{item.quantity}</td>
                                       <td className="py-2 text-center text-slate-500">{item.unit || 'pcs'}</td>
-                                      <td className="py-2 text-right text-slate-600">৳{parseFloat(item.unit_price || item.price).toFixed(2)}</td>
+                                      <td className="py-2 text-right text-slate-600">৳{parseFloat(item.unit_price || item.price).toFixed(3)}</td>
                                       <td className="py-2 text-right font-semibold text-slate-800">
-                                        ৳{((item.unit_price || item.price) * item.quantity).toFixed(2)}
+                                        ৳{((item.unit_price || item.price) * item.quantity).toFixed(3)}
                                       </td>
                                     </tr>
                                   ))}
@@ -1552,26 +1574,26 @@ export default function SalesHistory() {
                               <div className="border-t border-dashed border-slate-300 pt-2.5 mt-2.5 text-[10px] space-y-1.5 text-slate-600">
                                 <div className="flex justify-between">
                                   <span>Subtotal:</span>
-                                  <span className="font-medium text-slate-800">৳{receipt.subtotal.toFixed(2)}</span>
+                                  <span className="font-medium text-slate-800">৳{receipt.subtotal.toFixed(3)}</span>
                                 </div>
                                 {receipt.discount > 0 && (
                                   <div className="flex justify-between text-rose-500">
                                     <span>Discount:</span>
-                                    <span>-৳{receipt.discount.toFixed(2)}</span>
+                                    <span>-৳{receipt.discount.toFixed(3)}</span>
                                   </div>
                                 )}
                                 <div className="flex justify-between">
                                   <span>Tax ({taxRatePercent}%):</span>
-                                  <span className="font-medium text-slate-800">৳{receipt.tax.toFixed(2)}</span>
+                                  <span className="font-medium text-slate-800">৳{receipt.tax.toFixed(3)}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-slate-900 border-t border-dotted border-slate-200 pt-1.5 text-[12px]">
                                   <span>Total Paid:</span>
-                                  <span>৳{receipt.paid_amount.toFixed(2)}</span>
+                                  <span>৳{receipt.paid_amount.toFixed(3)}</span>
                                 </div>
                                 {receipt.due_amount > 0 && (
                                   <div className="flex justify-between font-bold text-rose-600 border-t border-dotted border-slate-200 pt-1 text-[11px]">
                                     <span>Outstanding Due:</span>
-                                    <span>৳{receipt.due_amount.toFixed(2)}</span>
+                                    <span>৳{receipt.due_amount.toFixed(3)}</span>
                                   </div>
                                 )}
                               </div>
@@ -1631,9 +1653,9 @@ export default function SalesHistory() {
                                       <td className="py-2.5 font-semibold text-slate-800">{item.product_name || item.name}</td>
                                       <td className="py-2.5 text-center text-slate-400 text-[9px] font-mono">{item.product_sku || item.sku || 'N/A'}</td>
                                       <td className="py-2.5 text-center text-slate-600 font-medium">{item.quantity}</td>
-                                      <td className="py-2.5 text-right text-slate-600">৳{parseFloat(item.unit_price || item.price).toFixed(2)}</td>
+                                      <td className="py-2.5 text-right text-slate-600">৳{parseFloat(item.unit_price || item.price).toFixed(3)}</td>
                                       <td className="py-2.5 text-right font-bold text-slate-900">
-                                        ৳{((item.unit_price || item.price) * item.quantity).toFixed(2)}
+                                        ৳{((item.unit_price || item.price) * item.quantity).toFixed(3)}
                                       </td>
                                     </tr>
                                   ))}
@@ -1644,26 +1666,26 @@ export default function SalesHistory() {
                                 <div className="w-56 space-y-1.5 text-slate-600 text-[10px]">
                                   <div className="flex justify-between">
                                     <span>Subtotal:</span>
-                                    <span className="font-semibold text-slate-800">৳{receipt.subtotal.toFixed(2)}</span>
+                                    <span className="font-semibold text-slate-800">৳{receipt.subtotal.toFixed(3)}</span>
                                   </div>
                                   {receipt.discount > 0 && (
                                     <div className="flex justify-between text-rose-500">
                                       <span>Discount:</span>
-                                      <span>-৳{receipt.discount.toFixed(2)}</span>
+                                      <span>-৳{receipt.discount.toFixed(3)}</span>
                                     </div>
                                   )}
                                   <div className="flex justify-between">
                                     <span>Tax ({taxRatePercent}%):</span>
-                                    <span className="font-semibold text-slate-800">৳{receipt.tax.toFixed(2)}</span>
+                                    <span className="font-semibold text-slate-800">৳{receipt.tax.toFixed(3)}</span>
                                   </div>
                                   <div className="flex justify-between font-black text-indigo-600 border-t border-slate-255 pt-1.5 text-xs">
                                     <span>Total Paid:</span>
-                                    <span>৳{receipt.paid_amount.toFixed(2)}</span>
+                                    <span>৳{receipt.paid_amount.toFixed(3)}</span>
                                   </div>
                                   {receipt.due_amount > 0 && (
                                     <div className="flex justify-between font-bold text-rose-600 border-t border-slate-200 pt-1">
                                       <span>Outstanding Due:</span>
-                                      <span>৳{receipt.due_amount.toFixed(2)}</span>
+                                      <span>৳{receipt.due_amount.toFixed(3)}</span>
                                     </div>
                                   )}
                                 </div>
@@ -1722,12 +1744,12 @@ export default function SalesHistory() {
                             </div>
                             <div className="flex justify-between text-slate-500 border-t border-slate-100 pt-2 mt-2">
                               <span>Total Paid:</span>
-                              <span className="font-bold text-indigo-600">৳{receipt.paid_amount.toFixed(2)}</span>
+                              <span className="font-bold text-indigo-600">৳{receipt.paid_amount.toFixed(3)}</span>
                             </div>
                             {receipt.due_amount > 0 && (
                               <div className="flex justify-between text-rose-500 font-semibold">
                                 <span>Outstanding Due:</span>
-                                <span>৳{receipt.due_amount.toFixed(2)}</span>
+                                <span>৳{receipt.due_amount.toFixed(3)}</span>
                               </div>
                             )}
                           </div>
@@ -1807,8 +1829,8 @@ export default function SalesHistory() {
                                     </td>
                                     <td style={{ textAlign: 'center', paddingTop: '3px' }}>{item.quantity}</td>
                                     <td style={{ textAlign: 'center', paddingTop: '3px', color: '#666' }}>{item.unit || 'pcs'}</td>
-                                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{parseFloat(item.unit_price || item.price).toFixed(2)}</td>
-                                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{((item.unit_price || item.price) * item.quantity).toFixed(2)}</td>
+                                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{parseFloat(item.unit_price || item.price).toFixed(3)}</td>
+                                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{((item.unit_price || item.price) * item.quantity).toFixed(3)}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1817,26 +1839,26 @@ export default function SalesHistory() {
                             <div style={{ borderTop: '1px dashed #000', paddingTop: '4px', fontSize: '9px', lineHeight: '1.3' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Subtotal:</span>
-                                <span>৳{receipt.subtotal.toFixed(2)}</span>
+                                <span>৳{receipt.subtotal.toFixed(3)}</span>
                               </div>
                               {receipt.discount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                   <span>Discount:</span>
-                                  <span>-৳{receipt.discount.toFixed(2)}</span>
+                                  <span>-৳{receipt.discount.toFixed(3)}</span>
                                 </div>
                               )}
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Tax ({taxRatePercent}%):</span>
-                                <span>৳{receipt.tax.toFixed(2)}</span>
+                                <span>৳{receipt.tax.toFixed(3)}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 'bold', borderTop: '1px dashed #000', paddingTop: '3px', marginTop: '3px' }}>
                                 <span>Total Paid:</span>
-                                <span>৳{receipt.paid_amount.toFixed(2)}</span>
+                                <span>৳{receipt.paid_amount.toFixed(3)}</span>
                               </div>
                               {receipt.due_amount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 'bold', color: '#ef4444', borderTop: '1px dashed #000', paddingTop: '2px', marginTop: '2px' }}>
                                   <span>Outstanding Due:</span>
-                                  <span>৳{receipt.due_amount.toFixed(2)}</span>
+                                  <span>৳{receipt.due_amount.toFixed(3)}</span>
                                 </div>
                               )}
                             </div>
@@ -1896,8 +1918,8 @@ export default function SalesHistory() {
                                     <td style={{ padding: '10px 0', fontWeight: '500' }}>{item.product_name || item.name}</td>
                                     <td style={{ padding: '10px 0', textAlign: 'center', color: '#64748b' }}>{item.product_sku || item.sku || 'N/A'}</td>
                                     <td style={{ padding: '10px 0', textAlign: 'center' }}>{item.quantity}</td>
-                                    <td style={{ padding: '10px 0', textAlign: 'right' }}>৳{parseFloat(item.unit_price || item.price).toFixed(2)}</td>
-                                    <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 'bold' }}>৳{((item.unit_price || item.price) * item.quantity).toFixed(2)}</td>
+                                    <td style={{ padding: '10px 0', textAlign: 'right' }}>৳{parseFloat(item.unit_price || item.price).toFixed(3)}</td>
+                                    <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 'bold' }}>৳{((item.unit_price || item.price) * item.quantity).toFixed(3)}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1907,26 +1929,26 @@ export default function SalesHistory() {
                               <div style={{ width: '250px', fontSize: '13px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#64748b' }}>
                                   <span>Subtotal</span>
-                                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.subtotal.toFixed(2)}</span>
+                                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.subtotal.toFixed(3)}</span>
                                 </div>
                                 {receipt.discount > 0 && (
                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444' }}>
                                     <span>Discount</span>
-                                    <span>-৳{receipt.discount.toFixed(2)}</span>
+                                    <span>-৳{receipt.discount.toFixed(3)}</span>
                                   </div>
                                 )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#64748b' }}>
                                   <span>Tax ({taxRatePercent}%)</span>
-                                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.tax.toFixed(2)}</span>
+                                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.tax.toFixed(3)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '15px', fontWeight: 'bold', borderTop: '2px solid #e2e8f0', marginTop: '6px' }}>
                                   <span>Total Paid</span>
-                                  <span style={{ color: '#6366f1' }}>৳{receipt.paid_amount.toFixed(2)}</span>
+                                  <span style={{ color: '#6366f1' }}>৳{receipt.paid_amount.toFixed(3)}</span>
                                 </div>
                                 {receipt.due_amount > 0 && (
                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444', fontWeight: 'bold', borderTop: '1px solid #e2e8f0', marginTop: '4px' }}>
                                     <span>Outstanding Due</span>
-                                    <span>৳{receipt.due_amount.toFixed(2)}</span>
+                                    <span>৳{receipt.due_amount.toFixed(3)}</span>
                                   </div>
                                 )}
                               </div>

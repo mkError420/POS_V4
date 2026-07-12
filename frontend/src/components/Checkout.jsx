@@ -228,7 +228,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
   // Automatically sync paidAmount with final total unless cashier manually edited it
   useEffect(() => {
     if (!activeTab?.isPaidTouched) {
-      updateActiveTabState('paidAmount', getFinalTotal().toFixed(2));
+      updateActiveTabState('paidAmount', getFinalTotal().toFixed(3));
     }
   }, [
     activeTab?.cart,
@@ -504,7 +504,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const targetItem = activeTab.cart.find(item => item.id === productId);
     if (!targetItem) return;
 
-    const newQty = parseFloat((targetItem.quantity + change).toFixed(2));
+    const newQty = parseFloat((targetItem.quantity + change).toFixed(3));
 
     if (newQty <= 0) {
       removeFromCart(productId);
@@ -523,6 +523,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
   const handleQuantityInput = (productId, valStr) => {
     if (!activeTab) return;
+    const parts = valStr.split('.');
+    if (parts[1] && parts[1].length > 3) {
+      valStr = parts[0] + '.' + parts[1].substring(0, 3);
+    }
     let parsedVal = parseFloat(valStr);
     const targetItem = activeTab.cart.find(item => item.id === productId);
     if (!targetItem) return;
@@ -557,6 +561,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
   const updatePrice = (productId, newPriceVal) => {
     if (!activeTab) return;
+    const parts = newPriceVal.split('.');
+    if (parts[1] && parts[1].length > 3) {
+      newPriceVal = parts[0] + '.' + parts[1].substring(0, 3);
+    }
     updateActiveTabState('cart', activeTab.cart.map(item =>
       item.id === productId ? { ...item, price: newPriceVal } : item
     ));
@@ -567,6 +575,11 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const item = activeTab.cart.find(item => item.id === productId);
     if (!item || item.quantity <= 0) return;
     
+    const parts = newSubtotalVal.split('.');
+    if (parts[1] && parts[1].length > 3) {
+      newSubtotalVal = parts[0] + '.' + parts[1].substring(0, 3);
+    }
+
     if (newSubtotalVal === '') {
       updateActiveTabState('cart', activeTab.cart.map(cartItem =>
         cartItem.id === productId ? { ...cartItem, price: '' } : cartItem
@@ -577,7 +590,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const parsedSubtotal = parseFloat(newSubtotalVal);
     if (isNaN(parsedSubtotal)) return;
 
-    const newPrice = parsedSubtotal / item.quantity;
+    const newPrice = parseFloat((parsedSubtotal / item.quantity).toFixed(3));
     updateActiveTabState('cart', activeTab.cart.map(cartItem =>
       cartItem.id === productId ? { ...cartItem, price: newPrice } : cartItem
     ));
@@ -1046,7 +1059,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         escapeCSV(bill.customer_name || 'Walk-in'),
         escapeCSV(bill.staff_name || 'N/A'),
         escapeCSV(itemsString),
-        parseFloat(bill.due_amount || 0).toFixed(2)
+        parseFloat(bill.due_amount || 0).toFixed(3)
       ];
     });
 
@@ -1252,7 +1265,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             >
                               {product.name}
                             </td>
-                            <td className="p-3 text-right font-extrabold text-slate-700">৳{parseFloat(product.price).toFixed(2)}</td>
+                            <td className="p-3 text-right font-extrabold text-slate-700">৳{parseFloat(product.price).toFixed(3)}</td>
                             <td className="p-3 text-center">
                               <span className={`px-2 py-0.5 rounded text-xs font-bold ${remainingQty <= product.low_stock_threshold
                                 ? 'bg-rose-50 text-rose-600 border border-rose-100'
@@ -1272,10 +1285,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                                   </button>
                                   <input
                                     type="number"
-                                    min="0.01"
-                                    step="0.01"
+                                    min="0"
+                                    step="0.001"
                                     max={product.stock_quantity}
-                                    value={inCartItem.quantity === 0 ? '' : inCartItem.quantity}
+                                    value={inCartItem.quantity}
                                     onChange={(e) => handleQuantityInput(product.id, e.target.value)}
                                     onBlur={() => handleQuantityBlur(product.id, inCartItem.quantity)}
                                     className="w-12 text-center text-xs font-extrabold text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded-md border border-indigo-100 focus:ring-1 focus:ring-indigo-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1320,7 +1333,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         <div>
           <p className="text-xs text-slate-400 font-medium">Active Cart</p>
           <p className="text-lg font-bold text-slate-800">
-            {activeTab?.cart?.reduce((sum, item) => sum + item.quantity, 0) || 0} Items - <span className="text-indigo-600">৳{getFinalTotal().toFixed(2)}</span>
+            {activeTab?.cart?.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) || 0} Items - <span className="text-indigo-600">৳{getFinalTotal().toFixed(3)}</span>
           </p>
         </div>
         <button
@@ -1408,9 +1421,9 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             </td>
                             <td className="py-2 text-center text-slate-600">{item.quantity}</td>
                             <td className="py-2 text-center text-slate-500">{item.unit || 'pcs'}</td>
-                            <td className="py-2 text-right text-slate-600">৳{parseFloat(item.price || item.unit_price).toFixed(2)}</td>
+                            <td className="py-2 text-right text-slate-600">৳{parseFloat(item.price || item.unit_price).toFixed(3)}</td>
                             <td className="py-2 text-right font-semibold text-slate-800">
-                              ৳{((item.price || item.unit_price) * item.quantity).toFixed(2)}
+                              ৳{((item.price || item.unit_price) * item.quantity).toFixed(3)}
                             </td>
                           </tr>
                         ))}
@@ -1420,17 +1433,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     <div className="border-t border-dashed border-slate-300 pt-2.5 mt-2.5 text-[10px] space-y-1.5 text-slate-600">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span className="font-medium text-slate-800">৳{parseFloat(receipt.subtotal).toFixed(2)}</span>
+                        <span className="font-medium text-slate-800">৳{parseFloat(receipt.subtotal).toFixed(3)}</span>
                       </div>
                       {parseFloat(receipt.discount || 0) > 0 && (
                         <div className="flex justify-between text-rose-500">
                           <span>Discount:</span>
-                          <span>-৳{parseFloat(receipt.discount).toFixed(2)}</span>
+                          <span>-৳{parseFloat(receipt.discount).toFixed(3)}</span>
                         </div>
                       )}
                       <div className="flex justify-between">
                         <span>Tax:</span>
-                        <span className="font-medium text-slate-800">৳{parseFloat(receipt.tax).toFixed(2)}</span>
+                        <span className="font-medium text-slate-800">৳{parseFloat(receipt.tax).toFixed(3)}</span>
                       </div>
                       {receipt.loyalty_enabled && (
                         <>
@@ -1449,7 +1462,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           {receipt.points_redeemed_value > 0 && (
                             <div className="flex justify-between text-rose-500 text-[10px]">
                               <span>Points Discount:</span>
-                              <span>-৳{receipt.points_redeemed_value.toFixed(2)}</span>
+                              <span>-৳{receipt.points_redeemed_value.toFixed(3)}</span>
                             </div>
                           )}
                         </>
@@ -1457,17 +1470,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       {parseFloat(receipt.reduce_due_amount || 0) > 0 && (
                         <div className="flex justify-between text-indigo-600 font-medium">
                           <span>Due Paid:</span>
-                          <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(2)}</span>
+                          <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(3)}</span>
                         </div>
                       )}
                       <div className="flex justify-between font-bold text-slate-900 border-t border-dotted border-slate-200 pt-1.5 text-[12px]">
                         <span>Total Paid:</span>
-                        <span>৳{parseFloat(receipt.total).toFixed(2)}</span>
+                        <span>৳{parseFloat(receipt.total).toFixed(3)}</span>
                       </div>
                       {parseFloat(receipt.due_amount || 0) > 0 && (
                         <div className="flex justify-between font-bold text-rose-600 border-t border-dotted border-slate-200 pt-1 text-[11px]">
                           <span>Outstanding Due:</span>
-                          <span>৳{parseFloat(receipt.due_amount).toFixed(2)}</span>
+                          <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                         </div>
                       )}
                     </div>
@@ -1528,9 +1541,9 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             <td className="py-2.5 font-semibold text-slate-800">{item.name || item.product_name}</td>
                             <td className="py-2.5 text-center text-slate-400 text-[9px] font-mono">{item.sku || item.product_sku || 'N/A'}</td>
                             <td className="py-2.5 text-center text-slate-600 font-medium">{item.quantity}</td>
-                            <td className="py-2.5 text-right text-slate-600">৳{parseFloat(item.price || item.unit_price).toFixed(2)}</td>
+                            <td className="py-2.5 text-right text-slate-600">৳{parseFloat(item.price || item.unit_price).toFixed(3)}</td>
                             <td className="py-2.5 text-right font-bold text-slate-900">
-                              ৳{((item.price || item.unit_price) * item.quantity).toFixed(2)}
+                              ৳{((item.price || item.unit_price) * item.quantity).toFixed(3)}
                             </td>
                           </tr>
                         ))}
@@ -1541,17 +1554,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       <div className="w-56 space-y-1.5 text-slate-600 text-[10px]">
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
-                          <span className="font-semibold text-slate-800">৳{parseFloat(receipt.subtotal).toFixed(2)}</span>
+                          <span className="font-semibold text-slate-800">৳{parseFloat(receipt.subtotal).toFixed(3)}</span>
                         </div>
                         {parseFloat(receipt.discount || 0) > 0 && (
                           <div className="flex justify-between text-rose-500">
                             <span>Discount:</span>
-                            <span>-৳{parseFloat(receipt.discount).toFixed(2)}</span>
+                            <span>-৳{parseFloat(receipt.discount).toFixed(3)}</span>
                           </div>
                         )}
                         <div className="flex justify-between">
                           <span>Tax:</span>
-                          <span className="font-semibold text-slate-800">৳{parseFloat(receipt.tax).toFixed(2)}</span>
+                          <span className="font-semibold text-slate-800">৳{parseFloat(receipt.tax).toFixed(3)}</span>
                         </div>
                         {receipt.loyalty_enabled && (
                           <>
@@ -1570,7 +1583,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             {receipt.points_redeemed_value > 0 && (
                               <div className="flex justify-between text-rose-500 font-semibold">
                                 <span>Points Discount:</span>
-                                <span>-৳{receipt.points_redeemed_value.toFixed(2)}</span>
+                                <span>-৳{receipt.points_redeemed_value.toFixed(3)}</span>
                               </div>
                             )}
                           </>
@@ -1578,17 +1591,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                         {parseFloat(receipt.reduce_due_amount || 0) > 0 && (
                           <div className="flex justify-between text-indigo-600 font-semibold">
                             <span>Due Paid:</span>
-                            <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(2)}</span>
+                            <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(3)}</span>
                           </div>
                         )}
                         <div className="flex justify-between font-black text-indigo-600 border-t border-slate-250 pt-1.5 text-xs">
                           <span>Total Paid:</span>
-                          <span>৳{parseFloat(receipt.total).toFixed(2)}</span>
+                          <span>৳{parseFloat(receipt.total).toFixed(3)}</span>
                         </div>
                         {parseFloat(receipt.due_amount || 0) > 0 && (
                           <div className="flex justify-between font-bold text-rose-600 border-t border-slate-200 pt-1">
                             <span>Outstanding Due:</span>
-                            <span>৳{parseFloat(receipt.due_amount).toFixed(2)}</span>
+                            <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                           </div>
                         )}
                       </div>
@@ -1654,12 +1667,12 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   </div>
                   <div className="flex justify-between text-slate-500 border-t border-slate-100 pt-2 mt-2">
                     <span>Total Paid:</span>
-                    <span className="font-bold text-indigo-600">৳{parseFloat(receipt.total).toFixed(2)}</span>
+                    <span className="font-bold text-indigo-600">৳{parseFloat(receipt.total).toFixed(3)}</span>
                   </div>
                   {receipt.due_amount > 0 && (
                     <div className="flex justify-between text-rose-500 font-semibold">
                       <span>Outstanding Due:</span>
-                      <span>৳{parseFloat(receipt.due_amount).toFixed(2)}</span>
+                      <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                     </div>
                   )}
                 </div>
@@ -1748,8 +1761,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     </td>
                     <td style={{ textAlign: 'center', paddingTop: '3px' }}>{item.quantity}</td>
                     <td style={{ textAlign: 'center', paddingTop: '3px', color: '#666' }}>{item.unit || 'pcs'}</td>
-                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{parseFloat(item.price || item.unit_price).toFixed(2)}</td>
-                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{((item.price || item.unit_price) * item.quantity).toFixed(2)}</td>
+                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{parseFloat(item.price || item.unit_price).toFixed(3)}</td>
+                    <td style={{ textAlign: 'right', paddingTop: '3px' }}>৳{((item.price || item.unit_price) * item.quantity).toFixed(3)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1758,17 +1771,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
             <div style={{ borderTop: '1px dashed #000', paddingTop: '4px', fontSize: '9px', lineHeight: '1.3' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Subtotal:</span>
-                <span>৳{receipt.subtotal.toFixed(2)}</span>
+                <span>৳{receipt.subtotal.toFixed(3)}</span>
               </div>
               {parseFloat(receipt.discount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Discount:</span>
-                  <span>-৳{parseFloat(receipt.discount).toFixed(2)}</span>
+                  <span>-৳{parseFloat(receipt.discount).toFixed(3)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', style: { justifyContent: 'space-between' } }}>
                 <span>Tax ({(taxRate * 100).toString()}%):</span>
-                <span>৳{receipt.tax.toFixed(2)}</span>
+                <span>৳{receipt.tax.toFixed(3)}</span>
               </div>
               {receipt.loyalty_enabled && (
                 <>
@@ -1787,7 +1800,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   {receipt.points_redeemed_value > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e11d48' }}>
                       <span>Points Discount:</span>
-                      <span>-৳{receipt.points_redeemed_value.toFixed(2)}</span>
+                      <span>-৳{receipt.points_redeemed_value.toFixed(3)}</span>
                     </div>
                   )}
                 </>
@@ -1795,17 +1808,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               {parseFloat(receipt.reduce_due_amount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                   <span>Due Paid:</span>
-                  <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(2)}</span>
+                  <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(3)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 'bold', borderTop: '1px dashed #000', paddingTop: '3px', marginTop: '3px' }}>
                 <span>Total Paid:</span>
-                <span>৳{parseFloat(receipt.total).toFixed(2)}</span>
+                <span>৳{parseFloat(receipt.total).toFixed(3)}</span>
               </div>
               {parseFloat(receipt.due_amount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 'bold', color: '#ef4444', borderTop: '1px dashed #000', paddingTop: '2px', marginTop: '2px' }}>
                   <span>Outstanding Due:</span>
-                  <span>৳{parseFloat(receipt.due_amount).toFixed(2)}</span>
+                  <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                 </div>
               )}
             </div>
@@ -1866,8 +1879,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     <td style={{ padding: '10px 0', fontWeight: '500' }}>{item.name || item.product_name}</td>
                     <td style={{ padding: '10px 0', textAlign: 'center', color: '#64748b' }}>{item.sku || item.product_sku || 'N/A'}</td>
                     <td style={{ padding: '10px 0', textAlign: 'center' }}>{item.quantity}</td>
-                    <td style={{ padding: '10px 0', textAlign: 'right' }}>৳{parseFloat(item.price || item.unit_price).toFixed(2)}</td>
-                    <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 'bold' }}>৳{((item.price || item.unit_price) * item.quantity).toFixed(2)}</td>
+                    <td style={{ padding: '10px 0', textAlign: 'right' }}>৳{parseFloat(item.price || item.unit_price).toFixed(3)}</td>
+                    <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 'bold' }}>৳{((item.price || item.unit_price) * item.quantity).toFixed(3)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1877,17 +1890,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               <div style={{ width: '250px', fontSize: '13px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#64748b' }}>
                   <span>Subtotal</span>
-                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.subtotal.toFixed(2)}</span>
+                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.subtotal.toFixed(3)}</span>
                 </div>
                 {parseFloat(receipt.discount || 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444' }}>
                     <span>Discount</span>
-                    <span>-৳{parseFloat(receipt.discount).toFixed(2)}</span>
+                    <span>-৳{parseFloat(receipt.discount).toFixed(3)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#64748b' }}>
                   <span>Tax ({(taxRate * 100).toString()}%)</span>
-                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.tax.toFixed(2)}</span>
+                  <span style={{ fontWeight: '600', color: '#1e293b' }}>৳{receipt.tax.toFixed(3)}</span>
                 </div>
                 {receipt.loyalty_enabled && (
                   <>
@@ -1906,7 +1919,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     {receipt.points_redeemed_value > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#e11d48' }}>
                         <span>Points Cashback Discount</span>
-                        <span>-৳{receipt.points_redeemed_value.toFixed(2)}</span>
+                        <span>-৳{receipt.points_redeemed_value.toFixed(3)}</span>
                       </div>
                     )}
                   </>
@@ -1914,17 +1927,17 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 {parseFloat(receipt.reduce_due_amount || 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#4f46e5', fontWeight: 'bold' }}>
                     <span>Due Balance Paid</span>
-                    <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(2)}</span>
+                    <span>৳{parseFloat(receipt.reduce_due_amount).toFixed(3)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '15px', fontWeight: 'bold', borderTop: '2px solid #e2e8f0', marginTop: '6px' }}>
                   <span>Total Paid</span>
-                  <span style={{ color: '#6366f1' }}>৳{parseFloat(receipt.total).toFixed(2)}</span>
+                  <span style={{ color: '#6366f1' }}>৳{parseFloat(receipt.total).toFixed(3)}</span>
                 </div>
                 {parseFloat(receipt.due_amount || 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444', fontWeight: 'bold', borderTop: '1px solid #e2e8f0', marginTop: '4px' }}>
                     <span>Outstanding Due</span>
-                    <span>৳{parseFloat(receipt.due_amount).toFixed(2)}</span>
+                    <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                   </div>
                 )}
               </div>
@@ -1970,11 +1983,11 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-500 space-y-1">
                 <div className="flex justify-between font-semibold text-slate-700">
                   <span>Cart Items Count:</span>
-                  <span>{activeTab.cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                  <span>{activeTab.cart.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-slate-700">
                   <span>Subtotal Amount:</span>
-                  <span>৳{getSubtotal().toFixed(2)}</span>
+                  <span>৳{getSubtotal().toFixed(3)}</span>
                 </div>
                 {activeTab.selectedCustomerId && (
                   <div className="flex justify-between">
@@ -2059,7 +2072,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     } catch (e) {
                       itemsList = [];
                     }
-                    const totalQty = itemsList.reduce((sum, item) => sum + item.quantity, 0);
+                    const totalQty = itemsList.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
                     const isDueTracker = itemsList.length === 0;
 
                     return (
@@ -2077,7 +2090,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             </span>
                             {isDueTracker ? (
                               <span className="bg-rose-50 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-100">
-                                Due Tracker (৳{parseFloat(bill.due_amount || 0).toFixed(2)})
+                                Due Tracker (৳{parseFloat(bill.due_amount || 0).toFixed(3)})
                               </span>
                             ) : (
                               <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-100">
@@ -2191,7 +2204,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                         <div className="text-xs font-semibold text-slate-800">{c.name}</div>
                         <div className="text-[10px] text-slate-500 flex justify-between mt-0.5">
                           <span>Phone: {c.phone || '-'}</span>
-                          {parseFloat(c.due_balance) > 0 && <span className="text-rose-600">Due: ৳{parseFloat(c.due_balance).toFixed(2)}</span>}
+                          {parseFloat(c.due_balance) > 0 && <span className="text-rose-600">Due: ৳{parseFloat(c.due_balance).toFixed(3)}</span>}
                         </div>
                       </div>
                     ))}
@@ -2227,7 +2240,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   <div className="bg-rose-50 border border-rose-100 rounded-lg p-2 space-y-2 text-xs text-rose-700">
                     <div className="flex justify-between">
                       <span className="font-medium">Outstanding Due Balance:</span>
-                      <span className="font-bold">৳{balance.toFixed(2)}</span>
+                      <span className="font-bold">৳{balance.toFixed(3)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1 border-t border-rose-200">
                       <span className="font-medium">Collect Due Payment:</span>
@@ -2235,7 +2248,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                         <input
                           type="number"
                           min="0"
-                          step="0.01"
+                          step="0.001"
                           max={balance}
                           value={reduceDue > 0 ? reduceDue : ''}
                           onChange={(e) => {
@@ -2253,7 +2266,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     </div>
                     {reduceDue > 0 && (
                       <div className="text-[10px] text-rose-600 text-right">
-                        Applied: ৳{reduceDue.toFixed(2)} from due balance
+                        Applied: ৳{reduceDue.toFixed(3)} from due balance
                       </div>
                     )}
                   </div>
@@ -2278,8 +2291,8 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   </div>
 
                   <div className="flex justify-between items-center text-[10px] text-indigo-700 font-medium">
-                    <span>Redeem value: ৳{loyaltyPointValue.toFixed(2)} / pt</span>
-                    <span>Total Value: ৳{(availablePoints * loyaltyPointValue).toFixed(2)}</span>
+                    <span>Redeem value: ৳{loyaltyPointValue.toFixed(3)} / pt</span>
+                    <span>Total Value: ৳{(availablePoints * loyaltyPointValue).toFixed(3)}</span>
                   </div>
 
                   {availablePoints > 0 && (
@@ -2324,7 +2337,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   )}
                   {activeTab.redeemPoints > 0 && (
                     <div className="text-[10px] text-emerald-600 font-bold text-right">
-                      Discount Applied: -৳{pointsDiscountVal.toFixed(2)}
+                      Discount Applied: -৳{pointsDiscountVal.toFixed(3)}
                     </div>
                   )}
                 </div>
@@ -2433,7 +2446,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     <tr key={item.id} className="hover:bg-slate-50/40 transition-colors">
                       <td className="p-2 pl-3 font-semibold text-slate-800 max-w-[120px] truncate" title={item.name}>
                         <div className="truncate">{item.name}</div>
-                        <div className="text-[10px] text-slate-450 font-normal">Cost: ৳{parseFloat(item.cost_price || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-450 font-normal">Cost: ৳{parseFloat(item.cost_price || 0).toFixed(3)}</div>
                       </td>
                       <td className="p-2 text-center">
                         <div className="inline-flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden">
@@ -2446,10 +2459,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           </button>
                           <input
                             type="number"
-                            min="0.01"
-                            step="0.01"
+                            min="0"
+                            step="0.001"
                             max={item.stock_quantity}
-                            value={item.quantity === 0 ? '' : item.quantity}
+                            value={item.quantity}
                             onChange={(e) => handleQuantityInput(item.id, e.target.value)}
                             onBlur={() => handleQuantityBlur(item.id, item.quantity)}
                             className="w-10 text-center text-xs font-bold text-slate-700 bg-transparent border-0 focus:ring-0 focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -2469,7 +2482,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       <td className="p-2 text-right">
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           value={item.price}
                           onChange={(e) => updatePrice(item.id, e.target.value)}
@@ -2479,9 +2492,9 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       <td className="p-2 text-right">
                         <input
                           type="number"
-                          step="any"
+                          step="0.001"
                           min="0"
-                          value={parseFloat(item.price || 0) * item.quantity || ''}
+                          value={item.price && item.quantity ? parseFloat((parseFloat(item.price) * item.quantity).toFixed(3)) : ''}
                           onChange={(e) => updateSubtotal(item.id, e.target.value)}
                           className="w-20 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
                         />
@@ -2512,7 +2525,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               <div className="flex justify-between">
                 <span>Tax ({(taxRate * 100).toString()}%):</span>
-                <span className="font-semibold">৳{getTax().toFixed(2)}</span>
+                <span className="font-semibold">৳{getTax().toFixed(3)}</span>
               </div>
 
               {/* Discount Manual Inputs */}
@@ -2546,26 +2559,26 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               {/* Final Total */}
               <div className="flex justify-between items-center col-span-2 border-t border-slate-200/60 pt-1.5 mt-0.5">
                 <span className="font-extrabold text-slate-800">Total:</span>
-                <span className="font-extrabold text-indigo-650 text-sm">৳{getFinalTotal().toFixed(2)}</span>
+                <span className="font-extrabold text-indigo-650 text-sm">৳{getFinalTotal().toFixed(3)}</span>
               </div>
             </div>
 
             {getDiscountAmount() > 0 && (
               <div className="flex justify-between text-[11px] text-rose-500">
                 <span>Discounted Amt:</span>
-                <span>-৳{getDiscountAmount().toFixed(2)}</span>
+                <span>-৳{getDiscountAmount().toFixed(3)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-[11px] text-slate-500 font-semibold border-t border-slate-200/40 pt-1 mt-0.5">
               <span>Sub-total:</span>
-              <span>৳{getFinalTotal().toFixed(2)}</span>
+              <span>৳{getFinalTotal().toFixed(3)}</span>
             </div>
 
             {getPointsDiscount() > 0 && (
               <div className="flex justify-between text-[11px] text-emerald-600 font-medium">
                 <span>Loyalty Cashback:</span>
-                <span>-৳{getPointsDiscount().toFixed(2)}</span>
+                <span>-৳{getPointsDiscount().toFixed(3)}</span>
               </div>
             )}
 
@@ -2578,7 +2591,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   Due Balance Payment
                 </span>
                 <div className="flex items-center space-x-1">
-                  <span className="font-bold">৳{parseFloat(activeTab?.reduceDueAmount).toFixed(2)}</span>
+                  <span className="font-bold">৳{parseFloat(activeTab?.reduceDueAmount).toFixed(3)}</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -2601,13 +2614,13 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="0.001"
                   value={activeTab.paidAmount}
                   onChange={(e) => {
                     updateActiveTabState('paidAmount', e.target.value);
                     updateActiveTabState('isPaidTouched', true);
                   }}
-                  placeholder={getFinalTotal().toFixed(2)}
+                  placeholder={getFinalTotal().toFixed(3)}
                   className="w-16 border border-slate-200 rounded px-1.5 py-0.5 text-right font-semibold text-xs text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -2638,7 +2651,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-1 space-y-0.5 text-[11px] text-amber-800">
                     <div className="flex justify-between">
                       <span className="font-medium">Outstanding Due:</span>
-                      <span className="font-bold">৳{dueAmount.toFixed(2)}</span>
+                      <span className="font-bold">৳{dueAmount.toFixed(3)}</span>
                     </div>
                     <div className="text-[9px] text-amber-600 font-semibold text-right">
                       * Customer Profile Required
@@ -2675,7 +2688,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 <>
                   <span className="text-xs">Complete Checkout</span>
                   <span className="font-extrabold bg-indigo-500/80 px-1.5 py-0.5 rounded text-[10px]">
-                    ৳{getFinalTotal().toFixed(2)}
+                    ৳{getFinalTotal().toFixed(3)}
                   </span>
                 </>
               )}

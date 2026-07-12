@@ -334,7 +334,7 @@ class SaleController {
                         if ((int)$item['sale_id'] === $sale['id']) {
                             $sale['items'][] = [
                                 'product_name' => $item['product_name'],
-                                'quantity' => (int)$item['quantity'],
+                                'quantity' => (float)$item['quantity'],
                                 'unit' => $item['unit']
                             ];
                         }
@@ -405,7 +405,7 @@ class SaleController {
                 $item['shop_id'] = (int)$item['shop_id'];
                 $item['sale_id'] = (int)$item['sale_id'];
                 $item['product_id'] = (int)$item['product_id'];
-                $item['quantity'] = (int)$item['quantity'];
+                $item['quantity'] = (float)$item['quantity'];
                 $item['unit_price'] = (float)$item['unit_price'];
                 $item['subtotal'] = (float)$item['subtotal'];
                 $item['cost_price'] = (float)$item['cost_price'];
@@ -448,7 +448,7 @@ class SaleController {
             foreach ($saleItems as $item) {
                 DB::query(
                     'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?',
-                    [(int)$item['quantity'], (int)$item['product_id'], $shopId]
+                    [(float)$item['quantity'], (int)$item['product_id'], $shopId]
                 );
             }
 
@@ -541,7 +541,7 @@ class SaleController {
             foreach ($originalItems as $origItem) {
                 DB::query(
                     'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?',
-                    [(int)$origItem['quantity'], (int)$origItem['product_id'], $shopId]
+                    [(float)$origItem['quantity'], (int)$origItem['product_id'], $shopId]
                 );
             }
 
@@ -578,7 +578,7 @@ class SaleController {
 
             foreach ($items as $item) {
                 $productId = $item['product_id'] ?? null;
-                $quantity = (int)($item['quantity'] ?? 0);
+                $quantity = (float)($item['quantity'] ?? 0);
 
                 if (empty($productId) || $quantity <= 0) {
                     throw new \Exception("Invalid item details for product ID $productId.");
@@ -594,7 +594,7 @@ class SaleController {
                     throw new \Exception("Product with ID $productId not found in this shop.");
                 }
 
-                if ((int)$product['stock_quantity'] < $quantity) {
+                if ((float)$product['stock_quantity'] < $quantity) {
                     throw new \Exception("Insufficient stock for product \"{$product['name']}\". Available: {$product['stock_quantity']}, requested: $quantity.");
                 }
 
@@ -610,18 +610,18 @@ class SaleController {
                     'subtotal' => $subtotal
                 ];
 
-                $newStock = (int)$product['stock_quantity'] - $quantity;
+                $newStock = (float)$product['stock_quantity'] - $quantity;
                 DB::query(
                     'UPDATE products SET stock_quantity = ? WHERE id = ? AND shop_id = ?',
                     [$newStock, $productId, $shopId]
                 );
 
-                if ($newStock <= (int)$product['low_stock_threshold']) {
+                if ($newStock <= (float)$product['low_stock_threshold']) {
                     $stockAlerts[] = [
                         'product_id' => $productId,
                         'name' => $product['name'],
                         'remaining_stock' => $newStock,
-                        'threshold' => (int)$product['low_stock_threshold']
+                        'threshold' => (float)$product['low_stock_threshold']
                     ];
                 }
             }
@@ -733,7 +733,7 @@ class SaleController {
                         $shopId,
                         $saleId,
                         (int)$item['product_id'],
-                        (int)$item['quantity'],
+                        (float)$item['quantity'],
                         (float)$item['unit_price'],
                         (float)$item['cost_price'],
                         (float)$item['subtotal']
@@ -823,9 +823,9 @@ class SaleController {
                 foreach ($saleItems as $item) {
                     DB::query(
                         'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?',
-                        [(int)$item['quantity'], (int)$item['product_id'], $shopId]
+                        [(float)$item['quantity'], (int)$item['product_id'], $shopId]
                     );
-                    $totalRestoredItems += (int)$item['quantity'];
+                    $totalRestoredItems += (float)$item['quantity'];
                 }
 
                 // Reverse due balance

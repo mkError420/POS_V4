@@ -1045,12 +1045,12 @@ export default function Inventory() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cost Price (৳) *</label>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         name="cost_price"
                         value={formData.cost_price}
                         onChange={handleInputChange}
                         required
-                        placeholder="25.00"
+                        placeholder="25.000"
                         className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                       />
                     </div>
@@ -1058,12 +1058,12 @@ export default function Inventory() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Sale Price (৳) *</label>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         name="price"
                         value={formData.price}
                         onChange={handleInputChange}
                         required
-                        placeholder="49.99"
+                        placeholder="49.990"
                         className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                       />
                     </div>
@@ -1217,7 +1217,7 @@ export default function Inventory() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cost Price (৳) *</label>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         name="cost_price"
                         value={formData.cost_price}
                         onChange={handleInputChange}
@@ -1229,7 +1229,7 @@ export default function Inventory() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Sale Price (৳) *</label>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         name="price"
                         value={formData.price}
                         onChange={handleInputChange}
