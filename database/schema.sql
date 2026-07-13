@@ -351,3 +351,41 @@ VALUES (
   'super_admin',
   'active'
 ) ON DUPLICATE KEY UPDATE `email`=`email`;
+
+
+-- -----------------------------------------------------
+-- Table `subscription_plans`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `subscription_plans` (
+  `id` INT AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL,
+  `billing_cycle` ENUM('monthly', 'quarterly', 'yearly') NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+  `features` TEXT NULL,
+  `status` ENUM('active', 'inactive') DEFAULT 'active',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------
+-- Table `shop_subscriptions`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `shop_subscriptions` (
+  `id` INT AUTO_INCREMENT,
+  `shop_id` INT NOT NULL,
+  `plan_id` INT NOT NULL,
+  `start_date` DATE NULL,
+  `end_date` DATE NULL,
+  `status` ENUM('pending', 'active', 'expired', 'cancelled', 'rejected') NOT NULL DEFAULT 'pending',
+  `payment_method` VARCHAR(50) NULL,
+  `transaction_id` VARCHAR(100) NULL,
+  `payment_document` VARCHAR(255) NULL,
+  `amount_paid` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_subscription_shop` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_subscription_plan` FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
