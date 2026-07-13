@@ -2,10 +2,10 @@
 
 ## Database Setup
 
-The database configuration is already set up in `backend/config/db.php` with your InfinityFree credentials:
-- Host: sql107.infinityfree.com
-- User: if0_42333746
-- Database: if0_42333746_mk_pos
+The database configuration is already set up in `backend/config/db.php` with your cPanelFree credentials:
+- Host: sql101.cpanelfree.com
+- User: cpfr_42335617
+- Database: cpfr_42335617_pos_v4
 
 ## File Upload Structure
 
@@ -110,7 +110,7 @@ No manual configuration needed for the live site.
 
 ## Important Notes
 
-- The database credentials are hardcoded in `backend/config/db.php` for your InfinityFree account
+- The database credentials are hardcoded in `backend/config/db.php` for your cPanelFree account
 - Do not upload `.env` files to the server (they are protected by .htaccess anyway)
 - Always upload the built `frontend/dist` folder, not the source files
 - The system will automatically create missing database tables and columns on first run
