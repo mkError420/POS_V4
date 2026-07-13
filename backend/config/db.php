@@ -308,6 +308,18 @@ class DB {
                 $pdo->exec("ALTER TABLE `shops` ADD COLUMN `loyalty_point_value` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
             }
 
+            // Check if loyalty_points column exists on customers table
+            if ($tableExists('customers') && !$columnExists('customers', 'loyalty_points')) {
+                $pdo->exec("ALTER TABLE `customers` ADD COLUMN `loyalty_points` INT NOT NULL DEFAULT 0");
+            }
+
+            // Check if points columns exist on sales table
+            if ($tableExists('sales') && !$columnExists('sales', 'points_earned')) {
+                $pdo->exec("ALTER TABLE `sales` ADD COLUMN `points_earned` INT NOT NULL DEFAULT 0");
+                $pdo->exec("ALTER TABLE `sales` ADD COLUMN `points_redeemed` INT NOT NULL DEFAULT 0");
+                $pdo->exec("ALTER TABLE `sales` ADD COLUMN `points_redeemed_value` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+            }
+
             // Create due_payments table if not exists
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS `due_payments` (

@@ -41,6 +41,8 @@ export default function Adjustments() {
 
   const [productSearch, setProductSearch] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [productFocusedIndex, setProductFocusedIndex] = useState(-1);
+  const [filterProductFocusedIndex, setFilterProductFocusedIndex] = useState(-1);
 
   const fetchAdjustments = async () => {
     setLoading(true);
@@ -329,19 +331,48 @@ export default function Adjustments() {
               onChange={(e) => {
                 setFilterProductSearch(e.target.value);
                 setShowFilterProductDropdown(true);
+                setFilterProductFocusedIndex(-1);
                 if (e.target.value === '') {
                   setFilterProductId('');
                 }
               }}
-              onFocus={() => setShowFilterProductDropdown(true)}
+              onFocus={() => { setShowFilterProductDropdown(true); setFilterProductFocusedIndex(-1); }}
               onBlur={() => setTimeout(() => setShowFilterProductDropdown(false), 200)}
+              onKeyDown={(e) => {
+                if (showFilterProductDropdown) {
+                  const filtered = products.filter(p =>
+                    p.name.toLowerCase().includes(filterProductSearch.toLowerCase()) ||
+                    (p.sku && p.sku.toLowerCase().includes(filterProductSearch.toLowerCase()))
+                  );
+                  const maxIndex = filtered.length; 
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setFilterProductFocusedIndex(prev => (prev < maxIndex ? prev + 1 : prev));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setFilterProductFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (filterProductFocusedIndex === 0) {
+                      setFilterProductId('');
+                      setFilterProductSearch('');
+                      setShowFilterProductDropdown(false);
+                    } else if (filterProductFocusedIndex > 0 && filtered[filterProductFocusedIndex - 1]) {
+                      const p = filtered[filterProductFocusedIndex - 1];
+                      setFilterProductId(String(p.id));
+                      setFilterProductSearch(`${p.name} (${p.sku})`);
+                      setShowFilterProductDropdown(false);
+                    }
+                  }
+                }
+              }}
               placeholder="All Products (Search...)"
               className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
             />
             {showFilterProductDropdown && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 <div
-                  className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100"
+                  className={`px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 ${filterProductFocusedIndex === 0 ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                   onClick={() => {
                     setFilterProductId('');
                     setFilterProductSearch('');
@@ -355,10 +386,10 @@ export default function Adjustments() {
                     p.name.toLowerCase().includes(filterProductSearch.toLowerCase()) ||
                     (p.sku && p.sku.toLowerCase().includes(filterProductSearch.toLowerCase()))
                   )
-                  .map(p => (
+                  .map((p, idx) => (
                     <div
                       key={p.id}
-                      className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
+                      className={`px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0 ${filterProductFocusedIndex === idx + 1 ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                       onClick={() => {
                         setFilterProductId(String(p.id));
                         setFilterProductSearch(`${p.name} (${p.sku})`);
@@ -578,10 +609,35 @@ export default function Adjustments() {
                       if (editMode) return;
                       setProductSearch(e.target.value);
                       setShowProductDropdown(true);
+                      setProductFocusedIndex(-1);
                       setFormData({ ...formData, product_id: '' });
                     }}
-                    onFocus={() => { if (!editMode) setShowProductDropdown(true); }}
+                    onFocus={() => { if (!editMode) { setShowProductDropdown(true); setProductFocusedIndex(-1); } }}
                     onBlur={() => { if (!editMode) setTimeout(() => setShowProductDropdown(false), 200); }}
+                    onKeyDown={(e) => {
+                      if (!editMode && showProductDropdown) {
+                        const filtered = products.filter(p =>
+                          p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                          (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
+                        );
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setProductFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setProductFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (productFocusedIndex >= 0 && filtered[productFocusedIndex]) {
+                            const p = filtered[productFocusedIndex];
+                            setFormData({ ...formData, product_id: String(p.id), adjusted_quantity: String(p.stock_quantity) });
+                            setProductSearch(`${p.name} (${p.sku})`);
+                            setShowProductDropdown(false);
+                            setProductFocusedIndex(-1);
+                          }
+                        }
+                      }
+                    }}
                     placeholder="Search product by name or SKU"
                     className={`w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none ${editMode ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'focus:ring-1 focus:ring-indigo-500'}`}
                     required={!formData.product_id}
@@ -594,10 +650,10 @@ export default function Adjustments() {
                           p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
                           (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
                         )
-                        .map(p => (
+                        .map((p, idx) => (
                           <div
                             key={p.id}
-                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
+                            className={`px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0 ${productFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                             onClick={() => {
                               setFormData({ ...formData, product_id: String(p.id), adjusted_quantity: String(p.stock_quantity) });
                               setProductSearch(`${p.name} (${p.sku})`);

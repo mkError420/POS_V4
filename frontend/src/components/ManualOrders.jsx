@@ -38,6 +38,7 @@ export default function ManualOrders() {
 
   // Active product search dropdown row index
   const [activeDropdownIndex, setActiveDropdownIndex] = useState(null);
+  const [dropdownFocusedIndex, setDropdownFocusedIndex] = useState(-1);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -56,6 +57,7 @@ export default function ManualOrders() {
     const handleOutsideClick = (e) => {
       if (!e.target.closest('.product-search-container')) {
         setActiveDropdownIndex(null);
+        setDropdownFocusedIndex(-1);
       }
     };
     document.addEventListener('click', handleOutsideClick);
@@ -1039,8 +1041,27 @@ export default function ManualOrders() {
                             type="text"
                             placeholder="Search by product name or SKU..."
                             value={item.searchTerm || ''}
-                            onChange={(e) => handleItemSearchChange(idx, e.target.value)}
-                            onFocus={() => setActiveDropdownIndex(idx)}
+                            onChange={(e) => { handleItemSearchChange(idx, e.target.value); setDropdownFocusedIndex(-1); }}
+                            onFocus={() => { setActiveDropdownIndex(idx); setDropdownFocusedIndex(-1); }}
+                            onKeyDown={(e) => {
+                              if (activeDropdownIndex === idx) {
+                                const filtered = getFilteredProducts(item.searchTerm || '');
+                                if (e.key === 'ArrowDown') {
+                                  e.preventDefault();
+                                  setDropdownFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                                } else if (e.key === 'ArrowUp') {
+                                  e.preventDefault();
+                                  setDropdownFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                                } else if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (dropdownFocusedIndex >= 0 && filtered[dropdownFocusedIndex]) {
+                                    handleItemSelect(idx, filtered[dropdownFocusedIndex]);
+                                    setActiveDropdownIndex(null);
+                                    setDropdownFocusedIndex(-1);
+                                  }
+                                }
+                              }
+                            }}
                             className="w-64 border border-slate-200 rounded-lg p-2 text-xs bg-white outline-none focus:ring-1 focus:ring-indigo-500 pr-8"
                           />
                           {item.product_id && (
@@ -1057,14 +1078,14 @@ export default function ManualOrders() {
                           )}
                           {activeDropdownIndex === idx && (
                             <div className="absolute left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto w-full md:w-[600px]">
-                              {getFilteredProducts(item.searchTerm || '').map(p => (
+                              {getFilteredProducts(item.searchTerm || '').map((p, optionIdx) => (
                                 <div
                                   key={p.id}
                                   onClick={() => {
                                     handleItemSelect(idx, p);
                                     setActiveDropdownIndex(null);
                                   }}
-                                  className="p-2.5 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 flex justify-between items-center border-b border-slate-50 last:border-0"
+                                  className={`p-2.5 text-xs hover:bg-slate-100 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0 ${dropdownFocusedIndex === optionIdx ? 'bg-indigo-100 ring-1 ring-indigo-500 text-indigo-900' : 'text-slate-700'}`}
                                 >
                                   <div>
                                     <span className="font-semibold">{p.name}</span>

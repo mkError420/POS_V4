@@ -19,6 +19,7 @@ export default function Inventory() {
   const [historyError, setHistoryError] = useState(null);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
+  const [historySearchFocusedIndex, setHistorySearchFocusedIndex] = useState(-1);
 
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -27,6 +28,7 @@ export default function Inventory() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [lowStockFilter, setLowStockFilter] = useState(false);
   const [expiryFilter, setExpiryFilter] = useState(false);
   const [error, setError] = useState(null);
@@ -530,7 +532,27 @@ export default function Inventory() {
                 type="text"
                 placeholder="Search by name or SKU..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSearchFocusedIndex(prev => (prev < currentProducts.length - 1 ? prev + 1 : prev));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchFocusedIndex >= 0 && currentProducts[searchFocusedIndex]) {
+                      const product = currentProducts[searchFocusedIndex];
+                      if (!isSuperAdmin) {
+                         openEdit(product);
+                      } else {
+                         setSelectedHistoryProductId(product.id);
+                         setActiveTab('history');
+                      }
+                    }
+                  }
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -828,7 +850,7 @@ export default function Inventory() {
                       </td>
                     </tr>
                   ) : (
-                    currentProducts.map((product) => {
+                    currentProducts.map((product, index) => {
                       const isLowStock = product.stock_quantity <= product.low_stock_threshold;
 
                       // Expiry status calculation
@@ -868,7 +890,7 @@ export default function Inventory() {
                       }
 
                       return (
-                        <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                        <tr key={product.id} className={`hover:bg-slate-50/50 transition-colors ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                           {!isSuperAdmin && (
                             <td className="p-4 w-12">
                               <input
@@ -1511,10 +1533,35 @@ export default function Inventory() {
                   onChange={(e) => {
                     setHistorySearchQuery(e.target.value);
                     setIsHistoryDropdownOpen(true);
+                    setHistorySearchFocusedIndex(-1);
                   }}
                   onFocus={() => {
                     setHistorySearchQuery('');
                     setIsHistoryDropdownOpen(true);
+                    setHistorySearchFocusedIndex(-1);
+                  }}
+                  onKeyDown={(e) => {
+                    if (isHistoryDropdownOpen) {
+                      const filteredHistoryProducts = products.filter(p =>
+                        p.name.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
+                        p.sku.toLowerCase().includes(historySearchQuery.toLowerCase())
+                      );
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setHistorySearchFocusedIndex(prev => (prev < filteredHistoryProducts.length - 1 ? prev + 1 : prev));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setHistorySearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (historySearchFocusedIndex >= 0 && filteredHistoryProducts[historySearchFocusedIndex]) {
+                          setSelectedHistoryProductId(filteredHistoryProducts[historySearchFocusedIndex].id);
+                          setHistorySearchQuery('');
+                          setIsHistoryDropdownOpen(false);
+                          setHistorySearchFocusedIndex(-1);
+                        }
+                      }
+                    }
                   }}
                   className="w-full border border-slate-200 rounded-lg p-2.5 pr-10 text-sm focus:ring-1 focus:ring-indigo-500 outline-none bg-white font-medium text-slate-700 shadow-sm"
                 />
@@ -1541,7 +1588,7 @@ export default function Inventory() {
                       return <div className="p-3 text-sm text-slate-400 text-center">No products found</div>;
                     }
 
-                    return filteredHistoryProducts.map(p => (
+                    return filteredHistoryProducts.map((p, idx) => (
                       <button
                         key={p.id}
                         type="button"
@@ -1550,8 +1597,7 @@ export default function Inventory() {
                           setHistorySearchQuery('');
                           setIsHistoryDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors font-medium block ${String(selectedHistoryProductId) === String(p.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-705'
-                          }`}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors font-medium block ${String(selectedHistoryProductId) === String(p.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-705'} ${historySearchFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                       >
                         <div className="font-bold">{p.name}</div>
                         <div className="text-xs text-slate-400">SKU: {p.sku} | Stock: {p.stock_quantity} {p.unit || 'piece'}</div>

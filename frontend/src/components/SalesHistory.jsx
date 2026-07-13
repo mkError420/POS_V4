@@ -15,6 +15,7 @@ export default function SalesHistory() {
   const [chartType, setChartType] = useState('revenue'); // 'revenue' or 'sales'
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [search, setSearch] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [productName, setProductName] = useState('');
   const [productDailySales, setProductDailySales] = useState(null);
   const [dailySalesLoading, setDailySalesLoading] = useState(false);
@@ -30,6 +31,7 @@ export default function SalesHistory() {
   const [editSaleData, setEditSaleData] = useState(null);
   const [editSaleLoading, setEditSaleLoading] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [productSearchFocusedIndex, setProductSearchFocusedIndex] = useState(-1);
 
   // Modal viewer state
   const [selectedSale, setSelectedSale] = useState(null);
@@ -687,15 +689,31 @@ export default function SalesHistory() {
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
                   placeholder="Search products by name or SKU..."
                   value={productSearch}
-                  onChange={e => setProductSearch(e.target.value)}
+                  onChange={e => { setProductSearch(e.target.value); setProductSearchFocusedIndex(-1); }}
+                  onKeyDown={(e) => {
+                    const filtered = products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase())));
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setProductSearchFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setProductSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (productSearchFocusedIndex >= 0 && filtered[productSearchFocusedIndex]) {
+                        handleAddEditProduct(filtered[productSearchFocusedIndex]);
+                        setProductSearchFocusedIndex(-1);
+                      }
+                    }
+                  }}
                 />
                 {productSearch && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                    {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))).map(prod => (
+                    {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))).map((prod, idx) => (
                       <button
                         key={prod.id}
                         onClick={() => handleAddEditProduct(prod)}
-                        className="w-full text-left px-4 py-2 hover:bg-indigo-50 flex justify-between items-center text-sm"
+                        className={`w-full text-left px-4 py-2 hover:bg-indigo-50 flex justify-between items-center text-sm ${productSearchFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                       >
                         <span>{prod.name} <span className="text-xs text-slate-500 ml-2">Stock: {prod.stock_quantity}</span></span>
                         <span className="font-semibold text-indigo-600">৳{parseFloat(prod.price).toFixed(3)}</span>
@@ -900,6 +918,7 @@ export default function SalesHistory() {
                   <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
                     <th className="p-3 pl-4">SKU</th>
                     <th className="p-3">Product Name</th>
+                    <th className="p-3">Invoice IDs</th>
                     <th className="p-3 text-center">Total Quantity Sold</th>
                     <th className="p-3 text-right pr-4">Total Revenue Generated</th>
                   </tr>
@@ -909,6 +928,7 @@ export default function SalesHistory() {
                     <tr key={item.product_id} className="hover:bg-slate-50/50">
                       <td className="p-3 pl-4 font-mono text-xs font-bold text-slate-500">{item.product_sku}</td>
                       <td className="p-3 font-semibold text-slate-800">{item.product_name}</td>
+                      <td className="p-3 text-xs text-slate-500 max-w-xs break-words">{item.invoice_ids || '-'}</td>
                       <td className="p-3 text-center">
                         <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-100">
                           {item.total_quantity_sold} units
@@ -922,7 +942,7 @@ export default function SalesHistory() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-50/50 border-t border-slate-200 font-bold">
-                    <td colSpan="2" className="p-3 pl-4 text-slate-500 uppercase text-xs">Total</td>
+                    <td colSpan="3" className="p-3 pl-4 text-slate-500 uppercase text-xs">Total</td>
                     <td className="p-3 text-center text-indigo-800">
                       {productDailySales.reduce((sum, item) => sum + item.total_quantity_sold, 0)} units
                     </td>
@@ -1277,7 +1297,21 @@ export default function SalesHistory() {
             type="text"
             placeholder="Search by Invoice ID, customer, cashier, or method..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev < currentSales.length - 1 ? prev + 1 : prev));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchFocusedIndex >= 0 && currentSales[searchFocusedIndex]) {
+                  openReceipt(currentSales[searchFocusedIndex]);
+                }
+              }
+            }}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1344,8 +1378,8 @@ export default function SalesHistory() {
                   </td>
                 </tr>
               ) : (
-                currentSales.map((sale) => (
-                  <tr key={sale.id} className={`hover:bg-slate-50/50 transition-colors ${selectedSaleIds.includes(sale.id) ? 'bg-indigo-50/10' : ''}`}>
+                currentSales.map((sale, idx) => (
+                  <tr key={sale.id} className={`hover:bg-slate-50/50 transition-colors ${selectedSaleIds.includes(sale.id) ? 'bg-indigo-50/10' : ''} ${searchFocusedIndex === idx ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                     {isAdmin && (
                       <td className="p-4 text-center">
                         <input

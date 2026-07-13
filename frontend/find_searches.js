@@ -1,0 +1,1 @@
+const fs = require('fs'); const files = fs.readdirSync('src/components'); files.forEach(f => { const content = fs.readFileSync('src/components/' + f, 'utf8'); const lines = content.split('\n'); lines.forEach((l, i) => { if (l.toLowerCase().includes('placeholder=') && l.toLowerCase().includes('search')) console.log(f + ':' + (i+1) + ': ' + l.trim()); }) })

@@ -64,6 +64,8 @@ export default function Customers() {
   const [showEditProductDropdown, setShowEditProductDropdown] = useState(false);
   const editProductDropdownRef = useRef(null);
   const [updatingSale, setUpdatingSale] = useState(false);
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
+  const [editProductFocusedIndex, setEditProductFocusedIndex] = useState(-1);
 
   const refundMethodOptions = [
     { value: 'cash', label: 'Cash' },
@@ -852,7 +854,22 @@ export default function Customers() {
             type="text"
             placeholder="Search by name or phone number..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev < currentCustomers.length - 1 ? prev + 1 : prev));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchFocusedIndex >= 0 && currentCustomers[searchFocusedIndex]) {
+                  const customer = currentCustomers[searchFocusedIndex];
+                  openHistory(customer);
+                }
+              }
+            }}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -892,8 +909,8 @@ export default function Customers() {
                   </td>
                 </tr>
               ) : (
-                currentCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-slate-50/50 transition-colors">
+                currentCustomers.map((customer, index) => (
+                  <tr key={customer.id} className={`hover:bg-slate-50/50 transition-colors ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                     <td className="p-4 font-semibold text-slate-800">{customer.name}</td>
                     <td className="p-4 text-slate-500 text-xs font-medium">
                       {customer.created_at ? new Date(customer.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
@@ -1516,16 +1533,33 @@ export default function Customers() {
                                   type="text"
                                   placeholder="Type to search product..."
                                   value={editProductSearchTerm}
-                                  onFocus={() => setShowEditProductDropdown(true)}
+                                  onFocus={() => { setShowEditProductDropdown(true); setEditProductFocusedIndex(-1); }}
                                   onChange={(e) => {
                                     setEditProductSearchTerm(e.target.value);
                                     setShowEditProductDropdown(true);
+                                    setEditProductFocusedIndex(-1);
                                     if (selectedProductToAdd) {
                                       setSelectedProductToAdd('');
                                     }
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
+                                    if (showEditProductDropdown) {
+                                      const filtered = getFilteredEditProducts();
+                                      if (e.key === 'ArrowDown') {
+                                        e.preventDefault();
+                                        setEditProductFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                                      } else if (e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        setEditProductFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                                      } else if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (editProductFocusedIndex >= 0 && filtered[editProductFocusedIndex]) {
+                                          handleAddProductToEditForm(filtered[editProductFocusedIndex].id);
+                                          setShowEditProductDropdown(false);
+                                          setEditProductFocusedIndex(-1);
+                                        }
+                                      }
+                                    } else if (e.key === 'Enter') {
                                       e.preventDefault();
                                     }
                                   }}
@@ -1536,14 +1570,14 @@ export default function Customers() {
                                     {getFilteredEditProducts().length === 0 ? (
                                       <div className="p-3 text-xs text-slate-400 text-center">No products found</div>
                                     ) : (
-                                      getFilteredEditProducts().map(p => (
+                                      getFilteredEditProducts().map((p, idx) => (
                                         <div
                                           key={p.id}
                                           onClick={() => {
                                             handleAddProductToEditForm(p.id);
                                             setShowEditProductDropdown(false);
                                           }}
-                                          className="p-2 hover:bg-indigo-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0"
+                                          className={`p-2 hover:bg-indigo-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0 ${editProductFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                                         >
                                           <div className="flex flex-col text-left">
                                             <span className="font-semibold text-slate-800">{p.name}</span>

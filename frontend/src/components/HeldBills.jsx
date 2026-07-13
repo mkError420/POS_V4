@@ -7,6 +7,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
   const itemsPerPage = 10;
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [statusFilter, setStatusFilter] = useState('all');
   const [chartType, setChartType] = useState('due'); // 'due' or 'count'
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -491,7 +492,21 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
             type="text"
             placeholder="Search by note, customer, phone, or cashier..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev < currentBills.length - 1 ? prev + 1 : prev));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchFocusedIndex >= 0 && currentBills[searchFocusedIndex]) {
+                  setExpandedBillId(expandedBillId === currentBills[searchFocusedIndex].id ? null : currentBills[searchFocusedIndex].id);
+                }
+              }
+            }}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -556,7 +571,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                   </td>
                 </tr>
               ) : (
-                currentBills.map((bill) => {
+                currentBills.map((bill, index) => {
                   let itemsList = [];
                   try {
                     itemsList = typeof bill.items === 'string' ? JSON.parse(bill.items) : bill.items;
@@ -570,7 +585,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
 
                   return (
                     <React.Fragment key={bill.id}>
-                      <tr className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-indigo-50/30' : ''}`}>
+                      <tr className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-indigo-50/30' : ''} ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                         {/* Expand toggle */}
                         <td className="p-4" onClick={() => setExpandedBillId(isExpanded ? null : bill.id)}>
                           <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

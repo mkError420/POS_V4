@@ -64,6 +64,7 @@ export default function SystemUsers() {
   const [submitting, setSubmitting] = useState(false);
   const [alert, setAlert] = useState(null);
   const [search, setSearch] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterShop, setFilterShop] = useState('all');
@@ -289,7 +290,21 @@ export default function SystemUsers() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev < filteredUsers.length - 1 ? prev + 1 : prev));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchFocusedIndex >= 0 && filteredUsers[searchFocusedIndex]) {
+                  openEditModal(filteredUsers[searchFocusedIndex]);
+                }
+              }
+            }}
             placeholder="Search by name or email..."
             className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
           />
@@ -366,8 +381,8 @@ export default function SystemUsers() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                filteredUsers.map((user, index) => (
+                  <tr key={user.id} className={`hover:bg-slate-50/50 transition-colors ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                     <td className="p-4 font-semibold text-slate-800">{user.name}</td>
                     <td className="p-4 text-slate-600 font-mono text-xs">{user.email}</td>
                     <td className="p-4"><RoleBadge role={user.role} /></td>

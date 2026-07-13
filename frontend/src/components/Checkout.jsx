@@ -31,6 +31,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     return initialTab.id;
   });
   const [search, setSearch] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [currentUser, setCurrentUser] = useState(null);
   const [taxRate, setTaxRate] = useState(0.10); // Dynamic Tax Rate (default 10%)
 
@@ -1179,7 +1180,26 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 type="text"
                 placeholder="Search by product name..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSearchFocusedIndex(prev => (prev < products.length - 1 ? prev + 1 : prev));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchFocusedIndex >= 0 && products[searchFocusedIndex]) {
+                      const product = products[searchFocusedIndex];
+                      const inCartItem = activeTab?.cart?.find(item => item.id === product.id);
+                      const remainingQty = product.stock_quantity - (inCartItem ? inCartItem.quantity : 0);
+                      if (remainingQty > 0) {
+                        addToCart(product);
+                      }
+                    }
+                  }
+                }}
                 className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium"
               />
               <svg className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1251,13 +1271,13 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm">
-                      {products.map((product) => {
+                      {products.map((product, index) => {
                         const inCartItem = activeTab?.cart?.find(item => item.id === product.id);
                         const remainingQty = product.stock_quantity - (inCartItem ? inCartItem.quantity : 0);
                         const isOutOfStock = remainingQty <= 0;
 
                         return (
-                          <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                          <tr key={product.id} className={`hover:bg-slate-50/50 transition-colors ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                             <td
                               className="p-3 pl-4 font-semibold text-slate-800 cursor-pointer hover:text-indigo-600 transition-colors"
                               onClick={() => !isOutOfStock && addToCart(product)}

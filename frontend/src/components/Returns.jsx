@@ -33,6 +33,8 @@ export default function Returns() {
   });
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [productSearchFocusedIndex, setProductSearchFocusedIndex] = useState(-1);
+  const [customerSearchFocusedIndex, setCustomerSearchFocusedIndex] = useState(-1);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerDropdownRef = useRef(null);
 
@@ -766,8 +768,31 @@ export default function Returns() {
                         value={productSearchTerm}
                         onChange={(e) => {
                           setProductSearchTerm(e.target.value);
+                          setProductSearchFocusedIndex(-1);
                           if (formData.product_id) {
                             setFormData(prev => ({ ...prev, product_id: '' }));
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (productSearchTerm && getFilteredProductsForReturn().length > 0) {
+                            const suggestions = getFilteredProductsForReturn();
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setProductSearchFocusedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setProductSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                            } else if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (productSearchFocusedIndex >= 0 && suggestions[productSearchFocusedIndex]) {
+                                const p = suggestions[productSearchFocusedIndex];
+                                setFormData(prev => ({ ...prev, product_id: p.id }));
+                                setProductSearchTerm(`${p.name} (SKU: ${p.sku})`);
+                                setProductSearchFocusedIndex(-1);
+                              }
+                            }
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
                           }
                         }}
                         placeholder="Type to search for a product..."
@@ -775,14 +800,15 @@ export default function Returns() {
                       />
                       {productSearchTerm && getFilteredProductsForReturn().length > 0 && (
                         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                          {getFilteredProductsForReturn().map(p => (
+                          {getFilteredProductsForReturn().map((p, idx) => (
                             <div
                               key={p.id}
                               onClick={() => {
                                 setFormData(prev => ({ ...prev, product_id: p.id }));
                                 setProductSearchTerm(`${p.name} (SKU: ${p.sku})`);
+                                setProductSearchFocusedIndex(-1);
                               }}
-                              className="p-2.5 hover:bg-indigo-50 cursor-pointer text-xs"
+                              className={`p-2.5 hover:bg-indigo-50 cursor-pointer text-xs ${productSearchFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                             >
                               <div className="font-semibold text-slate-800">{p.name}</div>
                               <div className="text-slate-500">
@@ -818,8 +844,38 @@ export default function Returns() {
                       onChange={(e) => {
                         setCustomerSearchTerm(e.target.value);
                         setShowCustomerDropdown(true);
+                        setCustomerSearchFocusedIndex(-1);
                         if (formData.customer_id) {
                           setFormData(prev => ({ ...prev, customer_id: '' }));
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (showCustomerDropdown) {
+                          const suggestions = getFilteredCustomers();
+                          const totalOptions = suggestions.length + 1; // +1 for the clear option
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setCustomerSearchFocusedIndex(prev => (prev < totalOptions - 1 ? prev + 1 : prev));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setCustomerSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (customerSearchFocusedIndex === 0) {
+                              setFormData(prev => ({ ...prev, customer_id: '' }));
+                              setCustomerSearchTerm('');
+                              setShowCustomerDropdown(false);
+                              setCustomerSearchFocusedIndex(-1);
+                            } else if (customerSearchFocusedIndex > 0 && suggestions[customerSearchFocusedIndex - 1]) {
+                              const c = suggestions[customerSearchFocusedIndex - 1];
+                              setFormData(prev => ({ ...prev, customer_id: String(c.id) }));
+                              setCustomerSearchTerm(`${c.name} (${c.phone || 'No phone'})`);
+                              setShowCustomerDropdown(false);
+                              setCustomerSearchFocusedIndex(-1);
+                            }
+                          }
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
                         }
                       }}
                       placeholder="Type to search customer..."
@@ -832,23 +888,25 @@ export default function Returns() {
                             setFormData(prev => ({ ...prev, customer_id: '' }));
                             setCustomerSearchTerm('');
                             setShowCustomerDropdown(false);
+                            setCustomerSearchFocusedIndex(-1);
                           }}
-                          className="p-2.5 hover:bg-indigo-50 cursor-pointer text-xs text-slate-500 italic border-b border-slate-100"
+                          className={`p-2.5 hover:bg-indigo-50 cursor-pointer text-xs text-slate-500 italic border-b border-slate-100 ${customerSearchFocusedIndex === 0 ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                         >
                           -- Select customer (Walk-in by default) --
                         </div>
                         {getFilteredCustomers().length === 0 ? (
                           <div className="p-3 text-sm text-slate-400 text-center">No customers found</div>
                         ) : (
-                          getFilteredCustomers().map(c => (
+                          getFilteredCustomers().map((c, idx) => (
                             <div
                               key={c.id}
                               onClick={() => {
                                 setFormData(prev => ({ ...prev, customer_id: String(c.id) }));
                                 setCustomerSearchTerm(`${c.name} (${c.phone || 'No phone'})`);
                                 setShowCustomerDropdown(false);
+                                setCustomerSearchFocusedIndex(-1);
                               }}
-                              className="p-2.5 hover:bg-indigo-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0"
+                              className={`p-2.5 hover:bg-indigo-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0 ${customerSearchFocusedIndex === idx + 1 ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                             >
                               <div>
                                 <div className="font-semibold text-slate-800">{c.name}</div>

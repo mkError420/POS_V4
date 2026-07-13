@@ -88,6 +88,7 @@ export default function ManageShops() {
   const [submitting, setSubmitting] = useState(false);
   const [alert, setAlert] = useState(null);
   const [search, setSearch] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [filterStatus, setFilterStatus] = useState('all');
 
   // Shop modals
@@ -380,7 +381,22 @@ export default function ManageShops() {
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input type="text" placeholder="Search by shop name or email…" value={search} onChange={e => setSearch(e.target.value)}
+          <input type="text" placeholder="Search by shop name or email…" value={search} 
+            onChange={e => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchFocusedIndex >= 0 && filtered[searchFocusedIndex]) {
+                  openDetails(filtered[searchFocusedIndex]);
+                }
+              }
+            }}
             className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -433,11 +449,11 @@ export default function ManageShops() {
                     </div>
                   </td></tr>
                 ) : (
-                  filtered.map(shop => {
+                  filtered.map((shop, index) => {
                     const isActive = detailShop?.id === shop.id;
                     return (
                       <tr key={shop.id} onClick={() => openDetails(shop)}
-                        className={`transition-colors cursor-pointer ${isActive ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
+                        className={`transition-colors cursor-pointer ${isActive ? 'bg-indigo-50' : 'hover:bg-slate-50'} ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                         <td className="px-4 py-3.5 font-mono text-xs font-bold text-slate-400">#{shop.id}</td>
                         <td className="px-4 py-3.5 font-semibold text-slate-800">{shop.name}</td>
                         <td className="px-4 py-3.5 text-slate-500 font-mono text-xs hidden md:table-cell">{shop.email}</td>

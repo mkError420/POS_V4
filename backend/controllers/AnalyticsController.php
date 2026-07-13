@@ -555,7 +555,8 @@ class AnalyticsController {
                         p.name as product_name,
                         p.sku as product_sku,
                         SUM(si.quantity) as total_quantity_sold,
-                        SUM(si.subtotal) as total_revenue
+                        SUM(si.subtotal) as total_revenue,
+                        GROUP_CONCAT(DISTINCT s.id SEPARATOR ", ") as invoice_ids
                     FROM sale_items si
                     JOIN products p ON si.product_id = p.id
                     JOIN sales s ON si.sale_id = s.id

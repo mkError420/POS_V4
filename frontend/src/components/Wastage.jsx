@@ -20,6 +20,8 @@ export default function Wastage() {
   const itemsPerPage = 5;
 
   const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
+  const [productSearchFocusedIndex, setProductSearchFocusedIndex] = useState(-1);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const [showTrendChart, setShowTrendChart] = useState(false);
@@ -565,7 +567,16 @@ export default function Wastage() {
             type="text"
             placeholder="Search by product, SKU, or reason..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev < currentWastages.length - 1 ? prev + 1 : prev));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+              }
+            }}
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-rose-500"
           />
           <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -654,8 +665,8 @@ export default function Wastage() {
                   </td>
                 </tr>
               ) : (
-                currentWastages.map((w) => (
-                  <tr key={w.id} className="hover:bg-slate-50/50 transition-colors">
+                currentWastages.map((w, index) => (
+                  <tr key={w.id} className={`hover:bg-slate-50/50 transition-colors ${searchFocusedIndex === index ? 'bg-indigo-100 ring-2 ring-indigo-500 ring-inset' : ''}`}>
                     <td className="p-4 pl-6 font-semibold text-slate-700">{formatDate(w.adjusted_at)}</td>
                     {isSuperAdmin && <td className="p-4 font-semibold text-slate-700">{w.shop_name}</td>}
                     <td className="p-4">
@@ -752,12 +763,36 @@ export default function Wastage() {
                   <input
                     type="text"
                     value={productSearchTerm}
-                    onFocus={() => setShowProductDropdown(true)}
+                    onFocus={() => { setShowProductDropdown(true); setProductSearchFocusedIndex(-1); }}
                     onChange={(e) => {
                       setProductSearchTerm(e.target.value);
                       setShowProductDropdown(true);
+                      setProductSearchFocusedIndex(-1);
                       if (formData.product_id) {
                         setFormData(prev => ({ ...prev, product_id: '' }));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (showProductDropdown) {
+                        const suggestions = getFilteredProducts();
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setProductSearchFocusedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setProductSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (productSearchFocusedIndex >= 0 && suggestions[productSearchFocusedIndex]) {
+                            const p = suggestions[productSearchFocusedIndex];
+                            setFormData(prev => ({ ...prev, product_id: p.id }));
+                            setProductSearchTerm(`${p.name} (SKU: ${p.sku})`);
+                            setShowProductDropdown(false);
+                            setProductSearchFocusedIndex(-1);
+                          }
+                        }
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
                       }
                     }}
                     placeholder="Type to search product..."
@@ -769,7 +804,7 @@ export default function Wastage() {
                       {getFilteredProducts().length === 0 ? (
                         <div className="p-3 text-sm text-slate-400 text-center">No products found</div>
                       ) : (
-                        getFilteredProducts().map(p => (
+                        getFilteredProducts().map((p, idx) => (
                           <div
                             key={p.id}
                             onClick={() => {
@@ -777,7 +812,7 @@ export default function Wastage() {
                               setProductSearchTerm(`${p.name} (SKU: ${p.sku})`);
                               setShowProductDropdown(false);
                             }}
-                            className="p-2.5 hover:bg-rose-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0"
+                            className={`p-2.5 hover:bg-rose-50 cursor-pointer text-xs flex justify-between items-center transition-colors border-b border-slate-100 last:border-0 ${productSearchFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
                           >
                             <div className="flex flex-col">
                               <span className="font-semibold text-slate-800">{p.name}</span>
