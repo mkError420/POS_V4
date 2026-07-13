@@ -574,7 +574,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     if (!activeTab) return;
     const item = activeTab.cart.find(item => item.id === productId);
     if (!item || item.quantity <= 0) return;
-    
+
     const parts = newSubtotalVal.split('.');
     if (parts[1] && parts[1].length > 3) {
       newSubtotalVal = parts[0] + '.' + parts[1].substring(0, 3);
@@ -642,7 +642,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     if (dueAmount > 0) {
       const hasProfile = activeTab.selectedCustomerId !== '' || (activeTab.customerName.trim() !== '' && activeTab.syncToDirectory);
       if (!hasProfile) {
-        triggerAlert('error', 'Customer profile selection is required to record outstanding due balance.');
+        triggerAlert('error', 'Customer profile selection is required to record Due ammount balance.');
         return;
       }
     }
@@ -1479,7 +1479,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                       </div>
                       {parseFloat(receipt.due_amount || 0) > 0 && (
                         <div className="flex justify-between font-bold text-rose-600 border-t border-dotted border-slate-200 pt-1 text-[11px]">
-                          <span>Outstanding Due:</span>
+                          <span>Due ammount:</span>
                           <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                         </div>
                       )}
@@ -1600,7 +1600,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                         </div>
                         {parseFloat(receipt.due_amount || 0) > 0 && (
                           <div className="flex justify-between font-bold text-rose-600 border-t border-slate-200 pt-1">
-                            <span>Outstanding Due:</span>
+                            <span>Due ammount:</span>
                             <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                           </div>
                         )}
@@ -1671,7 +1671,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   </div>
                   {receipt.due_amount > 0 && (
                     <div className="flex justify-between text-rose-500 font-semibold">
-                      <span>Outstanding Due:</span>
+                      <span>Due ammount:</span>
                       <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                     </div>
                   )}
@@ -1817,7 +1817,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               </div>
               {parseFloat(receipt.due_amount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 'bold', color: '#ef4444', borderTop: '1px dashed #000', paddingTop: '2px', marginTop: '2px' }}>
-                  <span>Outstanding Due:</span>
+                  <span>Due ammount:</span>
                   <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                 </div>
               )}
@@ -1936,7 +1936,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 </div>
                 {parseFloat(receipt.due_amount || 0) > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444', fontWeight: 'bold', borderTop: '1px solid #e2e8f0', marginTop: '4px' }}>
-                    <span>Outstanding Due</span>
+                    <span>Due ammount</span>
                     <span>৳{parseFloat(receipt.due_amount).toFixed(3)}</span>
                   </div>
                 )}
@@ -2180,7 +2180,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 }}
                 className="w-full bg-white border border-slate-200 rounded-lg p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
-              
+
               {/* Autocomplete Customer Suggestions */}
               {activeTab.selectedCustomerId === '' && activeTab.customerName && activeTab.customerName.trim() !== '' && (() => {
                 const query = activeTab.customerName.toLowerCase();
@@ -2192,12 +2192,12 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-[60] max-h-40 overflow-y-auto divide-y divide-slate-100">
                     {suggestions.map(c => (
                       <div
-                        key={c.id} 
+                        key={c.id}
                         onClick={() => {
-                           updateActiveTabState('selectedCustomerId', c.id);
-                           updateActiveTabState('customerName', c.name);
-                           updateActiveTabState('customerPhone', c.phone || '');
-                           updateActiveTabState('customerAddress', c.address || '');
+                          updateActiveTabState('selectedCustomerId', c.id);
+                          updateActiveTabState('customerName', c.name);
+                          updateActiveTabState('customerPhone', c.phone || '');
+                          updateActiveTabState('customerAddress', c.address || '');
                         }}
                         className="p-2 px-3 hover:bg-indigo-50 cursor-pointer text-left transition-colors"
                       >
@@ -2239,7 +2239,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 return (
                   <div className="bg-rose-50 border border-rose-100 rounded-lg p-2 space-y-2 text-xs text-rose-700">
                     <div className="flex justify-between">
-                      <span className="font-medium">Outstanding Due Balance:</span>
+                      <span className="font-medium">Due ammount:</span>
                       <span className="font-bold">৳{balance.toFixed(3)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1 border-t border-rose-200">
@@ -2650,7 +2650,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 return (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-1 space-y-0.5 text-[11px] text-amber-800">
                     <div className="flex justify-between">
-                      <span className="font-medium">Outstanding Due:</span>
+                      <span className="font-medium">Due ammount:</span>
                       <span className="font-bold">৳{dueAmount.toFixed(3)}</span>
                     </div>
                     <div className="text-[9px] text-amber-600 font-semibold text-right">

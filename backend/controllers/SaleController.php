@@ -687,9 +687,14 @@ class SaleController {
             // Setup created_at timestamp
             $createdAtDatetime = $originalSale['created_at'];
             if (!empty($createdAt)) {
-                // Only take the date part if it contains time to avoid breaking strtotime
-                $datePart = explode(' ', str_replace('T', ' ', $createdAt))[0];
-                $createdAtDatetime = date('Y-m-d H:i:s', strtotime($datePart . ' ' . date('H:i:s')));
+                $newDatePart = explode(' ', str_replace('T', ' ', $createdAt))[0];
+                $origDatePart = explode(' ', $createdAtDatetime)[0];
+                $origTimeParts = explode(' ', $createdAtDatetime);
+                $origTimePart = isset($origTimeParts[1]) ? $origTimeParts[1] : date('H:i:s');
+                
+                if ($newDatePart !== $origDatePart) {
+                    $createdAtDatetime = date('Y-m-d H:i:s', strtotime($newDatePart . ' ' . $origTimePart));
+                }
             }
 
             // 10. Update sales record

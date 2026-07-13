@@ -554,7 +554,7 @@ export default function SalesHistory() {
   const handleDueBillsPrint = () => {
     const printWindow = window.open('', 'PRINT', 'height=800,width=1200');
 
-    printWindow.document.write('<html><head><title>Outstanding Due Bills Report</title>');
+    printWindow.document.write('<html><head><title>Due ammount Bills Report</title>');
     printWindow.document.write(`
       <style>
         body { font-family: sans-serif; margin: 20px; }
@@ -567,7 +567,7 @@ export default function SalesHistory() {
       </style>
     `);
     printWindow.document.write('</head><body>');
-    printWindow.document.write('<h1>Outstanding Due Bills</h1>');
+    printWindow.document.write('<h1>Due ammount Bills</h1>');
     printWindow.document.write(document.getElementById('due-bills-table-wrapper').innerHTML);
     printWindow.document.write('</body></html>');
     printWindow.document.close();
@@ -869,7 +869,7 @@ export default function SalesHistory() {
           </button>
           <button
             onClick={exportToCSV}
-            className="bg-gray-700 hover:bg-slate-50 text-white font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+            className="bg-gray-700 hover:bg-slate-50 text-white hover:text-black font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
           >
             <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1734,7 +1734,7 @@ export default function SalesHistory() {
                                 </div>
                                 {receipt.due_amount > 0 && (
                                   <div className="flex justify-between font-bold text-rose-600 border-t border-dotted border-slate-200 pt-1 text-[11px]">
-                                    <span>Outstanding Due:</span>
+                                    <span>Due ammount:</span>
                                     <span>৳{receipt.due_amount.toFixed(3)}</span>
                                   </div>
                                 )}
@@ -1826,7 +1826,7 @@ export default function SalesHistory() {
                                   </div>
                                   {receipt.due_amount > 0 && (
                                     <div className="flex justify-between font-bold text-rose-600 border-t border-slate-200 pt-1">
-                                      <span>Outstanding Due:</span>
+                                      <span>Due ammount:</span>
                                       <span>৳{receipt.due_amount.toFixed(3)}</span>
                                     </div>
                                   )}
@@ -1890,7 +1890,7 @@ export default function SalesHistory() {
                             </div>
                             {receipt.due_amount > 0 && (
                               <div className="flex justify-between text-rose-500 font-semibold">
-                                <span>Outstanding Due:</span>
+                                <span>Due ammount:</span>
                                 <span>৳{receipt.due_amount.toFixed(3)}</span>
                               </div>
                             )}
@@ -1999,7 +1999,7 @@ export default function SalesHistory() {
                               </div>
                               {receipt.due_amount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 'bold', color: '#ef4444', borderTop: '1px dashed #000', paddingTop: '2px', marginTop: '2px' }}>
-                                  <span>Outstanding Due:</span>
+                                  <span>Due ammount:</span>
                                   <span>৳{receipt.due_amount.toFixed(3)}</span>
                                 </div>
                               )}
@@ -2089,7 +2089,7 @@ export default function SalesHistory() {
                                 </div>
                                 {receipt.due_amount > 0 && (
                                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444', fontWeight: 'bold', borderTop: '1px solid #e2e8f0', marginTop: '4px' }}>
-                                    <span>Outstanding Due</span>
+                                    <span>Due ammount</span>
                                     <span>৳{receipt.due_amount.toFixed(3)}</span>
                                   </div>
                                 )}
