@@ -171,7 +171,7 @@ export default function Login({ onLoginSuccess }) {
           </form>
 
           {/* Role Hint Cards */}
-          {/* <div className="mt-6 pt-6 border-t border-slate-700/60">
+          <div className="mt-6 pt-6 border-t border-slate-700/60">
             <p className="text-xs text-slate-500 text-center mb-3 font-medium uppercase tracking-wider">Demo Credentials</p>
             <div className="grid grid-cols-1 gap-2">
               <button
@@ -207,7 +207,7 @@ export default function Login({ onLoginSuccess }) {
                 <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors truncate">staff1@boutique.com · staff123</span>
               </button>
             </div>
-          </div> */}
+          </div>
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">

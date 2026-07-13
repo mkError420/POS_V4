@@ -1,8 +1,6 @@
 -- MySQL Database DDL for Web-Based Multi-Tenant POS System
 -- Core Design: Single Database with 'shop_id' tenant isolation.
 
-CREATE DATABASE IF NOT EXISTS `multitenant_pos`;
-USE `multitenant_pos`;
 
 -- -----------------------------------------------------
 -- Table `shops` (Tenants)
@@ -14,6 +12,10 @@ CREATE TABLE IF NOT EXISTS `shops` (
   `phone` VARCHAR(20) NULL,
   `address` TEXT NULL,
   `tax_rate` DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+  `logo` LONGTEXT NULL,
+  `loyalty_enabled` TINYINT(1) NOT NULL DEFAULT 0,
+  `loyalty_point_earn_rate` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `loyalty_point_value` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `status` ENUM('active', 'inactive') DEFAULT 'active',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

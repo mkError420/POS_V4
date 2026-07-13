@@ -45,10 +45,26 @@ class DB {
             }
 
             if ($envFileExists) {
-                $host = isset($_ENV['DB_HOST']) ? $_ENV['DB_HOST'] : (getenv('DB_HOST') ?: $defaultHost);
-                $user = isset($_ENV['DB_USER']) ? $_ENV['DB_USER'] : (getenv('DB_USER') ?: $defaultUser);
-                $pass = isset($_ENV['DB_PASS']) ? $_ENV['DB_PASS'] : (getenv('DB_PASS') !== false ? getenv('DB_PASS') : $defaultPass);
-                $dbName = isset($_ENV['DB_NAME']) ? $_ENV['DB_NAME'] : (getenv('DB_NAME') ?: $defaultDb);
+                // Parse the .env file manually since there is no dotenv library
+                $envVars = [];
+                foreach ($envPaths as $envPath) {
+                    if (file_exists($envPath)) {
+                        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                        foreach ($lines as $line) {
+                            if (strpos(trim($line), '#') === 0) continue; // Skip comments
+                            list($name, $value) = explode('=', $line, 2);
+                            $name = trim($name);
+                            $value = trim($value);
+                            $envVars[$name] = $value;
+                        }
+                        break;
+                    }
+                }
+                
+                $host = isset($envVars['DB_HOST']) ? $envVars['DB_HOST'] : (getenv('DB_HOST') ?: $defaultHost);
+                $user = isset($envVars['DB_USER']) ? $envVars['DB_USER'] : (getenv('DB_USER') ?: $defaultUser);
+                $pass = isset($envVars['DB_PASS']) ? $envVars['DB_PASS'] : (isset($envVars['DB_PASS']) ? $envVars['DB_PASS'] : (getenv('DB_PASS') !== false ? getenv('DB_PASS') : $defaultPass));
+                $dbName = isset($envVars['DB_NAME']) ? $envVars['DB_NAME'] : (getenv('DB_NAME') ?: $defaultDb);
             } else {
                 $host = $defaultHost;
                 $user = $defaultUser;
@@ -283,6 +299,13 @@ class DB {
             // Check if logo column exists on shops table
             if ($tableExists('shops') && !$columnExists('shops', 'logo')) {
                 $pdo->exec("ALTER TABLE `shops` ADD COLUMN `logo` LONGTEXT NULL");
+            }
+
+            // Check if loyalty columns exist on shops table
+            if ($tableExists('shops') && !$columnExists('shops', 'loyalty_enabled')) {
+                $pdo->exec("ALTER TABLE `shops` ADD COLUMN `loyalty_enabled` TINYINT(1) NOT NULL DEFAULT 0");
+                $pdo->exec("ALTER TABLE `shops` ADD COLUMN `loyalty_point_earn_rate` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+                $pdo->exec("ALTER TABLE `shops` ADD COLUMN `loyalty_point_value` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
             }
 
             // Create due_payments table if not exists
