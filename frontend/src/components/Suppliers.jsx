@@ -58,6 +58,7 @@ export default function Suppliers() {
   const [showSupplierCsvModal, setShowSupplierCsvModal] = useState(false);
   const [supplierCsvFile, setSupplierCsvFile] = useState(null);
   const [supplierCsvUploading, setSupplierCsvUploading] = useState(false);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
 
   // Supplier basic form state
   const [formData, setFormData] = useState({
@@ -305,6 +306,48 @@ export default function Suppliers() {
       }
     } catch (err) {
       console.error('Error fetching POs:', err);
+    }
+  };
+
+  const handleSelectSupplier = (id) => {
+    setSelectedSupplierIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllSuppliers = (e, currentSuppliers) => {
+    if (e.target.checked) {
+      const ids = currentSuppliers.map(s => s.id);
+      setSelectedSupplierIds(prev => Array.from(new Set([...prev, ...ids])));
+    } else {
+      const ids = currentSuppliers.map(s => s.id);
+      setSelectedSupplierIds(prev => prev.filter(id => !ids.includes(id)));
+    }
+  };
+
+  const handleBulkDeleteSuppliers = async () => {
+    if (selectedSupplierIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedSupplierIds.length} suppliers?`)) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/suppliers/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ids: selectedSupplierIds })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to bulk delete suppliers');
+
+      triggerAlert('success', data.message || 'Suppliers deleted successfully');
+      setSelectedSupplierIds([]);
+      fetchSuppliers();
+    } catch (err) {
+      triggerAlert('error', err.message);
     }
   };
 
@@ -2100,6 +2143,17 @@ export default function Suppliers() {
             </svg>
             <span>Add New Supplier</span>
           </button>
+          {activeTab === 'directory' && selectedSupplierIds.length > 0 && (
+            <button
+              onClick={handleBulkDeleteSuppliers}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow-sm transition-colors flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>Delete Selected ({selectedSupplierIds.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2149,6 +2203,14 @@ export default function Suppliers() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                      <th className="p-4 w-12 text-center">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                          checked={suppliers.length > 0 && suppliers.every(s => selectedSupplierIds.includes(s.id))}
+                          onChange={(e) => handleSelectAllSuppliers(e, suppliers)}
+                        />
+                      </th>
                       <th className="p-4">Supplier Name</th>
                       <th className="p-4">Contact Person</th>
                       <th className="p-4">Email</th>
@@ -2168,13 +2230,21 @@ export default function Suppliers() {
                       </tr>
                     ) : suppliers.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="p-12 text-center text-slate-400">
+                        <td colSpan="7" className="p-12 text-center text-slate-400">
                           No suppliers listed yet. Add a supplier to begin.
                         </td>
                       </tr>
                     ) : (
                       paginatedSuppliers.map((supplier) => (
                         <tr key={supplier.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 text-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                              checked={selectedSupplierIds.includes(supplier.id)}
+                              onChange={() => handleSelectSupplier(supplier.id)}
+                            />
+                          </td>
                           <td className="p-4 font-semibold text-slate-800">{supplier.name}</td>
                           <td className="p-4 text-slate-700">{supplier.contact_name || '-'}</td>
                           <td className="p-4 text-slate-600">{supplier.email || '-'}</td>

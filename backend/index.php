@@ -286,6 +286,7 @@ $routes = [
         '/^customers\/bulk-upload$/' => function($args, $data) { CustomerController::bulkUpload(); },
         // Suppliers
         '/^suppliers$/' => function($args, $data) { SupplierController::createSupplier($data); },
+        '/^suppliers\/bulk-delete$/' => function($args, $data) { SupplierController::bulkDeleteSuppliers($data); },
         '/^suppliers\/purchase-orders$/' => function($args, $data) { SupplierController::createPurchaseOrder($data); },
         '/^suppliers\/(\d+)\/returns$/' => function($args, $data) { SupplierController::createSupplierReturn($args[0], $data); },
         // Sales

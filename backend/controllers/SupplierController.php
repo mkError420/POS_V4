@@ -943,6 +943,25 @@ class SupplierController {
                         [$po['supplier_id'], $shopId]
                     );
                 }
+
+                // Revert cost price and delete cost price logs associated with this PO
+                $logStmt = DB::query(
+                    'SELECT product_id, old_cost_price FROM cost_price_logs WHERE shop_id = ? AND reason = ?',
+                    [$shopId, "PO Received #$poId"]
+                );
+                $logs = $logStmt->fetchAll();
+
+                foreach ($logs as $log) {
+                    DB::query(
+                        'UPDATE products SET cost_price = ? WHERE id = ? AND shop_id = ?',
+                        [(float)$log['old_cost_price'], (int)$log['product_id'], $shopId]
+                    );
+                }
+
+                DB::query(
+                    'DELETE FROM cost_price_logs WHERE shop_id = ? AND reason = ?',
+                    [$shopId, "PO Received #$poId"]
+                );
             }
 
             DB::query('DELETE FROM purchase_orders WHERE id = ? AND shop_id = ?', [$poId, $shopId]);
@@ -1290,6 +1309,50 @@ class SupplierController {
         } catch (\Exception $e) {
             error_log('Delete supplier error: ' . $e->getMessage());
             Auth::jsonError('Server error deleting supplier.', 500);
+        }
+    }
+
+    public static function bulkDeleteSuppliers($requestData) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin']);
+
+        $shopId = Auth::$shopId;
+        $ids = $requestData['ids'] ?? [];
+
+        if (!is_array($ids) || empty($ids)) {
+            Auth::jsonError('No suppliers selected for deletion.', 400);
+        }
+
+        // Validate IDs are integers
+        $ids = array_map('intval', $ids);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        try {
+            // Check if any of the selected suppliers have existing purchase orders
+            $sqlCheck = "SELECT COUNT(*) FROM purchase_orders WHERE shop_id = ? AND supplier_id IN ($placeholders)";
+            $params = array_merge([$shopId], $ids);
+            $stmt = DB::query($sqlCheck, $params);
+            if ($stmt->fetchColumn() > 0) {
+                Auth::jsonError('Cannot delete one or more suppliers because they are referenced in existing purchase orders.', 400);
+            }
+
+            // Perform bulk delete
+            $sqlDelete = "DELETE FROM suppliers WHERE shop_id = ? AND id IN ($placeholders)";
+            DB::query($sqlDelete, $params);
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Selected suppliers deleted successfully.']);
+
+        } catch (\PDOException $e) {
+            error_log('Bulk delete suppliers DB error: ' . $e->getMessage());
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), 'a foreign key constraint fails') !== false) {
+                Auth::jsonError('Cannot delete one or more suppliers. They are referenced in other records.', 400);
+            }
+            Auth::jsonError('Server error deleting suppliers.', 500);
+        } catch (\Exception $e) {
+            error_log('Bulk delete suppliers error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting suppliers.', 500);
         }
     }
 
