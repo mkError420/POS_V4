@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import API_BASE_URL from '../config';
 
@@ -19,6 +19,10 @@ export default function SalesHistory() {
   const [productDailySales, setProductDailySales] = useState(null);
   const [dailySalesLoading, setDailySalesLoading] = useState(false);
   const [trendCollapsed, setTrendCollapsed] = useState(true);
+
+  // CSV Import State
+  const fileInputRef = useRef(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Edit Sale state
   const [products, setProducts] = useState([]);
@@ -59,7 +63,7 @@ export default function SalesHistory() {
 
   const formatCurrency = (val) => {
     const numericVal = parseFloat(val || 0);
-    return `Tk ${numericVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `BDT ${numericVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const fetchSales = async () => {
@@ -508,6 +512,45 @@ export default function SalesHistory() {
     triggerAlert('success', 'Sales history exported successfully!');
   };
 
+  const handleCSVUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+      triggerAlert('error', 'Please upload a valid CSV file.');
+      return;
+    }
+
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append('csv_file', file);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/sales/import`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import CSV.');
+      }
+
+      triggerAlert('success', `Imported ${data.imported_count} sales successfully!`);
+      fetchSales(); // Refresh the sales list
+      fetchRevenue();
+    } catch (err) {
+      triggerAlert('error', err.message);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleDueBillsPrint = () => {
     const printWindow = window.open('', 'PRINT', 'height=800,width=1200');
 
@@ -570,7 +613,7 @@ export default function SalesHistory() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `due_bills_history_${new Date().toBDISODateString()}.csv`);
+    link.setAttribute('download', `all_bills_history_${new Date().toBDISODateString()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -635,7 +678,7 @@ export default function SalesHistory() {
                   />
                 </div>
               )}
-              
+
               {/* Search Product */}
               <div className="relative flex-1">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Add Product</label>
@@ -646,24 +689,24 @@ export default function SalesHistory() {
                   value={productSearch}
                   onChange={e => setProductSearch(e.target.value)}
                 />
-              {productSearch && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                  {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))).map(prod => (
-                    <button
-                      key={prod.id}
-                      onClick={() => handleAddEditProduct(prod)}
-                      className="w-full text-left px-4 py-2 hover:bg-indigo-50 flex justify-between items-center text-sm"
-                    >
-                      <span>{prod.name} <span className="text-xs text-slate-500 ml-2">Stock: {prod.stock_quantity}</span></span>
-                      <span className="font-semibold text-indigo-600">৳{parseFloat(prod.price).toFixed(3)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                {productSearch && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))).map(prod => (
+                      <button
+                        key={prod.id}
+                        onClick={() => handleAddEditProduct(prod)}
+                        className="w-full text-left px-4 py-2 hover:bg-indigo-50 flex justify-between items-center text-sm"
+                      >
+                        <span>{prod.name} <span className="text-xs text-slate-500 ml-2">Stock: {prod.stock_quantity}</span></span>
+                        <span className="font-semibold text-indigo-600">৳{parseFloat(prod.price).toFixed(3)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Cart Items Table */}
+            {/* Cart Items Table */}
             <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
@@ -800,11 +843,35 @@ export default function SalesHistory() {
           <p className="text-sm text-slate-500">Search and audit invoice histories, payment logs, and totals</p>
         </div>
         <div className="flex items-center space-x-3 w-full sm:w-auto">
+          <input
+            type="file"
+            accept=".csv"
+            ref={fileInputRef}
+            onChange={handleCSVUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+            disabled={isImporting}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2 disabled:opacity-50"
+          >
+            {isImporting ? (
+              <svg className="animate-spin w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            )}
+            <span>{isImporting ? 'Importing...' : 'Import CSV'}</span>
+          </button>
           <button
             onClick={exportToCSV}
-            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+            className="bg-gray-700 hover:bg-slate-50 text-white font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
           >
-            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             <span>Export CSV</span>
@@ -913,7 +980,7 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Revenue</p>
-            <h3 className="text-xl font-extrabold text-indigo-600">৳{totalRevenue.toFixed(3)}</h3>
+            <h3 className="text-xl font-extrabold text-indigo-600"><span className="text-sm">BDT:</span> {totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</h3>
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center space-x-3">
@@ -924,7 +991,7 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
-            <h3 className="text-xl font-extrabold text-emerald-600">৳{totalPaid.toFixed(3)}</h3>
+            <h3 className="text-xl font-extrabold text-emerald-600"><span className="text-sm">BDT:</span> {totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</h3>
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center space-x-3">
@@ -935,14 +1002,14 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Due</p>
-            <h3 className={`text-xl font-extrabold ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>৳{totalDue.toFixed(3)}</h3>
+            <h3 className={`text-xl font-extrabold ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}><span className="text-sm">BDT:</span> {totalDue.toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</h3>
           </div>
         </div>
       </div>
 
       {/* Dynamic Graph Chart */}
-      {(() => {
-        // Calculate dynamic trend data from the current loaded sales
+      {/* {(() => {
+        
         const trendMap = {};
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
@@ -1010,7 +1077,7 @@ export default function SalesHistory() {
 
             {!trendCollapsed && (
               <div className="relative w-full h-[180px]">
-                {/* SVG Plot */}
+                
                 <svg
                   viewBox="0 0 600 180"
                   className="w-full h-full overflow-visible"
@@ -1023,7 +1090,7 @@ export default function SalesHistory() {
                     </linearGradient>
                   </defs>
 
-                  {/* Grid Lines */}
+                  
                   {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
                     const y = 15 + (1 - ratio) * 125;
                     const labelVal = ratio * maxVal;
@@ -1049,7 +1116,7 @@ export default function SalesHistory() {
                     );
                   })}
 
-                  {/* Path Logic */}
+                 
                   {(() => {
                     const chartPoints = chartData.map((d, index) => {
                       const val = chartType === 'revenue' ? d.revenue : d.count;
@@ -1119,7 +1186,7 @@ export default function SalesHistory() {
                   })()}
                 </svg>
 
-                {/* Tooltip */}
+                
                 {hoveredPoint && (
                   <div
                     className="absolute bg-slate-900/95 backdrop-blur-md text-white rounded-xl p-2.5 shadow-xl border border-slate-700 pointer-events-none text-xs flex flex-col space-y-0.5 transition-all duration-75 z-10"
@@ -1142,7 +1209,7 @@ export default function SalesHistory() {
           </div>
         );
       })()}
-
+ */}
       {/* Bulk Action Bar */}
       {isAdmin && selectedSaleIds.length > 0 && (
         <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-xl animate-fade-in">
@@ -1227,15 +1294,15 @@ export default function SalesHistory() {
               <h3 className="font-bold text-slate-800">All Sales History</h3>
               <p className="text-xs text-slate-500">List of all recorded transactions.</p>
             </div>
-            <button
+            {/*   <button
               onClick={exportDueBillsToCSV}
               className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 border border-gray-200 rounded-xl text-xs shadow-xs transition-colors flex items-center space-x-2"
             >
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>Export All Sales CSV</span>
-            </button>
+              <span>Export All Due</span>
+            </button> */}
           </div>
           <table className="w-full text-left border-collapse">
             <thead>

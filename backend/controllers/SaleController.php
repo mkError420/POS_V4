@@ -132,7 +132,7 @@ class SaleController {
             }
 
             $netAmount = $calculatedTotal - $discount - $pointsRedeemedValue;
-            $finalAmount = max(0.00, $netAmount) + $tax + $reduceDueAmount;
+            $finalAmount = round(max(0.00, $netAmount) + $tax + $reduceDueAmount);
 
             $paidAmount = isset($requestData['paid_amount']) ? (float)$requestData['paid_amount'] : $finalAmount;
             $dueAmount = $finalAmount - $paidAmount;
@@ -659,7 +659,7 @@ class SaleController {
             }
 
             $netAmount = $calculatedTotal - $discount - $pointsRedeemedValue;
-            $finalAmount = max(0.00, $netAmount) + $tax;
+            $finalAmount = round(max(0.00, $netAmount) + $tax);
 
             $finalPaidAmount = ($paidAmount !== null) ? $paidAmount : $finalAmount;
             $dueAmount = $finalAmount - $finalPaidAmount;
@@ -877,5 +877,198 @@ class SaleController {
             error_log('Bulk delete sales error: ' . $e->getMessage());
             Auth::jsonError('Server error deleting sale transactions.', 500);
         }
+    }
+
+    public static function importCsv() {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin', 'shop_staff']);
+        
+        $shopId = Auth::$shopId;
+        $userId = Auth::$user['id'];
+
+        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            Auth::jsonError('No file uploaded or upload error.', 400);
+        }
+
+        $file = $_FILES['csv_file']['tmp_name'];
+        $handle = fopen($file, 'r');
+        if (!$handle) {
+            Auth::jsonError('Cannot read uploaded file.', 500);
+        }
+
+        $headers = fgetcsv($handle);
+        if (!$headers) {
+            Auth::jsonError('Invalid CSV format.', 400);
+        }
+
+        // Expected headers based on export:
+        // ['Invoice ID', 'Date', 'Products', 'Customer', 'Cashier', 'Payment Method', 'Total Amount', 'Paid Amount', 'Due Amount']
+        // We do a loose check or simply assume the indices if the column count is enough.
+        if (count($headers) < 7) {
+            Auth::jsonError('CSV does not have the required columns.', 400);
+        }
+
+        $importedCount = 0;
+        $skippedCount = 0;
+
+        try {
+            DB::beginTransaction();
+
+            while (($data = fgetcsv($handle)) !== false) {
+                // Minimum expected columns for our indices
+                if (count($data) < 7) continue;
+
+                $invoiceId = trim($data[0]);
+                if (!$invoiceId) continue;
+
+                // Check if sale already exists
+                $stmt = DB::query("SELECT id FROM sales WHERE id = ? AND shop_id = ?", [$invoiceId, $shopId]);
+                if ($stmt->fetch()) {
+                    $skippedCount++;
+                    continue; 
+                }
+
+                $dateRaw = trim($data[1], '"');
+                $timestamp = strtotime($dateRaw);
+                $date = $timestamp ? date('Y-m-d H:i:s', $timestamp) : date('Y-m-d H:i:s');
+                
+                $productsStr = isset($data[2]) ? trim($data[2]) : '';
+                $customerName = isset($data[3]) ? trim($data[3]) : 'Walk-in Customer';
+                $cashierName = isset($data[4]) ? trim($data[4]) : '';
+                $paymentMethod = isset($data[5]) ? trim($data[5]) : 'cash';
+                $paymentMethod = str_replace(' ', '_', strtolower($paymentMethod));
+
+                $totalAmount = isset($data[6]) ? (float)$data[6] : 0;
+                $paidAmount = isset($data[7]) ? (float)$data[7] : $totalAmount;
+                $dueAmount = isset($data[8]) ? (float)$data[8] : 0;
+
+                // 1. Customer Lookup / Creation
+                $customerId = null;
+                $customerPhone = null;
+                $customerAddress = null;
+                if ($customerName && strtolower($customerName) !== 'walk-in customer') {
+                    $cStmt = DB::query("SELECT id, phone, address FROM customers WHERE name = ? AND shop_id = ?", [$customerName, $shopId]);
+                    $cust = $cStmt->fetch();
+                    if ($cust) {
+                        $customerId = $cust['id'];
+                        $customerPhone = $cust['phone'];
+                        $customerAddress = $cust['address'];
+                    } else {
+                        // Create customer
+                        DB::query(
+                            "INSERT INTO customers (shop_id, name, due_balance, loyalty_points) VALUES (?, ?, 0, 0)",
+                            [$shopId, $customerName]
+                        );
+                        $customerId = DB::lastInsertId();
+                    }
+
+                    // Update due balance
+                    if ($dueAmount > 0) {
+                        DB::query(
+                            'UPDATE customers SET due_balance = due_balance + ? WHERE id = ? AND shop_id = ?',
+                            [$dueAmount, $customerId, $shopId]
+                        );
+                        
+                        // Create Held Bill
+                        $note = "Imported Due from Sale #$invoiceId";
+                        DB::query(
+                            "INSERT INTO held_bills (shop_id, user_id, customer_id, customer_name, customer_phone, customer_address, discount_percent, notes, items, due_amount, status, created_at) 
+                             VALUES (?, ?, ?, ?, ?, ?, 0, ?, '[]', ?, 'held', ?)",
+                            [$shopId, $userId, $customerId, $customerName, $customerPhone, $customerAddress, $note, $dueAmount, $date]
+                        );
+                    }
+                }
+
+                // 2. Parse Products and calculate discrepancies
+                $parsedItems = [];
+                $calculatedTotal = 0;
+                if (!empty($productsStr)) {
+                    $productNames = array_map('trim', explode(',', $productsStr));
+                    foreach ($productNames as $pName) {
+                        if (empty($pName)) continue;
+                        $pStmt = DB::query("SELECT id, price, cost_price FROM products WHERE name = ? AND shop_id = ?", [$pName, $shopId]);
+                        $product = $pStmt->fetch();
+                        if ($product) {
+                            $parsedItems[] = [
+                                'product_id' => $product['id'],
+                                'quantity' => 1,
+                                'unit_price' => (float)$product['price'],
+                                'cost_price' => (float)$product['cost_price'],
+                                'subtotal' => (float)$product['price']
+                            ];
+                            $calculatedTotal += (float)$product['price'];
+                            
+                            // Deduct stock
+                            DB::query(
+                                'UPDATE products SET stock_quantity = stock_quantity - 1 WHERE id = ? AND shop_id = ?',
+                                [$product['id'], $shopId]
+                            );
+                        }
+                    }
+                }
+                
+                // If the sum of parsed products doesn't equal totalAmount, we record a discount or surcharge
+                // Usually totalAmount <= calculatedTotal means discount. If greater, it's a surcharge (negative discount).
+                $discount = $calculatedTotal - $totalAmount;
+
+                // Insert into sales table
+                DB::query(
+                    'INSERT INTO sales (id, shop_id, user_id, customer_id, total_amount, final_amount, paid_amount, due_amount, payment_method, created_at, discount, tax, points_earned, points_redeemed, points_redeemed_value) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0)',
+                    [
+                        $invoiceId,
+                        $shopId,
+                        $userId,
+                        $customerId,
+                        $calculatedTotal > 0 ? $calculatedTotal : $totalAmount, // total_amount before discount
+                        $totalAmount, // final_amount
+                        $paidAmount,
+                        $dueAmount,
+                        $paymentMethod ?: 'cash',
+                        $date,
+                        $discount
+                    ]
+                );
+
+                // Insert sale_items
+                if (!empty($parsedItems)) {
+                    foreach ($parsedItems as $item) {
+                        DB::query(
+                            'INSERT INTO sale_items (shop_id, sale_id, product_id, quantity, unit_price, cost_price, subtotal) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            [$shopId, $invoiceId, $item['product_id'], $item['quantity'], $item['unit_price'], $item['cost_price'], $item['subtotal']]
+                        );
+                    }
+                } else {
+                    // Fallback to dummy item if no products found or products string was empty
+                    try {
+                        DB::query(
+                            'INSERT INTO sale_items (shop_id, sale_id, product_id, quantity, unit_price, cost_price, subtotal) 
+                             VALUES (?, ?, NULL, 1, ?, 0, ?)',
+                            [$shopId, $invoiceId, $totalAmount, $totalAmount]
+                        );
+                    } catch (\Exception $e) {}
+                }
+
+                $importedCount++;
+            }
+
+            DB::commit();
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'message' => "Import successful.",
+                'imported_count' => $importedCount,
+                'skipped_count' => $skippedCount
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            error_log('CSV Import Error: ' . $e->getMessage());
+            Auth::jsonError('Server error importing CSV: ' . $e->getMessage(), 500);
+        }
+
+        fclose($handle);
     }
 }

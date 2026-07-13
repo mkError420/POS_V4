@@ -15,6 +15,7 @@ export default function OtherCost() {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [shops, setShops] = useState([]);
   const [selectedShopId, setSelectedShopId] = useState('');
+  const [showTrendChart, setShowTrendChart] = useState(false);
  
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -238,7 +239,7 @@ export default function OtherCost() {
   };
 
   // HELPER FORMATTERS
-  const formatCurrency = (val) => `৳${parseFloat(val).toFixed(2)}`;
+  const formatCurrency = (val) => `৳${parseFloat(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     // Remove timestamp zone offset issues
@@ -291,7 +292,17 @@ export default function OtherCost() {
           <h2 className="text-2xl font-bold text-slate-800">Other Costs Ledger</h2>
           <p className="text-sm text-slate-500">Record and monitor shop operational expenses and overhead costs</p>
         </div>
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
+          <button 
+            type="button" 
+            onClick={() => setShowTrendChart(!showTrendChart)}
+            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-4 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+          >
+            <svg className={`w-4 h-4 text-slate-500 transition-transform ${showTrendChart ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>{showTrendChart ? 'Hide Trend' : 'Show Trend'}</span>
+          </button>
           <button
             onClick={exportToCSV}
             className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
@@ -328,7 +339,7 @@ export default function OtherCost() {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Expenses</span>
           </div>
           <div className="mt-4">
-            <span className="block text-2xl font-black text-slate-800">{formatCurrency(totalSpent)}</span>
+            <span className="block text-2xl font-black text-slate-800"><span className="text-sm">BDT:</span> {parseFloat(totalSpent).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <span className="text-xs text-slate-450">All recorded operational overheads</span>
           </div>
         </div>
@@ -344,7 +355,7 @@ export default function OtherCost() {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">This Month's Overhead</span>
           </div>
           <div className="mt-4">
-            <span className="block text-2xl font-black text-slate-800">{formatCurrency(getThisMonthSpent())}</span>
+            <span className="block text-2xl font-black text-slate-800"><span className="text-sm">BDT:</span> {parseFloat(getThisMonthSpent()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <span className="text-xs text-slate-450">Overheads in current calendar month</span>
           </div>
         </div>
@@ -389,14 +400,16 @@ export default function OtherCost() {
         const chartValues = chartData.map(d => d.amount);
         const maxVal = Math.max(...chartValues, 100);
 
+        if (!showTrendChart) return null;
+
         return (
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs relative">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs relative animate-fade-in">
             <div>
               <h3 className="text-lg font-bold text-slate-800">Expenses Trend</h3>
               <p className="text-xs text-slate-500">Daily business overhead costs recorded over the last 7 days</p>
             </div>
 
-            <div className="relative w-full h-[180px] mt-4">
+            <div className="relative w-full h-[180px] mt-6">
               {/* SVG Plot */}
               <svg 
                 viewBox="0 0 600 180" 

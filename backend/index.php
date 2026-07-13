@@ -290,6 +290,7 @@ $routes = [
         '/^suppliers\/(\d+)\/returns$/' => function($args, $data) { SupplierController::createSupplierReturn($args[0], $data); },
         // Sales
         '/^sales$/' => function($args, $data) { SaleController::createSale($data); },
+        '/^sales\/import$/' => function($args, $data) { SaleController::importCsv(); },
         '/^sales\/bulk-delete$/' => function($args, $data) { SaleController::bulkDeleteSales($data); },
         // Held Bills
         '/^held-bills$/' => function($args, $data) { HeldBillController::createHeldBill($data); },

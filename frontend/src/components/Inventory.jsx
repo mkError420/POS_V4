@@ -1440,22 +1440,21 @@ export default function Inventory() {
 
             {/* Top KPI Stats Moved to Header */}
             {historyData && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0">
-                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Total Purchase Amount</span>
-                  <div className="flex items-baseline flex-wrap">
-                    <span className="text-2xl font-black text-amber-500">
-                      ৳{(historyData.detailed ? historyData.detailed.filter(d => d.type === 'purchase').reduce((sum, d) => sum + (Number(d.subtotal) || 0), 0) : 0).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0">
                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1 text-ellipsis overflow-hidden">Total Purchased</span>
-                  <div className="flex items-baseline flex-wrap">
-                    <span className="text-2xl font-black text-sky-600">
-                      {historyData.daily.reduce((sum, d) => sum + (d.qty_purchased || 0), 0)}
-                    </span>
-                    <span className="text-[10px] text-slate-500 ml-1.5">{historyProductUnit} purchased</span>
+                  <div>
+                    <div className="flex items-baseline flex-wrap">
+                      <span className="text-2xl font-black text-sky-600">
+                        {historyData.daily.reduce((sum, d) => sum + (d.qty_purchased || 0), 0)}
+                      </span>
+                      <span className="text-[10px] text-slate-500 ml-1.5">{historyProductUnit}</span>
+                    </div>
+                    <div className="flex items-baseline flex-wrap mt-0.5">
+                      <span className="text-sm font-bold text-amber-500">
+                        BDT: {(historyData.detailed ? historyData.detailed.filter(d => d.type === 'purchase').reduce((sum, d) => sum + (Number(d.subtotal) || 0), 0) : 0).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between min-w-[150px]">

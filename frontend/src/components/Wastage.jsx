@@ -22,14 +22,15 @@ export default function Wastage() {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const [showTrendChart, setShowTrendChart] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, startDate, endDate, selectedShopId]);
- 
+
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
- 
+
   // Form states
   const [formData, setFormData] = useState({
     product_id: '',
@@ -38,7 +39,7 @@ export default function Wastage() {
     notes: '',
     adjusted_at: new Date().toBDISODateString()
   });
- 
+
   const fetchWastages = async () => {
     setLoading(true);
     try {
@@ -49,7 +50,7 @@ export default function Wastage() {
       if (isSuperAdmin && selectedShopId) {
         url += `shop_id=${selectedShopId}&`;
       }
- 
+
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -62,7 +63,7 @@ export default function Wastage() {
       setLoading(false);
     }
   };
- 
+
   const fetchProducts = async () => {
     if (isSuperAdmin) return;
     try {
@@ -77,7 +78,7 @@ export default function Wastage() {
       console.error(err.message);
     }
   };
- 
+
   useEffect(() => {
     if (isSuperAdmin) {
       const fetchShops = async () => {
@@ -135,8 +136,8 @@ export default function Wastage() {
     }
     if (!productSearchTerm) return products;
     const lowerTerm = productSearchTerm.toLowerCase();
-    return products.filter(p => 
-      p.name.toLowerCase().includes(lowerTerm) || 
+    return products.filter(p =>
+      p.name.toLowerCase().includes(lowerTerm) ||
       p.sku.toLowerCase().includes(lowerTerm)
     );
   };
@@ -275,10 +276,10 @@ export default function Wastage() {
   // FILTERED WASTAGES FOR CLIENT SIDE SEARCH
   const filteredWastages = wastages.filter(w => {
     const searchLower = search.toLowerCase();
-    return w.product_name.toLowerCase().includes(searchLower) || 
-           w.product_sku.toLowerCase().includes(searchLower) ||
-           w.reason.toLowerCase().includes(searchLower) ||
-           (w.notes && w.notes.toLowerCase().includes(searchLower));
+    return w.product_name.toLowerCase().includes(searchLower) ||
+      w.product_sku.toLowerCase().includes(searchLower) ||
+      w.reason.toLowerCase().includes(searchLower) ||
+      (w.notes && w.notes.toLowerCase().includes(searchLower));
   });
 
   const totalPages = Math.ceil(filteredWastages.length / itemsPerPage);
@@ -294,9 +295,8 @@ export default function Wastage() {
     <div className="space-y-6">
       {/* Alerts Banner */}
       {alert && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${
-          alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-        }`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+          }`}>
           <span className="text-sm font-semibold">{alert.message}</span>
         </div>
       )}
@@ -307,17 +307,27 @@ export default function Wastage() {
           <h2 className="text-2xl font-bold text-slate-800">Damage & Wastage Logs</h2>
           <p className="text-sm text-slate-500">Track expired, damaged, stolen inventory, or log manual stock adjustments</p>
         </div>
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
-            <button
-                onClick={exportWastagesToCSV}
-                className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-4 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
-            >
-                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                <span>Export CSV</span>
-            </button>
-            {!isSuperAdmin && (
+        <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setShowTrendChart(!showTrendChart)}
+            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-4 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+          >
+            <svg className={`w-4 h-4 text-slate-500 transition-transform ${showTrendChart ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>{showTrendChart ? 'Hide Trend' : 'Show Trend'}</span>
+          </button>
+          <button
+            onClick={exportWastagesToCSV}
+            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-4 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
+          >
+            <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Export CSV</span>
+          </button>
+          {!isSuperAdmin && (
             <button
               onClick={() => { resetForm(); setShowAddModal(true); }}
               className="bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm shadow-sm transition-colors flex items-center space-x-2 w-full sm:w-auto justify-center"
@@ -327,10 +337,10 @@ export default function Wastage() {
               </svg>
               <span>Log Stock Adjustment</span>
             </button>
-            )}
+          )}
         </div>
       </div>
- 
+
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {/* Card 1 */}
@@ -344,11 +354,11 @@ export default function Wastage() {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Financial Loss</span>
           </div>
           <div className="mt-4">
-            <span className="block text-2xl font-black text-rose-600">{formatCurrency(totalFinancialLoss)}</span>
+            <span className="block text-2xl font-black text-rose-600"><span className="text-sm">BDT:</span> {parseFloat(totalFinancialLoss).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <span className="text-xs text-slate-450">Accumulated cost-price value of loss</span>
           </div>
         </div>
- 
+
         {/* Card 2 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div className="flex items-center space-x-3">
@@ -364,7 +374,7 @@ export default function Wastage() {
             <span className="text-xs text-slate-450">Quantity of physical stock written off</span>
           </div>
         </div>
- 
+
         {/* Card 3 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
           <div className="flex items-center space-x-3">
@@ -405,17 +415,19 @@ export default function Wastage() {
         const chartValues = chartData.map(d => d.loss);
         const maxVal = Math.max(...chartValues, 100);
 
+        if (!showTrendChart) return null;
+
         return (
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs relative">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs relative animate-fade-in">
             <div>
               <h3 className="text-lg font-bold text-slate-800">Wastage Loss Trend</h3>
               <p className="text-xs text-slate-500">Daily cost value of inventory write-offs over the last 7 days</p>
             </div>
 
-            <div className="relative w-full h-[180px] mt-4">
+            <div className="relative w-full h-[180px] mt-6">
               {/* SVG Plot */}
-              <svg 
-                viewBox="0 0 600 180" 
+              <svg
+                viewBox="0 0 600 180"
                 className="w-full h-full overflow-visible"
                 preserveAspectRatio="none"
               >
@@ -432,18 +444,18 @@ export default function Wastage() {
                   const labelVal = ratio * maxVal;
                   return (
                     <g key={idx}>
-                      <line 
-                        x1={55} 
-                        y1={y} 
-                        x2={575} 
-                        y2={y} 
-                        stroke="#f1f5f9" 
+                      <line
+                        x1={55}
+                        y1={y}
+                        x2={575}
+                        y2={y}
+                        stroke="#f1f5f9"
                         strokeWidth="1.5"
                       />
-                      <text 
-                        x={43} 
-                        y={y + 4} 
-                        textAnchor="end" 
+                      <text
+                        x={43}
+                        y={y + 4}
+                        textAnchor="end"
                         className="text-[10px] font-bold text-slate-400 fill-current font-sans"
                       >
                         ৳{Math.round(labelVal)}
@@ -470,13 +482,13 @@ export default function Wastage() {
                   return (
                     <>
                       <path d={areaPath} fill="url(#wastageAreaGradient)" />
-                      <path 
-                        d={linePath} 
-                        fill="none" 
-                        stroke="#f43f5e" 
-                        strokeWidth="2.5" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
+                      <path
+                        d={linePath}
+                        fill="none"
+                        stroke="#f43f5e"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       />
 
                       {chartPoints.map((pt, idx) => (
@@ -544,7 +556,7 @@ export default function Wastage() {
           </div>
         );
       })()}
- 
+
       {/* Filters Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         {/* Search */}
@@ -560,7 +572,7 @@ export default function Wastage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
- 
+
         {/* Date Filters */}
         <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-600">
           {isSuperAdmin && (
@@ -609,7 +621,7 @@ export default function Wastage() {
           )}
         </div>
       </div>
- 
+
       {/* Ledger Table Container */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -653,13 +665,12 @@ export default function Wastage() {
                     <td className="p-4 font-bold text-slate-800">-{w.quantity}</td>
                     <td className="p-4 font-black text-rose-600">{formatCurrency(w.cost_loss)}</td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                        w.reason === 'Damaged' ? 'bg-amber-100 text-amber-800' :
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${w.reason === 'Damaged' ? 'bg-amber-100 text-amber-800' :
                         w.reason === 'Expired' ? 'bg-orange-100 text-orange-800' :
-                        w.reason === 'Stolen' ? 'bg-slate-100 text-slate-700' :
-                        w.reason === 'Spillage' ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
+                          w.reason === 'Stolen' ? 'bg-slate-100 text-slate-700' :
+                            w.reason === 'Spillage' ? 'bg-red-100 text-red-800' :
+                              'bg-blue-100 text-blue-800'
+                        }`}>
                         {w.reason}
                       </span>
                     </td>
@@ -696,16 +707,15 @@ export default function Wastage() {
             >
               Previous
             </button>
-            
+
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                  currentPage === page
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
-                }`}
+                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${currentPage === page
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                  }`}
               >
                 {page}
               </button>
@@ -734,7 +744,7 @@ export default function Wastage() {
                 </svg>
               </button>
             </div>
-            
+
             <form onSubmit={handleAddSubmit} className="mt-4 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select Product *</label>

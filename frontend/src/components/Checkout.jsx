@@ -609,7 +609,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     const pointsDisc = getPointsDiscount();
     const taxVal = getTax();
     const total = (sub - disc - pointsDisc) + taxVal + parseFloat(activeTab?.reduceDueAmount || 0);
-    return Math.max(0, total);
+    return Math.max(0, Math.round(total));
   };
 
   // --- SUBMIT CHECKOUT ---
