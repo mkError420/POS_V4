@@ -670,13 +670,11 @@ export default function Suppliers() {
       const prod = productsList.find(p => String(p.id) === String(productId));
       if (prod) {
         setPoFormData(prev => ({
-          ...prev,
+          ...prev, // Keep existing form data
           product_id: productId,
           is_new: false,
           name: prod.name,
-          sku: prod.sku,
           category: prod.category || '',
-          cost_price: prod.cost_price,
           selling_price: prod.price,
           unit: prod.unit || 'piece',
           low_stock_threshold: prod.low_stock_threshold || '10'
@@ -1796,7 +1794,7 @@ export default function Suppliers() {
                             </td>
                             <td className="p-3 font-bold text-slate-800">{formatCurrency(po.total_amount)}</td>
                             <td className="p-3 text-emerald-600 font-semibold">{formatCurrency(po.paid_amount || 0)}</td>
-                            <td className="p-3 text-rose-650 font-bold">{formatCurrency(po.due_amount || 0)}</td>
+                            <td className="p-3 text-rose-600 font-bold">{formatCurrency(po.due_amount || 0)}</td>
                             <td className="p-3">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getStatusBadge(po.status)}`}>
                                 {po.status}
@@ -2670,6 +2668,15 @@ export default function Suppliers() {
                       ))
                     )}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-50/50 border-t-2 border-slate-200 font-bold">
+                      <td colSpan="4" className="p-4 text-slate-500 uppercase text-xs">Total</td>
+                      <td className="p-4 font-bold text-slate-800">{formatCurrency(filteredPOs.reduce((sum, po) => sum + parseFloat(po.total_amount || 0), 0))}</td>
+                      <td className="p-4 font-bold text-emerald-700">{formatCurrency(filteredPOs.reduce((sum, po) => sum + parseFloat(po.paid_amount || 0), 0))}</td>
+                      <td className="p-4 font-bold text-rose-700">{formatCurrency(filteredPOs.reduce((sum, po) => sum + parseFloat(po.due_amount || 0), 0))}</td>
+                      <td colSpan="2"></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
@@ -3473,10 +3480,9 @@ export default function Suppliers() {
                   type="text"
                   value={poFormData.sku}
                   onChange={(e) => setPoFormData({ ...poFormData, sku: e.target.value })}
-                  disabled={!poFormData.is_new && editingCartItemIndex === null}
                   required
                   placeholder="SKU Code"
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50 disabled:bg-slate-50 font-semibold font-mono"
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500 bg-white font-semibold font-mono"
                 />
               </div>
 
@@ -3720,7 +3726,10 @@ export default function Suppliers() {
                 {poFormData.payment_basis === 'credit' && (
                   <div className="text-xs text-slate-500">
                     Remaining Due: <span className="text-sm font-bold text-rose-650">
-                      {formatCurrency(calculatePOTotal() - (parseFloat(poFormData.paid_amount || 0)))}
+                      {isEditPoMode && selectedPo
+                        ? formatCurrency(selectedPo.due_amount || 0)
+                        : formatCurrency(calculatePOTotal() - (parseFloat(poFormData.paid_amount || 0)))
+                      }
                     </span>
                   </div>
                 )}
@@ -4518,10 +4527,10 @@ export default function Suppliers() {
                               <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">SKU</th>
                               <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Product Name</th>
                               <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cost Price</th>
-                              <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sale Price</th>
+                              <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sale Price</th> {/* Corrected typo */}
                               <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Qty Ordered</th>
                               <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Qty Received</th>
-                              <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Expiry Date</th>
+                              <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Expiry Date</th> {/* Corrected typo */}
                               <th className="px-5 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Subtotal</th>
                             </tr>
                           </thead>
@@ -4531,7 +4540,7 @@ export default function Suppliers() {
                                 <tr key={p.product_id} className="hover:bg-slate-50/50 transition-colors bg-white">
                                   <td className="px-5 py-5 align-middle">
                                     <div className="text-[13px] font-bold text-slate-500 font-mono tracking-tight">{p.sku || 'N/A'}</div>
-                                  </td>
+                                  </td> {/* Corrected typo */}
                                   <td className="px-5 py-5 align-middle">
                                     <div className="font-bold text-slate-700 text-[14px]">{p.product_name}</div>
                                   </td>

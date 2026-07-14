@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import API_BASE_URL from '../config';
 
 export default function SalesHistory() {
@@ -129,7 +129,7 @@ export default function SalesHistory() {
       triggerAlert('error', 'No profit data available to download.');
       return;
     }
-
+    
     try {
       const doc = new jsPDF();
       const d = filteredProfitData;
@@ -138,7 +138,7 @@ export default function SalesHistory() {
       // Header
       doc.setFontSize(18);
       doc.text('Profit Breakdown Report', 14, 20);
-
+      
       doc.setFontSize(11);
       doc.setTextColor(100);
       doc.text(`Filtered Period: ${d.start_date} to ${d.end_date}`, 14, 28);
@@ -149,10 +149,10 @@ export default function SalesHistory() {
       doc.setTextColor(0);
       doc.text(`Total Cost: BDT ${parseFloat(d.grand_cost).toFixed(3)}`, 14, 45);
       doc.text(`Total Revenue: BDT ${parseFloat(d.grand_revenue).toFixed(3)}`, 14, 52);
-
+      
       doc.setTextColor(isLoss ? 220 : 20, isLoss ? 38 : 160, isLoss ? 38 : 20); // Red if loss, green if profit
       doc.text(`Net Profit: ${isLoss ? '-' : '+'}BDT ${Math.abs(parseFloat(d.grand_profit)).toFixed(3)} (${d.grand_margin}% margin)`, 14, 59);
-
+      
       // Table Data
       const tableColumn = ["#", "Product", "Qty", "Cost Price", "Selling Price", "Profit", "Margin"];
       const tableRows = [];
@@ -174,7 +174,7 @@ export default function SalesHistory() {
       }
 
       // Generate Table
-      doc.autoTable({
+      autoTable(doc, {
         startY: 68,
         head: [tableColumn],
         body: tableRows,
@@ -402,6 +402,26 @@ export default function SalesHistory() {
   const handleRemoveEditItem = (idx) => {
     const newData = { ...editSaleData };
     newData.items.splice(idx, 1);
+    updateEditSaleTotals(newData);
+  };
+
+  const handleEditItemPrice = (idx, newPrice) => {
+    const parsedPrice = parseFloat(newPrice);
+    let priceVal = newPrice;
+    if (newPrice === '') {
+      priceVal = '';
+    } else if (isNaN(parsedPrice) || parsedPrice < 0) {
+      priceVal = 0;
+    }
+    const newData = { ...editSaleData };
+    newData.items[idx].unit_price = priceVal;
+    newData.items[idx].subtotal = (parseFloat(priceVal) || 0) * newData.items[idx].quantity;
+    updateEditSaleTotals(newData);
+  };
+
+  const handleEditItemSubtotal = (idx, newSubtotal) => {
+    const newData = { ...editSaleData };
+    newData.items[idx].subtotal = parseFloat(newSubtotal) || 0;
     updateEditSaleTotals(newData);
   };
 
@@ -852,7 +872,16 @@ export default function SalesHistory() {
                   {editSaleData.items.map((item, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50">
                       <td className="p-3 font-medium text-slate-700">{item.name}</td>
-                      <td className="p-3 text-center text-slate-500">৳{item.unit_price.toFixed(3)}</td>
+                      <td className="p-3 text-center text-slate-500">
+                        <input
+                          type="number"
+                          className="w-24 h-8 text-center border border-slate-200 rounded-md text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          value={item.unit_price}
+                          onChange={(e) => handleEditItemPrice(idx, e.target.value)}
+                          min="0"
+                          step="0.01"
+                        />
+                      </td>
                       <td className="p-3">
                         <div className="flex items-center justify-center">
                           <button onClick={() => handleEditItemQty(idx, item.quantity - 1)} className="w-8 h-8 rounded-l-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">-</button>
@@ -875,7 +904,16 @@ export default function SalesHistory() {
                           <button onClick={() => handleEditItemQty(idx, item.quantity + 1)} className="w-8 h-8 rounded-r-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">+</button>
                         </div>
                       </td>
-                      <td className="p-3 text-right font-bold text-slate-700">৳{item.subtotal.toFixed(3)}</td>
+                      <td className="p-3 text-right font-bold text-slate-700">
+                        <input
+                          type="number"
+                          className="w-24 h-8 text-right border border-slate-200 rounded-md text-sm font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          value={item.subtotal.toFixed(3)}
+                          onChange={(e) => handleEditItemSubtotal(idx, e.target.value)}
+                          min="0"
+                          step="0.01"
+                        />
+                      </td>
                       <td className="p-3 text-center">
                         <button onClick={() => handleRemoveEditItem(idx)} className="text-rose-400 hover:text-rose-600 p-1">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -1032,6 +1070,7 @@ export default function SalesHistory() {
                     <th className="p-3">Product Name</th>
                     <th className="p-3">Invoice IDs</th>
                     <th className="p-3 text-center">Total Quantity Sold</th>
+                    <th className="p-3 text-right pr-4">Total Purchase Amount</th>
                     <th className="p-3 text-right pr-4">Total Revenue Generated</th>
                   </tr>
                 </thead>
@@ -1046,6 +1085,9 @@ export default function SalesHistory() {
                           {item.total_quantity_sold} units
                         </span>
                       </td>
+                      <td className="p-3 text-right pr-4 font-bold text-rose-600">
+                        ৳{parseFloat(item.total_cost || 0).toFixed(3)}
+                      </td>
                       <td className="p-3 text-right pr-4 font-extrabold text-emerald-600">
                         ৳{parseFloat(item.total_revenue).toFixed(3)}
                       </td>
@@ -1057,6 +1099,9 @@ export default function SalesHistory() {
                     <td colSpan="3" className="p-3 pl-4 text-slate-500 uppercase text-xs">Total</td>
                     <td className="p-3 text-center text-indigo-800">
                       {productDailySales.reduce((sum, item) => sum + item.total_quantity_sold, 0)} units
+                    </td>
+                    <td className="p-3 text-right pr-4 text-rose-700">
+                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_cost || 0), 0).toFixed(3)}
                     </td>
                     <td className="p-3 text-right pr-4 text-emerald-700">
                       ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_revenue), 0).toFixed(3)}
@@ -2379,12 +2424,13 @@ export default function SalesHistory() {
                                       </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                      <span className={`text-[12px] font-bold px-3 py-1 rounded-full border ${isRowLoss
-                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                        : p.margin >= 20
-                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                                        }`}>
+                                      <span className={`text-[12px] font-bold px-3 py-1 rounded-full border ${
+                                        isRowLoss
+                                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                          : p.margin >= 20
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                                      }`}>
                                         {p.margin}%
                                       </span>
                                     </td>
