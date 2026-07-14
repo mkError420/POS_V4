@@ -237,7 +237,10 @@ $routes = [
         // Suppliers
         '/^suppliers$/' => function() { SupplierController::listSuppliers(); },
         '/^suppliers\/purchase-orders$/' => function() { SupplierController::listPurchaseOrders(); },
+        '/^suppliers\/purchase-orders\/filtered-items$/' => function() { SupplierController::getFilteredPOItems(); },
+        '/^suppliers\/purchase-orders\/create$/' => function() { SupplierController::createPurchaseOrder(Request::json()); },
         '/^suppliers\/cost-price-logs$/' => function() { SupplierController::listCostPriceLogs(); },
+        '/^suppliers\/cost-price-logs\/(\d+)$/' => function($args) { SupplierController::getCostPriceLog($args[0]); },
         '/^suppliers\/cost-price-logs\/export\/csv$/' => function() { SupplierController::exportCostPriceLogsCSV(); },
         '/^suppliers\/purchase-orders\/export\/csv$/' => function() { SupplierController::exportPurchaseOrdersCSV(); },
         '/^suppliers\/purchase-orders\/(\d+)$/' => function($args) { SupplierController::getPurchaseOrder($args[0]); },
@@ -249,6 +252,7 @@ $routes = [
         '/^analytics\/revenue$/' => function() { AnalyticsController::getRevenueBreakdown(); },
         '/^analytics$/' => function() { AnalyticsController::getDashboardData(); },
         '/^analytics\/daily-products$/' => function() { AnalyticsController::getDailyProductSales(); },
+        '/^analytics\/filtered-profit$/' => function() { AnalyticsController::getFilteredProfitBreakdown(); },
         // Held Bills
         '/^held-bills$/' => function() { HeldBillController::listHeldBills(); },
         // Manual Orders
@@ -299,6 +303,8 @@ $routes = [
         // Manual Orders
         '/^manual-orders$/' => function($args, $data) { ManualOrderController::createManualOrder($data); },
         '/^manual-orders\/(\d+)\/confirm$/' => function($args, $data) { ManualOrderController::confirmManualOrder($args[0]); },
+        '/^manual-orders\/(\d+)\/hold$/' => function($args, $data) { ManualOrderController::holdManualOrder($args[0]); },
+        '/^manual-orders\/(\d+)\/unhold$/' => function($args, $data) { ManualOrderController::unholdManualOrder($args[0]); },
         '/^manual-orders\/sales\/(\d+)\/pay-due$/' => function($args, $data) { ManualOrderController::payManualOrderSaleDue($args[0], $data); },
         // Other Costs
         '/^other-costs$/' => function($args, $data) { OtherController::createOtherCost($data); },
@@ -357,6 +363,7 @@ $routes = [
         // Suppliers
         '/^suppliers\/purchase-orders\/(\d+)$/' => function($args) { SupplierController::deletePurchaseOrder($args[0]); },
         '/^suppliers\/purchase-orders\/(\d+)\/items\/(\d+)$/' => function($args) { SupplierController::deletePurchaseOrderItem($args[0], $args[1]); },
+        '/^suppliers\/cost-price-logs\/(\d+)$/' => function($args) { SupplierController::deleteCostPriceLog($args[0]); },
         '/^suppliers\/returns\/(\d+)$/' => function($args) { SupplierController::deleteSupplierReturn($args[0]); },
         '/^suppliers\/(\d+)$/' => function($args) { SupplierController::deleteSupplier($args[0]); },
         // Sales

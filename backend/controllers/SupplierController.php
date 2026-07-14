@@ -77,6 +77,8 @@ class SupplierController {
         $shopId = Auth::$shopId;
         $status = $_GET['status'] ?? null;
         $supplierId = $_GET['supplier_id'] ?? null;
+        $startDate = $_GET['start_date'] ?? null;
+        $endDate = $_GET['end_date'] ?? null;
 
         try {
             $sql = 'SELECT po.*, s.name AS supplier_name 
@@ -94,6 +96,12 @@ class SupplierController {
             if (!empty($supplierId)) {
                 $sql .= ' AND po.supplier_id = ?';
                 $params[] = (int)$supplierId;
+            }
+
+            if (!empty($startDate) && !empty($endDate)) {
+                $sql .= ' AND DATE(po.order_date) BETWEEN ? AND ?';
+                $params[] = $startDate;
+                $params[] = $endDate;
             }
 
             $sql .= ' ORDER BY po.created_at DESC';
@@ -114,8 +122,88 @@ class SupplierController {
             echo json_encode($pos);
 
         } catch (\Exception $e) {
-            error_log('Fetch purchase orders error: ' . $e->getMessage());
+            error_log('List Purchase Orders Error: ' . $e->getMessage());
             Auth::jsonError('Server error retrieving purchase orders.', 500);
+        }
+    }
+
+    /**
+     * GET /suppliers/purchase-orders/filtered-items
+     * Retrieves aggregated PO items for a specific date range across all purchase orders.
+     */
+    public static function getFilteredPOItems() {
+        Auth::authenticate();
+        Auth::enforceTenant();
+
+        $shopId = Auth::$shopId;
+        $startDate = $_GET['start_date'] ?? null;
+        $endDate = $_GET['end_date'] ?? null;
+
+        if (empty($startDate) || empty($endDate)) {
+            Auth::jsonError('Please provide both start_date and end_date.', 400);
+        }
+
+        try {
+            // Check which columns exist in purchase_order_items table
+            $pdo = DB::getConnection();
+            $columnExists = function($table, $column) use ($pdo) {
+                try {
+                    $stmt = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$column'");
+                    return $stmt->rowCount() > 0;
+                } catch (\PDOException $e) {
+                    return false;
+                }
+            };
+
+            // Use appropriate column names based on schema
+            $qtyOrderedCol = $columnExists('purchase_order_items', 'quantity_ordered') ? 'quantity_ordered' : 'quantity';
+            $qtyReceivedCol = $columnExists('purchase_order_items', 'quantity_received') ? 'quantity_received' : $qtyOrderedCol;
+            $costPriceCol = $columnExists('purchase_order_items', 'cost_price') ? 'cost_price' : 'unit_price';
+
+            // Aggregate PO items based on the filtered date range of the parent purchase_orders
+            $sql = "
+                SELECT 
+                    poi.product_id,
+                    p.sku,
+                    p.name AS product_name,
+                    poi.$costPriceCol AS cost_price,
+                    p.selling_price AS sale_price,
+                    SUM(poi.$qtyOrderedCol) AS qty_ordered,
+                    SUM(poi.$qtyReceivedCol) AS qty_received,
+                    MAX(poi.expiry_date) AS expiry_date,
+                    SUM(poi.subtotal) AS total_subtotal
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON poi.purchase_order_id = po.id
+                JOIN products p ON poi.product_id = p.id
+                WHERE po.shop_id = ? AND DATE(po.order_date) BETWEEN ? AND ?
+                GROUP BY poi.product_id, p.sku, p.name, poi.$costPriceCol, p.selling_price
+                ORDER BY p.name ASC
+            ";
+
+            $stmt = DB::query($sql, [$shopId, $startDate, $endDate]);
+            $items = $stmt->fetchAll();
+
+            $formattedItems = [];
+            foreach ($items as $item) {
+                $formattedItems[] = [
+                    'product_id' => (int)$item['product_id'],
+                    'sku' => $item['sku'],
+                    'product_name' => $item['product_name'],
+                    'cost_price' => (float)$item['cost_price'],
+                    'sale_price' => (float)$item['sale_price'],
+                    'qty_ordered' => (float)$item['qty_ordered'],
+                    'qty_received' => (float)$item['qty_received'],
+                    'expiry_date' => $item['expiry_date'],
+                    'total_subtotal' => (float)$item['total_subtotal']
+                ];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($formattedItems);
+
+        } catch (\Exception $e) {
+            error_log('Fetch Filtered PO Items Error: ' . $e->getMessage());
+            Auth::jsonError('Server error retrieving filtered purchase order items: ' . $e->getMessage(), 500);
         }
     }
 
@@ -160,6 +248,72 @@ class SupplierController {
         } catch (\Exception $e) {
             error_log('Fetch cost price logs error: ' . $e->getMessage());
             Auth::jsonError('Server error retrieving cost price logs.', 500);
+        }
+    }
+
+    public static function getCostPriceLog($id) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+
+        $logId = (int)$id;
+        $shopId = Auth::$shopId;
+
+        try {
+            $sql = 'SELECT cpl.*, p.name AS product_name, p.sku AS product_sku, p.category AS product_category, s.name AS supplier_name 
+                    FROM cost_price_logs cpl 
+                    JOIN products p ON cpl.product_id = p.id 
+                    LEFT JOIN suppliers s ON cpl.supplier_id = s.id 
+                    WHERE cpl.id = ? AND cpl.shop_id = ?';
+            
+            $stmt = DB::query($sql, [$logId, $shopId]);
+            $log = $stmt->fetch();
+
+            if (!$log) {
+                Auth::jsonError('Cost price log not found.', 404);
+            }
+
+            $log['id'] = (int)$log['id'];
+            $log['shop_id'] = (int)$log['shop_id'];
+            $log['product_id'] = (int)$log['product_id'];
+            $log['supplier_id'] = $log['supplier_id'] !== null ? (int)$log['supplier_id'] : null;
+            $log['old_cost_price'] = $log['old_cost_price'] !== null ? (float)$log['old_cost_price'] : null;
+            $log['new_cost_price'] = (float)$log['new_cost_price'];
+
+            header('Content-Type: application/json');
+            echo json_encode($log);
+
+        } catch (\Exception $e) {
+            error_log('Fetch cost price log error: ' . $e->getMessage());
+            Auth::jsonError('Server error retrieving cost price log.', 500);
+        }
+    }
+
+    public static function deleteCostPriceLog($id) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin']);
+
+        $logId = (int)$id;
+        $shopId = Auth::$shopId;
+
+        try {
+            // Check if log exists and belongs to shop
+            $stmt = DB::query('SELECT id, product_id FROM cost_price_logs WHERE id = ? AND shop_id = ?', [$logId, $shopId]);
+            $log = $stmt->fetch();
+
+            if (!$log) {
+                Auth::jsonError('Cost price log not found.', 404);
+            }
+
+            // Delete the log
+            DB::query('DELETE FROM cost_price_logs WHERE id = ? AND shop_id = ?', [$logId, $shopId]);
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Cost price log deleted successfully.']);
+
+        } catch (\Exception $e) {
+            error_log('Delete cost price log error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting cost price log.', 500);
         }
     }
 

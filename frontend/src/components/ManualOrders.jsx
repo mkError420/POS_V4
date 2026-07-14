@@ -450,13 +450,56 @@ export default function ManualOrders() {
     }
   };
 
+  const handleHoldOrder = async (orderId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/manual-orders/${orderId}/hold`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Failed to hold order.');
+
+      triggerAlert('success', 'Manual order held successfully.');
+      fetchOrders();
+    } catch (err) {
+      triggerAlert('error', err.message);
+    }
+  };
+
+  const handleUnholdOrder = async (orderId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/manual-orders/${orderId}/unhold`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Failed to unhold order.');
+
+      triggerAlert('success', 'Manual order unheld successfully.');
+      fetchOrders();
+    } catch (err) {
+      triggerAlert('error', err.message);
+    }
+  };
+
   const loadInvoiceDetails = async (saleId) => {
+    if (!saleId) {
+      triggerAlert('error', 'Sale ID not found. This order may not have been confirmed yet.');
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/sales/${saleId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error('Failed to retrieve sale details.');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to retrieve sale details.');
+      }
       const sale = await response.json();
 
       // Format receipt object
@@ -728,7 +771,9 @@ export default function ManualOrders() {
                         <div className="text-[9px] text-slate-400 mt-0.5">{new Date(order.created_at).toLocaleDateString()}</div>
                       </td>
                       <td className="py-2.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                          order.status === 'held' ? 'bg-blue-100 text-blue-700' :
+                            'bg-amber-100 text-amber-700'
                           }`}>
                           {order.status}
                         </span>
@@ -738,11 +783,22 @@ export default function ManualOrders() {
                         {order.status === 'pending' ? (
                           <>
                             <button onClick={() => openEditOrder(order)} className="text-indigo-600 hover:text-indigo-900 border border-indigo-100 px-2 py-1 rounded font-medium">Edit</button>
+                            <button onClick={() => handleHoldOrder(order.id)} className="text-amber-600 hover:text-amber-900 border border-amber-100 px-2 py-1 rounded font-medium">Hold</button>
                             <button onClick={() => handleConfirmOrder(order.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded">Confirm</button>
                             <button onClick={() => handleDeleteOrder(order.id)} className="text-rose-600 hover:text-rose-900 border border-rose-100 px-2 py-1 rounded font-medium">Delete</button>
                           </>
+                        ) : order.status === 'held' ? (
+                          <>
+                            <button onClick={() => handleUnholdOrder(order.id)} className="text-indigo-600 hover:text-indigo-900 border border-indigo-100 px-2 py-1 rounded font-medium">Unhold</button>
+                            <button onClick={() => handleDeleteOrder(order.id)} className="text-rose-600 hover:text-rose-900 border border-rose-100 px-2 py-1 rounded font-medium">Delete</button>
+                          </>
                         ) : (
-                          <button onClick={() => loadInvoiceDetails(order.sale_id)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold">Receipt</button>
+                          <>
+                            {order.sale_id && (
+                              <button onClick={() => loadInvoiceDetails(order.sale_id)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold">Receipt</button>
+                            )}
+                            <button onClick={() => handleDeleteOrder(order.id)} className="text-rose-600 hover:text-rose-900 border border-rose-100 px-2 py-1 rounded font-medium">Delete</button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -797,7 +853,9 @@ export default function ManualOrders() {
                       </td>
                       <td className="py-2.5 text-center">
                         <div className="flex flex-col items-center space-y-1">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${order.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                            order.status === 'held' ? 'bg-blue-100 text-blue-700' :
+                              'bg-amber-100 text-amber-700'
                             }`}>
                             {order.status}
                           </span>
@@ -819,7 +877,13 @@ export default function ManualOrders() {
                         {order.status === 'pending' ? (
                           <>
                             <button onClick={() => openEditOrder(order)} className="text-indigo-660 hover:text-indigo-900 border border-indigo-100 px-2 py-1 rounded font-medium">Edit</button>
+                            <button onClick={() => handleHoldOrder(order.id)} className="text-amber-600 hover:text-amber-900 border border-amber-100 px-2 py-1 rounded font-medium">Hold</button>
                             <button onClick={() => handleConfirmOrder(order.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded">Confirm</button>
+                            <button onClick={() => handleDeleteOrder(order.id)} className="text-rose-600 hover:text-rose-900 border border-rose-100 px-2 py-1 rounded font-medium">Delete</button>
+                          </>
+                        ) : order.status === 'held' ? (
+                          <>
+                            <button onClick={() => handleUnholdOrder(order.id)} className="text-indigo-600 hover:text-indigo-900 border border-indigo-100 px-2 py-1 rounded font-medium">Unhold</button>
                             <button onClick={() => handleDeleteOrder(order.id)} className="text-rose-600 hover:text-rose-900 border border-rose-100 px-2 py-1 rounded font-medium">Delete</button>
                           </>
                         ) : (
@@ -827,7 +891,10 @@ export default function ManualOrders() {
                             {parseFloat(order.current_sale_due || 0) > 0 && (
                               <button onClick={() => openPayDueModal(order)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded shadow-sm">Collect Due</button>
                             )}
-                            <button onClick={() => loadInvoiceDetails(order.sale_id)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold">Receipt</button>
+                            {order.sale_id && (
+                              <button onClick={() => loadInvoiceDetails(order.sale_id)} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold">Receipt</button>
+                            )}
+                            <button onClick={() => handleDeleteOrder(order.id)} className="text-rose-600 hover:text-rose-900 border border-rose-100 px-2 py-1 rounded font-medium">Delete</button>
                           </>
                         )}
                       </td>
@@ -886,12 +953,11 @@ export default function ManualOrders() {
                       <td className="py-2.5 pr-2 font-medium text-slate-700">{sale.customer_name || 'Walk-in'}</td>
                       <td className="py-2.5 pr-2 text-[10px] text-slate-500">{sale.cashier_name || 'System'}</td>
                       <td className="py-2.5 pr-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold capitalize ${
-                          sale.payment_method === 'cash' ? 'bg-emerald-50 text-emerald-700' : 
-                          sale.payment_method === 'card' ? 'bg-blue-50 text-blue-700' : 
-                          sale.payment_method === 'mobile_pay' ? 'bg-purple-50 text-purple-700' : 
-                          'bg-slate-50 text-slate-700'
-                        }`}>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold capitalize ${sale.payment_method === 'cash' ? 'bg-emerald-50 text-emerald-700' :
+                          sale.payment_method === 'card' ? 'bg-blue-50 text-blue-700' :
+                            sale.payment_method === 'mobile_pay' ? 'bg-purple-50 text-purple-700' :
+                              'bg-slate-50 text-slate-700'
+                          }`}>
                           {sale.payment_method === 'other' ? 'Credit' : sale.payment_method}
                         </span>
                       </td>
@@ -905,7 +971,7 @@ export default function ManualOrders() {
                         )}
                       </td>
                       <td className="py-2.5 text-center">
-                        <button 
+                        <button
                           onClick={() => loadInvoiceDetails(sale.id)}
                           className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-bold text-[10px]"
                         >

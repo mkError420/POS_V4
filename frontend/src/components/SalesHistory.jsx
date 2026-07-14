@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import API_BASE_URL from '../config';
 
 export default function SalesHistory() {
@@ -50,6 +52,11 @@ export default function SalesHistory() {
   const [revenueData, setRevenueData] = useState(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
 
+  // Filtered Profit Breakdown modal state
+  const [showFilteredProfitModal, setShowFilteredProfitModal] = useState(false);
+  const [filteredProfitData, setFilteredProfitData] = useState(null);
+  const [filteredProfitLoading, setFilteredProfitLoading] = useState(false);
+
   const handlePrint = (mode) => {
     document.body.classList.add(`print-mode-${mode}`);
     window.print();
@@ -93,6 +100,111 @@ export default function SalesHistory() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFilteredProfit = async () => {
+    if (!startDate || !endDate) return;
+    setFilteredProfitLoading(true);
+    setShowFilteredProfitModal(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${API_BASE_URL}/analytics/filtered-profit?start_date=${startDate}&end_date=${endDate}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!response.ok) throw new Error('Failed to load profit breakdown.');
+      const data = await response.json();
+      setFilteredProfitData(data);
+    } catch (err) {
+      triggerAlert('error', err.message);
+      setShowFilteredProfitModal(false);
+    } finally {
+      setFilteredProfitLoading(false);
+    }
+  };
+
+  const downloadProfitPDF = () => {
+    if (!filteredProfitData) {
+      triggerAlert('error', 'No profit data available to download.');
+      return;
+    }
+
+    try {
+      const doc = new jsPDF();
+      const d = filteredProfitData;
+      const isLoss = d.grand_profit < 0;
+
+      // Header
+      doc.setFontSize(18);
+      doc.text('Profit Breakdown Report', 14, 20);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Filtered Period: ${d.start_date} to ${d.end_date}`, 14, 28);
+      doc.text(`Generated At: ${new Date().toLocaleString()}`, 14, 34);
+
+      // Summary Totals
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(`Total Cost: BDT ${parseFloat(d.grand_cost).toFixed(3)}`, 14, 45);
+      doc.text(`Total Revenue: BDT ${parseFloat(d.grand_revenue).toFixed(3)}`, 14, 52);
+
+      doc.setTextColor(isLoss ? 220 : 20, isLoss ? 38 : 160, isLoss ? 38 : 20); // Red if loss, green if profit
+      doc.text(`Net Profit: ${isLoss ? '-' : '+'}BDT ${Math.abs(parseFloat(d.grand_profit)).toFixed(3)} (${d.grand_margin}% margin)`, 14, 59);
+
+      // Table Data
+      const tableColumn = ["#", "Product", "Qty", "Cost Price", "Selling Price", "Profit", "Margin"];
+      const tableRows = [];
+
+      if (d.products && Array.isArray(d.products)) {
+        d.products.forEach((p, index) => {
+          const pIsLoss = p.total_profit < 0;
+          const rowData = [
+            index + 1,
+            `${p.product_name}\n(SKU: ${p.product_sku || 'N/A'})`,
+            parseFloat(p.total_qty).toFixed(p.total_qty % 1 === 0 ? 0 : 3),
+            `BDT ${parseFloat(p.total_cost).toFixed(3)}`,
+            `BDT ${parseFloat(p.total_revenue).toFixed(3)}`,
+            `${pIsLoss ? '-' : '+'}BDT ${Math.abs(parseFloat(p.total_profit)).toFixed(3)}`,
+            `${p.margin}%`
+          ];
+          tableRows.push(rowData);
+        });
+      }
+
+      // Generate Table
+      doc.autoTable({
+        startY: 68,
+        head: [tableColumn],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [51, 65, 85] },
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 55 },
+          2: { halign: 'center', cellWidth: 15 },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'center' }
+        },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index === 5) { // Profit column color
+            const val = data.cell.raw.toString();
+            if (val.startsWith('-')) data.cell.styles.textColor = [220, 38, 38]; // Red
+            else data.cell.styles.textColor = [5, 150, 105]; // Emerald
+          }
+        }
+      });
+
+      // Save PDF
+      doc.save(`Profit_Breakdown_${d.start_date}_to_${d.end_date}.pdf`);
+      triggerAlert('success', 'PDF downloaded successfully.');
+    } catch (err) {
+      console.error('PDF download error:', err);
+      triggerAlert('error', 'Failed to generate PDF. Please try again.');
     }
   };
 
@@ -1291,6 +1403,27 @@ export default function SalesHistory() {
           </button>
         )}
 
+        {/* Profit Breakdown Button — always shown to admin, disabled when dates not set */}
+        {isAdmin && (
+          <button
+            onClick={fetchFilteredProfit}
+            disabled={!startDate || !endDate || filteredProfitLoading}
+            className={`${!startDate || !endDate ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-600 text-white shadow-md shadow-emerald-200'} flex items-center space-x-2 font-bold px-4 py-2 rounded-lg text-xs border transition-all`}
+          >
+            {filteredProfitLoading ? (
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            )}
+            <span>{filteredProfitLoading ? 'Loading...' : 'Profit Breakdown'}</span>
+          </button>
+        )}
+
         {/* Search Input */}
         <div className="relative flex-1 min-w-[240px] max-w-md md:ml-auto">
           <input
@@ -2151,6 +2284,176 @@ export default function SalesHistory() {
       )}
 
       {showEditModal && renderEditSaleModal()}
+
+      {/* ===== FILTERED PROFIT BREAKDOWN MODAL ===== */}
+      {showFilteredProfitModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden mb-10">
+
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-white font-extrabold text-lg tracking-tight">Profit Breakdown</h2>
+                  <p className="text-emerald-100 text-xs mt-0.5">
+                    Filtered period: <span className="font-bold">{startDate}</span> → <span className="font-bold">{endDate}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowFilteredProfitModal(false); setFilteredProfitData(null); }}
+                className="text-white/70 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6">
+              {filteredProfitLoading ? (
+                <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-600"></div>
+                  <p className="text-slate-400 text-sm font-medium">Calculating profit data...</p>
+                </div>
+              ) : filteredProfitData ? (() => {
+                const d = filteredProfitData;
+                const isLoss = d.grand_profit < 0;
+
+                return (
+                  <>
+                    {/* Product Table Card */}
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
+                      {d.products.length === 0 ? (
+                        <div className="py-12 text-center text-slate-400 text-sm">
+                          No products were sold in this date range.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Qty</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Cost Price</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Selling Price</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Profit</th>
+                                <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Margin</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {d.products.map((p, idx) => {
+                                const isRowLoss = p.total_profit < 0;
+                                const qty = parseFloat(p.total_qty) || 1; // Prevent division by zero just in case
+                                const unitCost = parseFloat(p.total_cost) / qty;
+                                const unitRev = parseFloat(p.total_revenue) / qty;
+
+                                return (
+                                  <tr key={p.product_id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4">
+                                      <div className="font-bold text-slate-800 text-[15px]">{p.product_name}</div>
+                                      <div className="text-[12px] text-slate-400 mt-1 font-mono">{p.product_sku || 'N/A'}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      <span className="font-bold text-slate-700 text-[15px]">
+                                        {qty.toFixed(qty % 1 === 0 ? 0 : 3)}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      <div className="font-semibold text-slate-600 text-[15px]">৳{parseFloat(p.total_cost).toFixed(3)}</div>
+                                      <div className="text-[12px] text-slate-400 mt-1">৳{unitCost.toFixed(3)}/unit</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      <div className="font-bold text-slate-800 text-[15px]">৳{parseFloat(p.total_revenue).toFixed(3)}</div>
+                                      <div className="text-[12px] text-slate-400 mt-1">৳{unitRev.toFixed(3)}/unit</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      <span className={`font-bold text-[15px] tracking-tight ${isRowLoss ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        {isRowLoss ? '-' : '+'}৳{Math.abs(parseFloat(p.total_profit)).toFixed(3)}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      <span className={`text-[12px] font-bold px-3 py-1 rounded-full border ${isRowLoss
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : p.margin >= 20
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                                        }`}>
+                                        {p.margin}%
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      {/* Total Cost Price */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 text-center shadow-sm">
+                        <p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider mb-2">Total Cost Price</p>
+                        <p className="text-3xl font-extrabold text-slate-700">৳{parseFloat(d.grand_cost).toFixed(3)}</p>
+                        <p className="text-[13px] text-slate-400 mt-2 font-medium">What you paid</p>
+                      </div>
+
+                      {/* Total Selling Price */}
+                      <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-6 text-center shadow-sm">
+                        <p className="text-[12px] font-bold text-indigo-400 uppercase tracking-wider mb-2">Total Selling Price</p>
+                        <p className="text-3xl font-extrabold text-indigo-600">৳{parseFloat(d.grand_revenue).toFixed(3)}</p>
+                        <p className="text-[13px] text-indigo-400/90 mt-2 font-medium">What customer paid</p>
+                      </div>
+
+                      {/* Total Profit */}
+                      <div className={`border rounded-xl p-6 text-center shadow-sm ${isLoss ? 'bg-rose-50/60 border-rose-100' : 'bg-emerald-50/60 border-emerald-100'}`}>
+                        <p className={`text-[12px] font-bold uppercase tracking-wider mb-2 ${isLoss ? 'text-rose-400' : 'text-emerald-500'}`}>Total Profit</p>
+                        <p className={`text-3xl font-extrabold tracking-tight ${isLoss ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          {isLoss ? '-' : '+'}৳{Math.abs(parseFloat(d.grand_profit)).toFixed(3)}
+                        </p>
+                        <p className={`text-[13px] mt-2 font-bold ${isLoss ? 'text-rose-500' : 'text-emerald-500'}`}>{d.grand_margin}% margin</p>
+                      </div>
+                    </div>
+
+                    {/* Footer note */}
+                    <p className="text-xs text-slate-400 mt-4 text-center">
+                      ℹ️ Cost price is taken from the product's recorded cost at the time of sale. Profit = Revenue − Cost of Goods Sold.
+                    </p>
+
+                    <div className="mt-5 flex justify-end space-x-3">
+                      <button
+                        onClick={downloadProfitPDF}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-colors flex items-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Download PDF</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowFilteredProfitModal(false); setFilteredProfitData(null); }}
+                        className="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2.5 px-8 rounded-xl text-sm transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                );
+              })() : (
+                <div className="py-16 text-center text-slate-400 text-sm">No data available.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

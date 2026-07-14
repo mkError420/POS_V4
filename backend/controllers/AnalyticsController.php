@@ -536,6 +536,91 @@ class AnalyticsController {
         }
     }
 
+    /**
+     * GET /analytics/filtered-profit
+     * Returns per-product profit breakdown for a filtered date range.
+     * Query params: start_date, end_date
+     */
+    public static function getFilteredProfitBreakdown() {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin']);
+
+        $shopId   = Auth::$shopId;
+        $startDate = $_GET['start_date'] ?? null;
+        $endDate   = $_GET['end_date']   ?? null;
+
+        if (empty($startDate) || empty($endDate)) {
+            Auth::jsonError('Please provide both start_date and end_date.', 400);
+        }
+
+        try {
+            // Per-product breakdown: qty sold, total revenue, total cost
+            $sql = '
+                SELECT
+                    p.id            AS product_id,
+                    p.name          AS product_name,
+                    p.sku           AS product_sku,
+                    SUM(si.quantity)                              AS total_qty,
+                    SUM(si.subtotal)                             AS total_revenue,
+                    SUM(si.quantity * COALESCE(si.cost_price, p.cost_price, 0)) AS total_cost
+                FROM sale_items si
+                JOIN products p ON si.product_id = p.id
+                JOIN sales    s ON si.sale_id    = s.id
+                WHERE si.shop_id = ?
+                  AND DATE(s.created_at) BETWEEN ? AND ?
+                GROUP BY p.id, p.name, p.sku
+                ORDER BY total_revenue DESC
+            ';
+
+            $stmt = DB::query($sql, [$shopId, $startDate, $endDate]);
+            $rows = $stmt->fetchAll();
+
+            $products = [];
+            $grandRevenue = 0.0;
+            $grandCost    = 0.0;
+
+            foreach ($rows as $row) {
+                $rev  = (float)$row['total_revenue'];
+                $cost = (float)$row['total_cost'];
+                $profit = $rev - $cost;
+                $margin = $rev > 0 ? round(($profit / $rev) * 100, 2) : 0.0;
+
+                $products[] = [
+                    'product_id'   => (int)$row['product_id'],
+                    'product_name' => $row['product_name'],
+                    'product_sku'  => $row['product_sku'],
+                    'total_qty'    => (float)$row['total_qty'],
+                    'total_revenue'=> $rev,
+                    'total_cost'   => $cost,
+                    'total_profit' => $profit,
+                    'margin'       => $margin,
+                ];
+
+                $grandRevenue += $rev;
+                $grandCost    += $cost;
+            }
+
+            $grandProfit = $grandRevenue - $grandCost;
+            $grandMargin = $grandRevenue > 0 ? round(($grandProfit / $grandRevenue) * 100, 2) : 0.0;
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'start_date'    => $startDate,
+                'end_date'      => $endDate,
+                'products'      => $products,
+                'grand_revenue' => $grandRevenue,
+                'grand_cost'    => $grandCost,
+                'grand_profit'  => $grandProfit,
+                'grand_margin'  => $grandMargin,
+            ]);
+
+        } catch (\Exception $e) {
+            error_log('Filtered profit breakdown error: ' . $e->getMessage());
+            Auth::jsonError('Server error retrieving profit breakdown.', 500);
+        }
+    }
+
     public static function getDailyProductSales() {
         Auth::authenticate();
         Auth::enforceTenant();

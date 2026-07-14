@@ -61,6 +61,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
   const [holdNotes, setHoldNotes] = useState('');
   const [holdingBill, setHoldingBill] = useState(false);
 
+  // Subtotal inline-edit state — tracks which cart item's subtotal is being edited and its raw string
+  const [editingSubtotalId, setEditingSubtotalId] = useState(null);
+  const [editingSubtotalValue, setEditingSubtotalValue] = useState('');
+
   // Derived active tab state
   const activeTabIndex = saleTabs.findIndex(t => t.id === activeTabId);
   const activeTab = activeTabIndex > -1 ? saleTabs[activeTabIndex] : null;
@@ -2440,7 +2444,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
         </div>
 
         {/* Selected products table */}
-        <div className="flex-1 overflow-y-auto p-2.5 min-h-0">
+        <div className="flex-1 overflow-y-auto p-2.5 min-h-0 max-h-[400px] scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 hover:scrollbar-thumb-slate-400">
           {activeTab?.cart?.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center text-slate-400 py-12">
               <svg className="w-10 h-10 mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2454,10 +2458,10 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                 <thead>
                   <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase bg-slate-50/50">
                     <th className="p-2 pl-3">Item</th>
-                    <th className="p-2 text-center w-28">Qty</th>
-                    <th className="p-2 text-center w-12">Unit</th>
-                    <th className="p-2 text-right w-24">Price (৳)</th>
-                    <th className="p-2 text-right w-24">Subtotal</th>
+                    <th className="p-2 text-center w-36">Qty</th>
+                    <th className="p-2 text-center w-14">Unit</th>
+                    <th className="p-2 text-right w-32">Price (৳)</th>
+                    <th className="p-2 text-right w-32">Subtotal</th>
                     <th className="p-2 w-8"></th>
                   </tr>
                 </thead>
@@ -2485,7 +2489,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                             value={item.quantity}
                             onChange={(e) => handleQuantityInput(item.id, e.target.value)}
                             onBlur={() => handleQuantityBlur(item.id, item.quantity)}
-                            className="w-10 text-center text-xs font-bold text-slate-700 bg-transparent border-0 focus:ring-0 focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-16 text-center text-xs font-bold text-slate-700 bg-transparent border-0 focus:ring-0 focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
@@ -2506,7 +2510,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           min="0"
                           value={item.price}
                           onChange={(e) => updatePrice(item.id, e.target.value)}
-                          className="w-20 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-indigo-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
+                          className="w-28 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-indigo-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
                         />
                       </td>
                       <td className="p-2 text-right">
@@ -2514,9 +2518,33 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                           type="number"
                           step="0.001"
                           min="0"
-                          value={item.price && item.quantity ? parseFloat((parseFloat(item.price) * item.quantity).toFixed(3)) : ''}
-                          onChange={(e) => updateSubtotal(item.id, e.target.value)}
-                          className="w-20 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
+                          value={editingSubtotalId === item.id
+                            ? editingSubtotalValue
+                            : (item.price && item.quantity ? parseFloat((parseFloat(item.price) * item.quantity).toFixed(3)) : '')}
+                          onFocus={() => {
+                            const computed = item.price && item.quantity
+                              ? parseFloat((parseFloat(item.price) * item.quantity).toFixed(3))
+                              : '';
+                            setEditingSubtotalId(item.id);
+                            setEditingSubtotalValue(computed === '' ? '' : String(computed));
+                          }}
+                          onChange={(e) => {
+                            setEditingSubtotalValue(e.target.value);
+                          }}
+                          onBlur={() => {
+                            updateSubtotal(item.id, editingSubtotalValue);
+                            setEditingSubtotalId(null);
+                            setEditingSubtotalValue('');
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              updateSubtotal(item.id, editingSubtotalValue);
+                              setEditingSubtotalId(null);
+                              setEditingSubtotalValue('');
+                              e.target.blur();
+                            }
+                          }}
+                          className="w-28 border border-slate-200 rounded px-1.5 py-0.5 text-right font-extrabold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs shadow-sm"
                         />
                       </td>
                       <td className="p-2 text-center">
@@ -2544,13 +2572,13 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
           <div className="space-y-1.5 text-xs text-slate-600">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               <div className="flex justify-between">
-                <span>Tax ({(taxRate * 100).toString()}%):</span>
+                <span className="font-bold text-sm text-slate-700">Tax ({(taxRate * 100).toString()}%):</span>
                 <span className="font-semibold">৳{getTax().toFixed(3)}</span>
               </div>
 
               {/* Discount Manual Inputs */}
               <div className="flex justify-between items-center">
-                <span>Discount (%):</span>
+                <span className="font-bold text-sm text-slate-700">Discount (%):</span>
                 <input
                   type="number"
                   min="0"
@@ -2564,7 +2592,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               </div>
 
               <div className="flex justify-between items-center">
-                <span>Discount (৳):</span>
+                <span className="font-bold text-sm text-slate-700">Discount (৳):</span>
                 <input
                   type="number"
                   min="0"
@@ -2590,7 +2618,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               </div>
             )}
 
-            <div className="flex justify-between text-[11px] text-slate-500 font-semibold border-t border-slate-200/40 pt-1 mt-0.5">
+            <div className="flex justify-between text-sm text-slate-500 font-bold border-t border-slate-200/40 pt-1 mt-0.5">
               <span>Sub-total:</span>
               <span>৳{getFinalTotal().toFixed(3)}</span>
             </div>
@@ -2630,7 +2658,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
             {/* Amount Paid input & Payment Method split row */}
             <div className="grid grid-cols-2 gap-2 border-t border-slate-200/60 pt-2">
               <div className="flex justify-between items-center">
-                <span className="font-semibold text-[11px] text-slate-700">Amt Paid:</span>
+                <span className="font-bold text-sm text-slate-700">Amt Paid:</span>
                 <input
                   type="number"
                   min="0"
@@ -2641,7 +2669,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                     updateActiveTabState('isPaidTouched', true);
                   }}
                   placeholder={getFinalTotal().toFixed(3)}
-                  className="w-16 border border-slate-200 rounded px-1.5 py-0.5 text-right font-semibold text-xs text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-28 border border-slate-200 rounded px-1.5 py-0.5 text-right font-semibold text-xs text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 

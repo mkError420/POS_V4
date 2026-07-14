@@ -306,6 +306,93 @@ class ManualOrderController {
         $shopId = Auth::$shopId;
 
         try {
+            DB::beginTransaction();
+
+            $stmt = DB::query('SELECT status, sale_id FROM manual_orders WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
+            $order = $stmt->fetch();
+
+            if (!$order) {
+                DB::rollBack();
+                Auth::jsonError('Manual order not found.', 404);
+            }
+
+            // If order is confirmed, delete the associated sale record first
+            if ($order['status'] === 'confirmed' && $order['sale_id']) {
+                $saleId = (int)$order['sale_id'];
+
+                // Fetch sale record
+                $stmt = DB::query('SELECT * FROM sales WHERE id = ? AND shop_id = ? FOR UPDATE', [$saleId, $shopId]);
+                $sale = $stmt->fetch();
+
+                if ($sale) {
+                    // Restore stock for each sold item
+                    $stmt = DB::query('SELECT * FROM sale_items WHERE sale_id = ? AND shop_id = ?', [$saleId, $shopId]);
+                    $saleItems = $stmt->fetchAll();
+
+                    foreach ($saleItems as $item) {
+                        DB::query(
+                            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND shop_id = ?',
+                            [(float)$item['quantity'], (int)$item['product_id'], $shopId]
+                        );
+                    }
+
+                    // Reverse customer due_balance
+                    $dueAmount = (float)$sale['due_amount'];
+                    if ($dueAmount > 0 && $sale['customer_id']) {
+                        DB::query(
+                            'UPDATE customers SET due_balance = GREATEST(due_balance - ?, 0) WHERE id = ? AND shop_id = ?',
+                            [$dueAmount, $sale['customer_id'], $shopId]
+                        );
+                    }
+
+                    // Void points earned/redeemed if customer was attached
+                    if ($sale['customer_id']) {
+                        $pointsEarned = (int)$sale['points_earned'];
+                        $pointsRedeemed = (int)$sale['points_redeemed'];
+                        
+                        DB::query(
+                            'UPDATE customers 
+                             SET loyalty_points = GREATEST(loyalty_points - ?, 0) + ? 
+                             WHERE id = ? AND shop_id = ?',
+                            [$pointsEarned, $pointsRedeemed, $sale['customer_id'], $shopId]
+                        );
+                    }
+
+                    // Delete sale items
+                    DB::query('DELETE FROM sale_items WHERE sale_id = ? AND shop_id = ?', [$saleId, $shopId]);
+
+                    // Delete sale record
+                    DB::query('DELETE FROM sales WHERE id = ? AND shop_id = ?', [$saleId, $shopId]);
+                }
+            }
+
+            // Delete associated items first
+            DB::query('DELETE FROM manual_order_items WHERE order_id = ? AND shop_id = ?', [$orderId, $shopId]);
+
+            // Delete the manual order
+            DB::query('DELETE FROM manual_orders WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
+
+            DB::commit();
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Manual order deleted successfully.']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            error_log('Delete manual order error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting manual order.', 500);
+        }
+    }
+
+    public static function holdManualOrder($id) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin', 'shop_staff']);
+
+        $orderId = (int)$id;
+        $shopId = Auth::$shopId;
+
+        try {
             $stmt = DB::query('SELECT status FROM manual_orders WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
             $order = $stmt->fetch();
 
@@ -314,17 +401,48 @@ class ManualOrderController {
             }
 
             if ($order['status'] !== 'pending') {
-                Auth::jsonError('Only pending manual orders can be deleted.', 400);
+                Auth::jsonError('Only pending manual orders can be held.', 400);
             }
 
-            DB::query('DELETE FROM manual_orders WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
+            DB::query('UPDATE manual_orders SET status = "held" WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
 
             header('Content-Type: application/json');
-            echo json_encode(['message' => 'Manual order deleted successfully.']);
+            echo json_encode(['message' => 'Manual order held successfully.']);
 
         } catch (\Exception $e) {
-            error_log('Delete manual order error: ' . $e->getMessage());
-            Auth::jsonError('Server error deleting manual order.', 500);
+            error_log('Hold manual order error: ' . $e->getMessage());
+            Auth::jsonError('Server error holding manual order.', 500);
+        }
+    }
+
+    public static function unholdManualOrder($id) {
+        Auth::authenticate();
+        Auth::enforceTenant();
+        Auth::authorize(['shop_admin', 'shop_staff']);
+
+        $orderId = (int)$id;
+        $shopId = Auth::$shopId;
+
+        try {
+            $stmt = DB::query('SELECT status FROM manual_orders WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
+            $order = $stmt->fetch();
+
+            if (!$order) {
+                Auth::jsonError('Manual order not found.', 404);
+            }
+
+            if ($order['status'] !== 'held') {
+                Auth::jsonError('Only held manual orders can be unheld.', 400);
+            }
+
+            DB::query('UPDATE manual_orders SET status = "pending" WHERE id = ? AND shop_id = ?', [$orderId, $shopId]);
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Manual order unheld successfully.']);
+
+        } catch (\Exception $e) {
+            error_log('Unhold manual order error: ' . $e->getMessage());
+            Auth::jsonError('Server error unholding manual order.', 500);
         }
     }
 
