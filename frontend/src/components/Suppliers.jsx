@@ -674,6 +674,7 @@ export default function Suppliers() {
           product_id: productId,
           is_new: false,
           name: prod.name,
+          sku: prod.sku,
           category: prod.category || '',
           selling_price: prod.price,
           unit: prod.unit || 'piece',
