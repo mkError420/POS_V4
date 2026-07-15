@@ -1145,71 +1145,6 @@ export default function SalesHistory() {
       </div>
 
 
-      {/* Daily Product Sales Summary */}
-      {productDailySales && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-          <div className="p-4 bg-slate-50/50 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">Products Sold Summary</h3>
-            <p className="text-xs text-slate-500">
-              Aggregated view of all products sold between <span className="font-semibold text-indigo-600">{new Date(startDate).toLocaleDateString()}</span> and <span className="font-semibold text-indigo-600">{new Date(endDate).toLocaleDateString()}</span>.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            {dailySalesLoading ? (
-              <div className="p-12 text-center text-slate-400">Loading summary...</div>
-            ) : productDailySales.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">No products were sold in this period.</div>
-            ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="p-3 pl-4">SKU</th>
-                    <th className="p-3">Product Name</th>
-                    <th className="p-3">Invoice IDs</th>
-                    <th className="p-3 text-center">Total Quantity Sold</th>
-                    <th className="p-3 text-right pr-4">Total Purchase Amount</th>
-                    <th className="p-3 text-right pr-4">Total Revenue Generated</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {productDailySales.map(item => (
-                    <tr key={item.product_id} className="hover:bg-slate-50/50">
-                      <td className="p-3 pl-4 font-mono text-xs font-bold text-slate-500">{item.product_sku}</td>
-                      <td className="p-3 font-semibold text-slate-800">{item.product_name}</td>
-                      <td className="p-3 text-xs text-slate-500 max-w-xs break-words">{item.invoice_ids || '-'}</td>
-                      <td className="p-3 text-center">
-                        <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-100">
-                          {item.total_quantity_sold} units
-                        </span>
-                      </td>
-                      <td className="p-3 text-right pr-4 font-bold text-rose-600">
-                        ৳{parseFloat(item.total_cost || 0).toFixed(3)}
-                      </td>
-                      <td className="p-3 text-right pr-4 font-extrabold text-emerald-600">
-                        ৳{parseFloat(item.total_revenue).toFixed(3)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-50/50 border-t border-slate-200 font-bold">
-                    <td colSpan="3" className="p-3 pl-4 text-slate-500 uppercase text-xs">Total</td>
-                    <td className="p-3 text-center text-indigo-800">
-                      {productDailySales.reduce((sum, item) => sum + item.total_quantity_sold, 0)} units
-                    </td>
-                    <td className="p-3 text-right pr-4 text-rose-700">
-                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_cost || 0), 0).toFixed(3)}
-                    </td>
-                    <td className="p-3 text-right pr-4 text-emerald-700">
-                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_revenue), 0).toFixed(3)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
 
 
       {/* Summary Stat Cards */}
@@ -1774,6 +1709,75 @@ export default function SalesHistory() {
           </div>
         </div>
       )}
+
+      {/* Daily Product Sales Summary */}
+      {productDailySales && (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="p-4 bg-slate-50/50 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">Products Sold Summary</h3>
+            <p className="text-xs text-slate-500">
+              Aggregated view of all products sold between <span className="font-semibold text-indigo-600">{new Date(startDate).toLocaleDateString()}</span> and <span className="font-semibold text-indigo-600">{new Date(endDate).toLocaleDateString()}</span>.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            {dailySalesLoading ? (
+              <div className="p-12 text-center text-slate-400">Loading summary...</div>
+            ) : productDailySales.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">No products were sold in this period.</div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="p-3 pl-4">SKU</th>
+                    <th className="p-3">Product Name</th>
+                    <th className="p-3">Invoice IDs</th>
+                    <th className="p-3 text-center">Total Quantity Sold</th>
+                    <th className="p-3 text-right pr-4">Total Purchase Amount</th>
+                    <th className="p-3 text-right pr-4">Total Revenue Generated</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {productDailySales.map(item => (
+                    <tr key={item.product_id} className="hover:bg-slate-50/50">
+                      <td className="p-3 pl-4 font-mono text-xs font-bold text-slate-500">{item.product_sku}</td>
+                      <td className="p-3 font-semibold text-slate-800">{item.product_name}</td>
+                      <td className="p-3 text-xs text-slate-500 max-w-xs break-words">{item.invoice_ids || '-'}</td>
+                      <td className="p-3 text-center">
+                        <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-100">
+                          {item.total_quantity_sold} units
+                        </span>
+                      </td>
+                      <td className="p-3 text-right pr-4 font-bold text-rose-600">
+                        ৳{parseFloat(item.total_cost || 0).toFixed(3)}
+                      </td>
+                      <td className="p-3 text-right pr-4 font-extrabold text-emerald-600">
+                        ৳{parseFloat(item.total_revenue).toFixed(3)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50/50 border-t border-slate-200 font-bold">
+                    <td colSpan="3" className="p-3 pl-4 text-slate-500 uppercase text-xs">Total</td>
+                    <td className="p-3 text-center text-indigo-800">
+                      {productDailySales.reduce((sum, item) => sum + item.total_quantity_sold, 0)} units
+                    </td>
+                    <td className="p-3 text-right pr-4 text-rose-700">
+                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_cost || 0), 0).toFixed(3)}
+                    </td>
+                    <td className="p-3 text-right pr-4 text-emerald-700">
+                      ৳{productDailySales.reduce((sum, item) => sum + parseFloat(item.total_revenue), 0).toFixed(3)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+
+
       {/* --- PROFIT BREAKDOWN MODAL (ADMIN ONLY) --- */}
       {profitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
