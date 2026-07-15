@@ -129,7 +129,7 @@ export default function SalesHistory() {
       triggerAlert('error', 'No profit data available to download.');
       return;
     }
-    
+
     try {
       const doc = new jsPDF();
       const d = filteredProfitData;
@@ -138,7 +138,7 @@ export default function SalesHistory() {
       // Header
       doc.setFontSize(18);
       doc.text('Profit Breakdown Report', 14, 20);
-      
+
       doc.setFontSize(11);
       doc.setTextColor(100);
       doc.text(`Filtered Period: ${d.start_date} to ${d.end_date}`, 14, 28);
@@ -149,10 +149,10 @@ export default function SalesHistory() {
       doc.setTextColor(0);
       doc.text(`Total Cost: BDT ${parseFloat(d.grand_cost).toFixed(3)}`, 14, 45);
       doc.text(`Total Revenue: BDT ${parseFloat(d.grand_revenue).toFixed(3)}`, 14, 52);
-      
+
       doc.setTextColor(isLoss ? 220 : 20, isLoss ? 38 : 160, isLoss ? 38 : 20); // Red if loss, green if profit
       doc.text(`Net Profit: ${isLoss ? '-' : '+'}BDT ${Math.abs(parseFloat(d.grand_profit)).toFixed(3)} (${d.grand_margin}% margin)`, 14, 59);
-      
+
       // Table Data
       const tableColumn = ["#", "Product", "Qty", "Cost Price", "Selling Price", "Profit", "Margin"];
       const tableRows = [];
@@ -791,7 +791,12 @@ export default function SalesHistory() {
         <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Edit Sale #{editSaleData.id}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-slate-800">Edit Sale #{editSaleData.id}</h2>
+                {editSaleData.customer_name && (
+                  <span className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">Customer: {editSaleData.customer_name}</span>
+                )}
+              </div>
               <p className="text-sm text-slate-500 mt-1">Modify items, discount, tax, or payment method</p>
             </div>
             <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
@@ -983,7 +988,7 @@ export default function SalesHistory() {
             <button
               onClick={saveEditSale}
               disabled={editSaleLoading || editSaleData.items.length === 0}
-              className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-200 transition-all"
+              className="px-5 py-2.5 text-sm font-bold text-white bg-gray-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-200 transition-all"
             >
               {editSaleLoading ? 'Saving...' : 'Save Changes'}
             </button>
@@ -2424,13 +2429,12 @@ export default function SalesHistory() {
                                       </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                      <span className={`text-[12px] font-bold px-3 py-1 rounded-full border ${
-                                        isRowLoss
+                                      <span className={`text-[12px] font-bold px-3 py-1 rounded-full border ${isRowLoss
                                           ? 'bg-rose-50 text-rose-700 border-rose-200'
                                           : p.margin >= 20
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                             : 'bg-amber-50 text-amber-700 border-amber-200'
-                                      }`}>
+                                        }`}>
                                         {p.margin}%
                                       </span>
                                     </td>
