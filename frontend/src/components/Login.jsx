@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import API_BASE_URL from '../config';
 
 export default function Login({ onLoginSuccess }) {
@@ -7,6 +7,271 @@ export default function Login({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    
+    let textCoordinates = [];
+    const text = 'CODEXAA';
+    const fontFamily = 'bold 100px Arial';
+
+    const resizeCanvas = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        prepareTextCoordinates();
+    };
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Mouse tracking setup
+    const mouse = {
+        x: null,
+        y: null,
+        isActive: false,
+        isMoving: false
+    };
+    let mouseMoveTimeout;
+
+    window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+        mouse.isActive = true;
+        mouse.isMoving = true;
+        clearTimeout(mouseMoveTimeout);
+        mouseMoveTimeout = setTimeout(() => {
+            mouse.isMoving = false;
+        }, 150); // Mouse is considered idle after 150ms
+    });
+
+    window.addEventListener('mouseleave', () => {
+        mouse.isActive = false;
+        mouse.isMoving = false;
+    });
+
+    // Touch support for mobile devices
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+            mouse.isActive = true;
+            mouse.isMoving = true;
+            clearTimeout(mouseMoveTimeout);
+            mouseMoveTimeout = setTimeout(() => {
+                mouse.isMoving = false;
+            }, 150);
+        }
+    });
+
+    window.addEventListener('touchend', () => {
+        mouse.isActive = false;
+        mouse.isMoving = false;
+    });
+
+    // New class for background ghost scenery particles
+    class GhostParticle {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 1.5 + 0.5;
+            this.speedX = (Math.random() - 0.5) * 0.1;
+            this.speedY = (Math.random() - 0.5) * 0.1;
+            this.color = `rgba(255, 255, 255, ${Math.random() * 0.2})`;
+        }
+
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+
+            if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+            if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+        }
+
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+        }
+    }
+
+    function prepareTextCoordinates() {
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+
+        tempCtx.fillStyle = 'white';
+        tempCtx.font = fontFamily;
+        tempCtx.textAlign = 'center';
+        tempCtx.textBaseline = 'middle';
+        tempCtx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+        textCoordinates = [];
+
+        for (let y = 0; y < tempCanvas.height; y += 6) { // Scan every 6 pixels for performance
+            for (let x = 0; x < tempCanvas.width; x += 6) {
+                const alpha = data[(y * tempCanvas.width + x) * 4 + 3];
+                if (alpha > 128) { // If pixel is not transparent
+                    textCoordinates.push({ x: x, y: y });
+                }
+            }
+        }
+    }
+
+    // Bird (Boid) Element Construction
+    class Bird {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 15 + 15; // Further increased bird size
+            this.speedX = Math.random() * 4 - 2;
+            this.speedY = Math.random() * 4 - 2;
+            this.maxSpeed = Math.random() * 2 + 3;
+            this.wingPhase = Math.random() * Math.PI; 
+            this.color = `hsla(${Math.random() * 360}, 80%, 70%, ${Math.random() * 0.5 + 0.4})`;
+            this.target = null;
+        }
+
+        update() {
+            if (mouse.isActive && mouse.isMoving) {
+                // Follow the cursor when mouse is moving
+                this.target = null; // Clear text target
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 1) {
+                    this.speedX += (dx / distance) * 0.2;
+                    this.speedY += (dy / distance) * 0.2;
+                }
+                this.speedX += (Math.random() - 0.5) * 0.2;
+                this.speedY += (Math.random() - 0.5) * 0.2;
+
+            } else if (mouse.isActive && !mouse.isMoving && this.target) {
+                // Go to text target when mouse is idle on canvas
+                let dx = this.target.x - this.x;
+                let dy = this.target.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 1) {
+                    this.speedX += (dx / distance) * 0.5;
+                    this.speedY += (dy / distance) * 0.5;
+                }
+                this.speedX += (Math.random() - 0.5) * 0.1;
+                this.speedY += (Math.random() - 0.5) * 0.1;
+            } else {
+                // Disperse randomly when mouse is off canvas
+                this.speedX += (Math.random() - 0.5) * 0.2;
+                this.speedY += (Math.random() - 0.5) * 0.2;
+            }
+
+            // Enforce maximum velocity cap
+            const currentSpeed = Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY);
+            const maxSpeed = (mouse.isActive && !mouse.isMoving) ? this.maxSpeed + 4 : this.maxSpeed; // Fly faster to get into shape
+            if (currentSpeed > maxSpeed) {
+                this.speedX = (this.speedX / currentSpeed) * this.maxSpeed;
+                this.speedY = (this.speedY / currentSpeed) * this.maxSpeed;
+            }
+
+            this.x += this.speedX;
+            this.y += this.speedY;
+
+            // Screen boundary wrapping loops
+            if (this.x < -50) this.x = canvas.width + 50;
+            if (this.x > canvas.width + 50) this.x = -50;
+            if (this.y < -50) this.y = canvas.height + 50;
+            if (this.y > canvas.height + 50) this.y = -50;
+
+            // Wing animation cycles matching actual speed acceleration
+            this.wingPhase += Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY) * 0.05 + 0.05;
+        }
+
+        draw() {
+            const angle = Math.atan2(this.speedY, this.speedX);
+            
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(angle);
+            
+            // Sinewave calculations for the flight mechanics
+            const wingSpread = Math.sin(this.wingPhase) * (this.size * 0.6);
+
+            ctx.beginPath();
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 1.5; // Slightly thinner line for a more detailed look with higher bird counts
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Elegant vector paths representing a flying bird silhouette
+            ctx.moveTo(-this.size * 0.5, -wingSpread); 
+            ctx.quadraticCurveTo(0, -this.size * 0.2, 0, 0); 
+            ctx.quadraticCurveTo(0, -this.size * 0.2, this.size * 0.5, -wingSpread);
+
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // Initialize Flock Setup
+    const flock = [];
+    const scenery = [];
+    const numberOfBirds = 250; // Increased bird count for a dense, massive flock effect
+    const numberOfParticles = 100;
+    
+    let lastMouseMoveState = false;
+
+    function init() {
+        resizeCanvas(); // This will also call prepareTextCoordinates
+        for (let i = 0; i < numberOfParticles; i++) {
+            scenery.push(new GhostParticle());
+        }
+        for (let i = 0; i < numberOfBirds; i++) {
+            flock.push(new Bird());
+        }
+    }
+
+    // Native Render Loop running at peak hardware refresh rates
+    function animate() {
+        // Check if mouse has stopped moving to assign targets
+        if (!mouse.isMoving && lastMouseMoveState) {
+            flock.forEach((bird, i) => {
+                bird.target = textCoordinates[i % textCoordinates.length];
+            });
+        }
+        lastMouseMoveState = mouse.isMoving;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        scenery.forEach(particle => {
+            particle.update();
+            particle.draw();
+        });
+        
+        flock.forEach(bird => {
+            bird.update();
+            bird.draw();
+        });
+
+        animationFrameId = requestAnimationFrame(animate);
+    }
+
+    init();
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('mousemove', mouse.moveHandler);
+      window.removeEventListener('mouseleave', mouse.leaveHandler);
+      window.removeEventListener('touchmove', mouse.touchMoveHandler);
+      window.removeEventListener('touchend', mouse.touchEndHandler);
+      clearTimeout(mouseMoveTimeout);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,15 +311,18 @@ export default function Login({ onLoginSuccess }) {
   return (
     <div className="min-h-screen bg-slate-900 text-white flex">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-slate-800 to-slate-950 items-center justify-center p-12 relative overflow-hidden">
-        <div className="z-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-slate-600 shadow-2xl shadow-indigo-600/40 mb-6">
+      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-slate-800 to-slate-950 p-12 relative overflow-hidden">
+        <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full z-0" />
+        <div className="relative w-full h-full">
+          {/* Logo top-left */}
+          <div className="absolute top-0 left-0 z-10 inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-slate-600 shadow-2xl shadow-indigo-600/40">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight mb-3">Codexaa-POS++</h1>
-          <p className="text-slate-400 max-w-sm">A full-stack, web-based Multi-Tenant POS System built with React, PHP, and MySQL.</p>
+          {/* Text top-center */}
+          <h1 className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl font-bold text-white tracking-tight">Codexaa-POS++</h1>
+          <p className="absolute top-12 left-1/2 -translate-x-1/2 text-slate-400 max-w-sm text-center">A full-stack, web-based Multi-Tenant POS System built with React, PHP, and MySQL.</p>
         </div>
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl" />
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-slate-600/20 rounded-full blur-3xl" />
@@ -159,7 +427,7 @@ export default function Login({ onLoginSuccess }) {
             <div className="mt-8 pt-6 border-t border-slate-800">
               <p className="text-xs text-slate-500 text-center mb-4 font-medium uppercase tracking-wider">Demo Credentials</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button type="button" onClick={() => { setEmail('mk.rabbani.cse@gmail.com'); setPassword('123456789'); }} className="flex items-center gap-3 w-full text-left bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl px-3 py-2.5 transition-colors group">
+                <button type="button" onClick={() => { setEmail('mk.rabbani.cse@gmail.com'); setPassword('*********'); }} className="flex items-center gap-3 w-full text-left bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl px-3 py-2.5 transition-colors group">
                   <span className="text-xs font-bold bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full shrink-0">SUPER ADMIN</span>
                   <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors truncate">Restricted!!!</span>
                 </button>
