@@ -506,6 +506,7 @@ class SaleController {
         $shopId = Auth::$shopId;
         $userId = Auth::$user['id'];
 
+        $customerName = $requestData['customer_name'] ?? null;
         $customerId = $requestData['customer_id'] ?? null;
         $items = $requestData['items'] ?? [];
         $discount = (float)($requestData['discount'] ?? 0);
@@ -553,6 +554,23 @@ class SaleController {
                     'UPDATE customers SET due_balance = GREATEST(due_balance - ?, 0) WHERE id = ? AND shop_id = ?',
                     [$oldDueAmount, $oldCustomerId, $shopId]
                 );
+            }
+
+            // Handle customer update/creation from name
+            if (!empty($customerName) && empty($customerId)) {
+                // Try to find customer by name first
+                $cStmt = DB::query("SELECT id FROM customers WHERE name = ? AND shop_id = ?", [$customerName, $shopId]);
+                $existingCust = $cStmt->fetch();
+                if ($existingCust) {
+                    $customerId = $existingCust['id'];
+                } else {
+                    // Create new customer if not found
+                    DB::query(
+                        "INSERT INTO customers (shop_id, name, due_balance, loyalty_points) VALUES (?, ?, 0, 0)",
+                        [$shopId, $customerName]
+                    );
+                    $customerId = DB::lastInsertId();
+                }
             }
 
             // 5. Reverse original loyalty points

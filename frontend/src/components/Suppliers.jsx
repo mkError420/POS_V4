@@ -2280,43 +2280,6 @@ export default function Suppliers() {
         </button>
       </div>
 
-      {/* Date Filter and View Details - shown under Purchase Orders tab */}
-      {activeTab === 'pos' && (
-        <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Date Range:</span>
-            <input
-              type="date"
-              value={poStartDate}
-              onChange={(e) => { setPoStartDate(e.target.value); setPoPage(1); }}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
-            <span className="text-slate-400 text-sm">to</span>
-            <input
-              type="date"
-              value={poEndDate}
-              onChange={(e) => { setPoEndDate(e.target.value); setPoPage(1); }}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
-          </div>
-          <button
-            onClick={fetchFilteredPOItems}
-            disabled={!poStartDate || !poEndDate || filteredPOLoading}
-            className={`${!poStartDate || !poEndDate ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'} font-bold py-1.5 px-3 rounded-lg text-sm transition-colors border flex items-center space-x-1 whitespace-nowrap shadow-sm`}
-          >
-            {filteredPOLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-emerald-600 mr-1"></div>
-            ) : (
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5,12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7z" />
-              </svg>
-            )}
-            <span>View details</span>
-          </button>
-        </div>
-      )}
-
       {/* --- TAB: DIRECTORY --- */}
       {activeTab === 'directory' && (() => {
         const filteredSuppliers = suppliers.filter(s => {
@@ -2496,6 +2459,42 @@ export default function Suppliers() {
 
         return (
           <div className="space-y-4">
+            {/* PO Totals */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Total Purchase Amount</p>
+                <p className="text-2xl font-bold text-slate-800 mt-1">
+                  {formatCurrency(filteredPOs.reduce((sum, po) => sum + parseFloat(po.total_amount || 0), 0))}
+                </p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Total Paid</p>
+                <p className="text-2xl font-bold text-emerald-600 mt-1">
+                  {formatCurrency(filteredPOs.reduce((sum, po) => sum + parseFloat(po.paid_amount || 0), 0))}
+                </p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Total Due</p>
+                <p className="text-2xl font-bold text-rose-600 mt-1">
+                  {formatCurrency(filteredPOs.reduce((sum, po) => sum + parseFloat(po.due_amount || 0), 0))}
+                </p>
+              </div>
+            </div>
+            {/* Date Filter and View Details - shown under Purchase Orders tab */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Date Range:</span>
+                <input type="date" value={poStartDate} onChange={(e) => { setPoStartDate(e.target.value); setPoPage(1); }} className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                <span className="text-slate-400 text-sm">to</span>
+                <input type="date" value={poEndDate} onChange={(e) => { setPoEndDate(e.target.value); setPoPage(1); }} className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <button onClick={fetchFilteredPOItems} disabled={!poStartDate || !poEndDate || filteredPOLoading} className={`${!poStartDate || !poEndDate ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'} font-bold py-1.5 px-3 rounded-lg text-sm transition-colors border flex items-center space-x-1 whitespace-nowrap shadow-sm`}>
+                {filteredPOLoading ? (<div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-emerald-600 mr-1"></div>) : (<svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5,12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7z" /></svg>)}
+                <span>View details</span>
+              </button>
+            </div>
+            {/* PO Totals */}
             {/* PO Filters bar */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xs">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
@@ -2574,6 +2573,7 @@ export default function Suppliers() {
                 </button>
               </div>
             </div>
+
 
             {/* PO Table */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">

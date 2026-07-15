@@ -29,12 +29,17 @@ export default function SalesHistory() {
 
   // Edit Sale state
   const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSaleData, setEditSaleData] = useState(null);
   const [editSaleLoading, setEditSaleLoading] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [productSearchFocusedIndex, setProductSearchFocusedIndex] = useState(-1);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearchFocusedIndex, setCustomerSearchFocusedIndex] = useState(-1);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
+  const customerDropdownRef = useRef(null);
   // Modal viewer state
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetails, setSaleDetails] = useState(null);
@@ -291,6 +296,21 @@ export default function SalesHistory() {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/customers`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch customers', e);
+    }
+  };
+
   const fetchSaleDetails = async (saleId) => {
     setDetailsLoading(true);
     try {
@@ -314,6 +334,7 @@ export default function SalesHistory() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCustomers();
   }, []);
 
   useEffect(() => {
@@ -329,6 +350,16 @@ export default function SalesHistory() {
     setCurrentPage(1);
     setSelectedSaleIds([]);
   }, [search]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target)) {
+        setShowCustomerDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const openReceipt = (sale) => {
     setSelectedSale(sale);
@@ -348,6 +379,7 @@ export default function SalesHistory() {
       if (!response.ok) throw new Error('Failed to load transaction details.');
 
       const data = await response.json();
+      setCustomerSearch(data.customer_name || '');
       const initialData = {
         ...data,
         items: data.items.map(i => ({
@@ -369,6 +401,15 @@ export default function SalesHistory() {
     } finally {
       setDetailsLoading(false);
     }
+  };
+
+  const getFilteredCustomers = () => {
+    if (!customerSearch) return customers;
+    const lowerTerm = customerSearch.toLowerCase();
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(lowerTerm) ||
+      (c.phone && c.phone.toLowerCase().includes(lowerTerm))
+    );
   };
 
   const handleEditItemQty = (idx, newQty) => {
@@ -461,6 +502,9 @@ export default function SalesHistory() {
       const token = localStorage.getItem('token');
       const payload = {
         customer_id: editSaleData.customer_id,
+        customer_name: editSaleData.customer_name,
+        customer_phone: editSaleData.customer_phone,
+        customer_address: editSaleData.customer_address,
         items: editSaleData.items,
         discount: editSaleData.discount,
         tax: editSaleData.tax,
@@ -793,9 +837,6 @@ export default function SalesHistory() {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-slate-800">Edit Sale #{editSaleData.id}</h2>
-                {editSaleData.customer_name && (
-                  <span className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">Customer: {editSaleData.customer_name}</span>
-                )}
               </div>
               <p className="text-sm text-slate-500 mt-1">Modify items, discount, tax, or payment method</p>
             </div>
@@ -817,6 +858,57 @@ export default function SalesHistory() {
                   />
                 </div>
               )}
+
+              <div className="relative flex-1" ref={customerDropdownRef}>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Customer</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                  placeholder="Search customers..."
+                  value={customerSearch}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  onChange={e => {
+                    setCustomerSearch(e.target.value);
+                    setShowCustomerDropdown(true);
+                    setCustomerSearchFocusedIndex(-1);
+                    setEditSaleData({ ...editSaleData, customer_id: null, customer_name: e.target.value });
+                  }}
+                  onKeyDown={(e) => {
+                    const filtered = getFilteredCustomers();
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setCustomerSearchFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setCustomerSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (customerSearchFocusedIndex >= 0 && filtered[customerSearchFocusedIndex]) {
+                        const cust = filtered[customerSearchFocusedIndex];
+                        setEditSaleData({ ...editSaleData, customer_id: cust.id, customer_name: cust.name });
+                        setCustomerSearch(cust.name);
+                        setShowCustomerDropdown(false);
+                        setCustomerSearchFocusedIndex(-1);
+                      }
+                    }
+                  }}
+                />
+                {showCustomerDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {getFilteredCustomers().map((cust, idx) => (
+                      <button
+                        key={cust.id}
+                        onClick={() => {
+                          setEditSaleData({ ...editSaleData, customer_id: cust.id, customer_name: cust.name });
+                          setCustomerSearch(cust.name);
+                          setShowCustomerDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 hover:bg-indigo-50 text-sm ${customerSearchFocusedIndex === idx ? 'bg-indigo-100 ring-1 ring-indigo-500' : ''}`}
+                      >{cust.name} <span className="text-xs text-slate-500">({cust.phone || 'No Phone'})</span></button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Search Product */}
               <div className="relative flex-1">
@@ -2430,10 +2522,10 @@ export default function SalesHistory() {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                       <span className={`text-[12px] font-bold px-3 py-1 rounded-full border ${isRowLoss
-                                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                          : p.margin >= 20
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : p.margin >= 20
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                          : 'bg-amber-50 text-amber-700 border-amber-200'
                                         }`}>
                                         {p.margin}%
                                       </span>
