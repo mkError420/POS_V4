@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import API_BASE_URL from '../config';
+import SubscriptionPlans from './SubscriptionPlans';
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -208,6 +209,11 @@ export default function Login({ onLoginSuccess }) {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Subscription Plans Section */}
+        <div className="mt-12">
+          <SubscriptionPlans />
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">

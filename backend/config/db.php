@@ -479,6 +479,64 @@ class DB {
                 } catch (\Exception $e) {}
             }
 
+            // Create subscription_plans table if not exists
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `subscription_plans` (
+                    `id` INT AUTO_INCREMENT,
+                    `name` VARCHAR(100) NOT NULL,
+                    `billing_cycle` ENUM('monthly', 'quarterly', 'yearly') NOT NULL,
+                    `price` DECIMAL(10,2) NOT NULL,
+                    `features` TEXT NULL,
+                    `status` ENUM('active', 'inactive') DEFAULT 'active',
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            // Create shop_subscriptions table if not exists
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `shop_subscriptions` (
+                    `id` INT AUTO_INCREMENT,
+                    `shop_id` INT NOT NULL,
+                    `plan_id` INT NOT NULL,
+                    `start_date` DATE NULL,
+                    `end_date` DATE NULL,
+                    `status` ENUM('pending', 'active', 'expired', 'cancelled', 'rejected') NOT NULL DEFAULT 'pending',
+                    `payment_method` VARCHAR(50) NULL,
+                    `transaction_id` VARCHAR(100) NULL,
+                    `payment_document` LONGTEXT NULL,
+                    `amount_paid` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    CONSTRAINT `fk_subscription_shop` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`id`) ON DELETE CASCADE,
+                    CONSTRAINT `fk_subscription_plan` FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans` (`id`) ON DELETE RESTRICT
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            // Seed default subscription plans if none exist
+            $stmt = $pdo->query("SELECT COUNT(*) FROM `subscription_plans`");
+            if ($stmt->fetchColumn() == 0) {
+                $pdo->exec("
+                    INSERT INTO `subscription_plans` (`name`, `billing_cycle`, `price`, `features`, `status`) VALUES
+                    ('Basic', 'monthly', 99.00, '[\"Up to 100 products\", \"1 user\", \"Basic reports\", \"Email support\"]', 'active'),
+                    ('Professional', 'quarterly', 249.00, '[\"Up to 500 products\", \"5 users\", \"Advanced reports\", \"Priority support\", \"Inventory management\"]', 'active'),
+                    ('Enterprise', 'yearly', 899.00, '[\"Unlimited products\", \"Unlimited users\", \"Custom reports\", \"24/7 dedicated support\", \"API access\", \"Multi-branch support\"]', 'active')
+                ");
+            }
+
+            // Alter payment_document column to LONGTEXT if it is still VARCHAR
+            if ($tableExists('shop_subscriptions')) {
+                try {
+                    $stmt = $pdo->query("SHOW COLUMNS FROM `shop_subscriptions` LIKE 'payment_document'");
+                    $col = $stmt->fetch();
+                    if ($col && strpos($col['Type'], 'varchar') !== false) {
+                        $pdo->exec("ALTER TABLE `shop_subscriptions` MODIFY COLUMN `payment_document` LONGTEXT NULL");
+                    }
+                } catch (\Exception $e) {}
+            }
+
             // Seed Super Admin if table has no users
             $stmt = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `role` = 'super_admin'");
             if ($stmt->fetchColumn() == 0) {

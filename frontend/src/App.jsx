@@ -1,23 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Login from './components/Login';
-import DashboardLayout from './components/DashboardLayout';
-import Dashboard from './components/Dashboard';
-import Checkout from './components/Checkout';
-import Inventory from './components/Inventory';
-import Suppliers from './components/Suppliers';
-import Customers from './components/Customers';
-import SalesHistory from './components/SalesHistory';
-import ManageStaff from './components/ManageStaff';
-import Settings from './components/Settings';
-import ManageShops from './components/ManageShops';
-import SystemUsers from './components/SystemUsers';
-import HeldBills from './components/HeldBills';
-import OtherCost from './components/OtherCost';
-import OtherSales from './components/OtherSales';
-import TotalRevenue from './components/TotalRevenue';
-import Wastage from './components/Wastage';
-import Returns from './components/Returns';
-import ManualOrders from './components/ManualOrders';
+
+const DashboardLayout = lazy(() => import('./components/DashboardLayout'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Checkout = lazy(() => import('./components/Checkout'));
+const Inventory = lazy(() => import('./components/Inventory'));
+const Suppliers = lazy(() => import('./components/Suppliers'));
+const Customers = lazy(() => import('./components/Customers'));
+const SalesHistory = lazy(() => import('./components/SalesHistory'));
+const ManageStaff = lazy(() => import('./components/ManageStaff'));
+const Settings = lazy(() => import('./components/Settings'));
+const ManageShops = lazy(() => import('./components/ManageShops'));
+const SystemUsers = lazy(() => import('./components/SystemUsers'));
+const HeldBills = lazy(() => import('./components/HeldBills'));
+const OtherCost = lazy(() => import('./components/OtherCost'));
+const OtherSales = lazy(() => import('./components/OtherSales'));
+const TotalRevenue = lazy(() => import('./components/TotalRevenue'));
+const Wastage = lazy(() => import('./components/Wastage'));
+const Returns = lazy(() => import('./components/Returns'));
+const ManualOrders = lazy(() => import('./components/ManualOrders'));
+const Subscription = lazy(() => import('./components/Subscription'));
+const ManageSubscriptions = lazy(() => import('./components/ManageSubscriptions'));
 
 import API_BASE_URL from './config';
 
@@ -222,6 +225,7 @@ export default function App() {
         case '/other-sales': return <OtherSales />;
         case '/total-revenue': return <TotalRevenue />;
         case '/settings': return <Settings />;
+        case '/manage-subscriptions': return <ManageSubscriptions />;
         default: return <Dashboard />;
       }
     }
@@ -267,6 +271,7 @@ export default function App() {
       case '/returns': return <Returns />;
       case '/staff': return <ManageStaff />;
       case '/settings': return <Settings />;
+      case '/subscriptions': return <Subscription />;
       default: return <Checkout resumedHeldBill={resumedHeldBill} onClearResumedHeldBill={() => setResumedHeldBill(null)} onHeldBillsChange={(count) => setHeldBillsCount(count)} />;
     }
   };
@@ -315,16 +320,29 @@ export default function App() {
 
   // Logged in — show dashboard
   return (
-    <DashboardLayout
-      user={user}
-      lowStockItems={lowStockAlerts}
-      expiryItems={expiryAlerts}
-      heldBillsCount={heldBillsCount}
-      currentPath={currentPath}
-      onNavigate={(path) => setCurrentPath(path)}
-      onLogout={handleLogout}
-    >
-      {renderPageContent()}
-    </DashboardLayout>
+    <Suspense fallback={<PageLoader />}>
+      <DashboardLayout
+        user={user}
+        lowStockItems={lowStockAlerts}
+        expiryAlerts={expiryAlerts}
+        heldBillsCount={heldBillsCount}
+        onNavigate={setCurrentPath}
+        onLogout={handleLogout}
+        currentPath={currentPath}
+      >
+        {renderPageContent()}
+      </DashboardLayout>
+    </Suspense>
+  );
+}
+
+function PageLoader() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        <p className="text-slate-500 text-sm font-semibold">Loading Page...</p>
+      </div>
+    </div>
   );
 }

@@ -143,7 +143,7 @@ npm run dev
 
 | Role | Email | Password |
 |------|-------|----------|
-| Super Admin | `mk.rabbani.cse@gmail.com` | `123456789` |
+| Super Admin | `mk.rabbani.cse@gmail.com` | `**********` |
 | Shop Admin | `alice@boutique.com` | `alice123` |
 | Shop Admin | `admin@lakeside.com` | `lakeside123` |
 | Shop Staff | `staff1@boutique.com` | `staff123` |

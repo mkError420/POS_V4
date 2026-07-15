@@ -66,6 +66,7 @@ require_once __DIR__ . '/controllers/HeldBillController.php';
 require_once __DIR__ . '/controllers/ManualOrderController.php';
 require_once __DIR__ . '/controllers/OtherController.php';
 require_once __DIR__ . '/controllers/OtherSalesController.php';
+require_once __DIR__ . '/controllers/SubscriptionController.php';
 
 // Parse Request URI and Method
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -276,6 +277,11 @@ $routes = [
         // Users
         '/^users$/' => function() { OtherController::listUsers(); },
         '/^users\/staff$/' => function() { OtherController::listStaff(); },
+        // Subscriptions (Public)
+        '/^subscription-plans$/' => function() { SubscriptionController::getPlans(); },
+        '/^subscription-plans\/all$/' => function() { SubscriptionController::getAllPlans(); },
+        '/^my-subscription$/' => function() { SubscriptionController::getMySubscription(); },
+        '/^subscriptions$/' => function() { SubscriptionController::getAllSubscriptions(); },
     ],
     'POST' => [
         // Auth
@@ -319,6 +325,10 @@ $routes = [
         // Users
         '/^users$/' => function($args, $data) { OtherController::createUser($data); },
         '/^users\/staff$/' => function($args, $data) { OtherController::createStaff($data); },
+        // Subscriptions
+        '/^subscription-plans$/' => function($args, $data) { SubscriptionController::createPlan($data); },
+        '/^subscribe$/' => function($args, $data) { SubscriptionController::subscribe($data); },
+        '/^subscriptions\/(\d+)\/upload-document$/' => function($args, $data) { SubscriptionController::uploadPaymentDocument($args[0]); },
     ],
     'PUT' => [
         // Auth
@@ -354,6 +364,11 @@ $routes = [
         // Users
         '/^users\/(\d+)$/' => function($args, $data) { OtherController::updateUser($args[0], $data); },
         '/^users\/staff\/(\d+)$/' => function($args, $data) { OtherController::updateStaff($args[0], $data); },
+        // Subscriptions
+        '/^subscription-plans\/(\d+)$/' => function($args, $data) { SubscriptionController::updatePlan($args[0], $data); },
+        '/^subscriptions\/(\d+)\/approve$/' => function($args, $data) { SubscriptionController::approveSubscription($args[0]); },
+        '/^subscriptions\/(\d+)\/reject$/' => function($args, $data) { SubscriptionController::rejectSubscription($args[0]); },
+        '/^subscriptions\/(\d+)\/cancel$/' => function($args, $data) { SubscriptionController::cancelSubscription($args[0]); },
     ],
     'DELETE' => [
         // Products
@@ -387,6 +402,8 @@ $routes = [
         // Users
         '/^users\/(\d+)$/' => function($args) { OtherController::deleteUser($args[0]); },
         '/^users\/staff\/(\d+)$/' => function($args) { OtherController::deleteStaff($args[0]); },
+        // Subscriptions
+        '/^subscription-plans\/(\d+)$/' => function($args) { SubscriptionController::deletePlan($args[0]); },
     ]
 ];
 

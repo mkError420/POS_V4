@@ -50,6 +50,12 @@ export default function Sidebar({
             items: [
               { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
             ]
+          },
+          {
+            section: 'Subscriptions',
+            items: [
+              { label: 'Manage Subscriptions', path: '/manage-subscriptions', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+            ]
           }
         ];
       case 'shop_admin':
@@ -96,6 +102,7 @@ export default function Sidebar({
             section: 'Management',
             items: [
               { label: 'Manage Staff', path: '/staff', icon: <UsersIcon /> },
+              { label: 'My Subscription', path: '/subscriptions', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
               { label: 'Settings', path: '/settings', icon: <SettingsIcon /> }
             ]
           }
@@ -137,6 +144,7 @@ export default function Sidebar({
             section: 'Management',
             items: [
               { label: 'Manage Staff', path: '/staff', icon: <UsersIcon /> },
+              { label: 'My Subscription', path: '/subscriptions', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
               { label: 'Settings', path: '/settings', icon: <SettingsIcon /> }
             ]
           }
