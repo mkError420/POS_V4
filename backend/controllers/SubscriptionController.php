@@ -405,4 +405,283 @@ class SubscriptionController {
             Auth::jsonError('Server error cancelling subscription.', 500);
         }
     }
+
+    public static function guestSubscription($requestData) {
+        // No authentication required for guest subscription requests
+        $shopName = trim($requestData['shop_name'] ?? '');
+        $shopEmail = trim($requestData['shop_email'] ?? '');
+        $planId = $requestData['plan_id'] ?? null;
+        $paymentMethod = $requestData['payment_method'] ?? '';
+        $transactionId = trim($requestData['transaction_id'] ?? '');
+        $amountPaid = $requestData['amount_paid'] ?? null;
+
+        if (empty($shopName) || empty($shopEmail) || empty($planId) || empty($paymentMethod)) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Shop name, shop email, plan ID, and payment method are required.']);
+            return;
+        }
+
+        if (!filter_var($shopEmail, FILTER_VALIDATE_EMAIL)) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid email address.']);
+            return;
+        }
+
+        if (!in_array($paymentMethod, ['bkash', 'nogod', 'rocket', 'banking'])) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid payment method.']);
+            return;
+        }
+
+        try {
+            // Check if the plan exists and is active
+            $stmt = DB::query('SELECT price, billing_cycle FROM subscription_plans WHERE id = ? AND status = "active"', [$planId]);
+            $plan = $stmt->fetch();
+
+            if (!$plan) {
+                header('Content-Type: application/json');
+                http_response_code(404);
+                echo json_encode(['error' => 'Selected subscription plan is not available.']);
+                return;
+            }
+
+            $price = (float)$plan['price'];
+            $billingCycle = $plan['billing_cycle'];
+            $paidAmount = $amountPaid !== null ? (float)$amountPaid : $price;
+
+            // Check if shop already exists with this email
+            $stmt = DB::query('SELECT id FROM shops WHERE email = ?', [$shopEmail]);
+            $existingShop = $stmt->fetch();
+
+            if ($existingShop) {
+                // Shop exists, create subscription for existing shop
+                $shopId = $existingShop['id'];
+                
+                // Check if there's already a pending subscription for this shop
+                $stmt = DB::query(
+                    'SELECT id FROM shop_subscriptions WHERE shop_id = ? AND status = "pending"',
+                    [$shopId]
+                );
+                $pendingSubscription = $stmt->fetch();
+
+                if ($pendingSubscription) {
+                    header('Content-Type: application/json');
+                    http_response_code(400);
+                    echo json_encode(['error' => 'You already have a pending subscription request. Please wait for admin approval.']);
+                    return;
+                }
+            } else {
+                // Create new shop with pending status
+                $generatedPassword = bin2hex(random_bytes(8)); // Generate random password
+                $passwordHash = password_hash($generatedPassword, PASSWORD_DEFAULT);
+
+                DB::query(
+                    'INSERT INTO shops (name, email, password, status) VALUES (?, ?, ?, "pending")',
+                    [$shopName, $shopEmail, $passwordHash]
+                );
+
+                $shopId = DB::lastInsertId();
+
+                // Create a default shop admin user
+                DB::query(
+                    'INSERT INTO users (name, email, password, role, shop_id) VALUES (?, ?, ?, "shop_admin", ?)',
+                    [$shopName, $shopEmail, $passwordHash, $shopId]
+                );
+            }
+
+            // Calculate subscription dates
+            $startDate = date('Y-m-d');
+            $endDate = date('Y-m-d', strtotime($billingCycle === 'monthly' ? '+1 month' : ($billingCycle === 'quarterly' ? '+3 months' : '+1 year')));
+
+            // Create subscription
+            DB::query(
+                'INSERT INTO shop_subscriptions (shop_id, plan_id, start_date, end_date, status, payment_method, transaction_id, amount_paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [$shopId, $planId, $startDate, $endDate, 'pending', $paymentMethod, $transactionId ?: null, $paidAmount]
+            );
+
+            $subscriptionId = DB::lastInsertId();
+
+            header('Content-Type: application/json');
+            http_response_code(201);
+            echo json_encode([
+                'message' => 'Subscription request submitted successfully! The superadmin will review your request and contact you at ' . $shopEmail,
+                'subscription_id' => (int)$subscriptionId
+            ]);
+        } catch (\Exception $e) {
+            error_log('Guest subscription error: ' . $e->getMessage());
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => 'Server error processing subscription request.']);
+        }
+    }
+
+    public static function subscriptionCart($requestData) {
+        // No authentication required for cart submissions
+        $plans = $requestData['plans'] ?? [];
+        $totalAmount = $requestData['total_amount'] ?? 0;
+        $customerName = trim($requestData['customer_name'] ?? '');
+        $customerEmail = trim($requestData['customer_email'] ?? '');
+        $customerPhone = trim($requestData['customer_phone'] ?? '');
+
+        if (empty($plans) || !is_array($plans) || empty($customerName) || empty($customerEmail) || empty($customerPhone)) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Plans, customer name, email, and phone are required.']);
+            return;
+        }
+
+        if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid email address.']);
+            return;
+        }
+
+        try {
+            // Validate all plans exist and are active
+            $planIds = implode(',', array_fill(0, count($plans), '?'));
+            $stmt = DB::query("SELECT id, name, price, billing_cycle FROM subscription_plans WHERE id IN ($planIds) AND status = 'active'", $plans);
+            $validPlans = $stmt->fetchAll();
+
+            if (count($validPlans) !== count($plans)) {
+                header('Content-Type: application/json');
+                http_response_code(400);
+                echo json_encode(['error' => 'One or more selected plans are not available.']);
+                return;
+            }
+
+            // Calculate expected total
+            $calculatedTotal = 0;
+            foreach ($validPlans as $plan) {
+                $calculatedTotal += (float)$plan['price'];
+            }
+
+            if (abs($calculatedTotal - (float)$totalAmount) > 0.01) {
+                header('Content-Type: application/json');
+                http_response_code(400);
+                echo json_encode(['error' => 'Total amount mismatch.']);
+                return;
+            }
+
+            // Create cart entry in subscription_carts table
+            DB::query(
+                'INSERT INTO subscription_carts (customer_name, customer_email, customer_phone, plans, total_amount, status) VALUES (?, ?, ?, ?, ?, "pending")',
+                [$customerName, $customerEmail, $customerPhone, json_encode($validPlans), $totalAmount]
+            );
+
+            $cartId = DB::lastInsertId();
+
+            header('Content-Type: application/json');
+            http_response_code(201);
+            echo json_encode([
+                'message' => 'Cart submitted successfully! The superadmin will review your subscription request and contact you at ' . $customerEmail,
+                'cart_id' => (int)$cartId
+            ]);
+        } catch (\Exception $e) {
+            error_log('Subscription cart error: ' . $e->getMessage());
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => 'Server error processing cart submission.']);
+        }
+    }
+
+    public static function getCarts() {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        try {
+            $stmt = DB::query('SELECT * FROM subscription_carts ORDER BY created_at DESC');
+            $carts = $stmt->fetchAll();
+
+            foreach ($carts as &$cart) {
+                $cart['id'] = (int)$cart['id'];
+                $cart['total_amount'] = (float)$cart['total_amount'];
+                $cart['plans'] = $cart['plans'] ? json_decode($cart['plans'], true) : [];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($carts);
+        } catch (\Exception $e) {
+            error_log('Get carts error: ' . $e->getMessage());
+            Auth::jsonError('Server error fetching carts.', 500);
+        }
+    }
+
+    public static function updateCartStatus($cartId, $status) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        if (!in_array($status, ['approved', 'rejected', 'completed'])) {
+            Auth::jsonError('Invalid status.', 400);
+        }
+
+        try {
+            $stmt = DB::query('SELECT * FROM subscription_carts WHERE id = ?', [$cartId]);
+            $cart = $stmt->fetch();
+
+            if (!$cart) {
+                Auth::jsonError('Cart not found.', 404);
+            }
+
+            DB::query(
+                'UPDATE subscription_carts SET status = ? WHERE id = ?',
+                [$status, $cartId]
+            );
+
+            // If approved, create actual subscriptions
+            if ($status === 'approved') {
+                $plans = json_decode($cart['plans'], true);
+                
+                // Create shop if needed
+                $shopName = $cart['customer_name'] . "'s Shop";
+                $shopEmail = $cart['customer_email'];
+                
+                $stmt = DB::query('SELECT id FROM shops WHERE email = ?', [$shopEmail]);
+                $existingShop = $stmt->fetch();
+
+                if (!$existingShop) {
+                    $generatedPassword = bin2hex(random_bytes(8));
+                    $passwordHash = password_hash($generatedPassword, PASSWORD_DEFAULT);
+
+                    DB::query(
+                        'INSERT INTO shops (name, email, password, status) VALUES (?, ?, ?, "active")',
+                        [$shopName, $shopEmail, $passwordHash]
+                    );
+
+                    $shopId = DB::lastInsertId();
+
+                    DB::query(
+                        'INSERT INTO users (name, email, password, role, shop_id) VALUES (?, ?, ?, "shop_admin", ?)',
+                        [$cart['customer_name'], $shopEmail, $passwordHash, $shopId]
+                    );
+                } else {
+                    $shopId = $existingShop['id'];
+                }
+
+                // Create subscriptions for each plan
+                foreach ($plans as $plan) {
+                    $planId = $plan['id'];
+                    $billingCycle = $plan['billing_cycle'];
+                    $price = (float)$plan['price'];
+
+                    $startDate = date('Y-m-d');
+                    $endDate = date('Y-m-d', strtotime($billingCycle === 'monthly' ? '+1 month' : ($billingCycle === 'quarterly' ? '+3 months' : '+1 year')));
+
+                    DB::query(
+                        'INSERT INTO shop_subscriptions (shop_id, plan_id, start_date, end_date, status, payment_method, transaction_id, amount_paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [$shopId, $planId, $startDate, $endDate, 'active', 'cart', 'CART-' . $cartId, $price]
+                    );
+                }
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Cart status updated successfully.']);
+        } catch (\Exception $e) {
+            error_log('Update cart status error: ' . $e->getMessage());
+            Auth::jsonError('Server error updating cart status.', 500);
+        }
+    }
 }

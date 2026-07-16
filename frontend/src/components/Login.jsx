@@ -8,13 +8,22 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const canvasRef = useRef(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [cartLoading, setCartLoading] = useState(false);
+  const [cartError, setCartError] = useState('');
+  const [cartSuccess, setCartSuccess] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let animationFrameId;
-    
+
     let textCoordinates = [];
     const text = 'CODEXAA';
     const fontFamily = 'bold 100px Arial';
@@ -273,6 +282,100 @@ export default function Login({ onLoginSuccess }) {
     };
   }, []);
 
+  // Fetch subscription plans on component mount
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  // Fetch subscription plans when modal opens (to refresh)
+  useEffect(() => {
+    if (showSubscriptionModal) {
+      fetchPlans();
+    }
+  }, [showSubscriptionModal]);
+
+  const fetchPlans = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/subscription-plans`);
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+    }
+  };
+
+  const addToCart = (plan) => {
+    if (cart.some(item => item.id === plan.id)) {
+      setCartError('This plan is already in your cart');
+      return;
+    }
+    setCart([...cart, plan]);
+    setCartError('');
+  };
+
+  const removeFromCart = (planId) => {
+    setCart(cart.filter(item => item.id !== planId));
+  };
+
+  const getCartTotal = () => {
+    return cart.reduce((total, plan) => total + parseFloat(plan.price), 0);
+  };
+
+  const handleCartSubmit = async (e) => {
+    e.preventDefault();
+    if (cart.length === 0) {
+      setCartError('Your cart is empty');
+      return;
+    }
+
+    if (!customerName || !customerEmail || !customerPhone) {
+      setCartError('Please fill in all contact information');
+      return;
+    }
+
+    setCartLoading(true);
+    setCartError('');
+    setCartSuccess('');
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/subscription-cart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+          plans: cart.map(plan => plan.id),
+          total_amount: getCartTotal(),
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Cart submission failed');
+      }
+
+      setCartSuccess('Cart submitted successfully! The superadmin will review your subscription request.');
+      setCart([]);
+      setCustomerName('');
+      setCustomerEmail('');
+      setCustomerPhone('');
+      setTimeout(() => {
+        setShowSubscriptionModal(false);
+        setCartSuccess('');
+      }, 3000);
+    } catch (err) {
+      setCartError(err.message);
+    } finally {
+      setCartLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -323,6 +426,52 @@ export default function Login({ onLoginSuccess }) {
           {/* Text top-center */}
           <h1 className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl font-bold text-white tracking-tight">Codexaa-POS++</h1>
           <p className="absolute top-12 left-1/2 -translate-x-1/2 text-slate-400 max-w-sm text-center">A full-stack, web-based Multi-Tenant POS System built with React, PHP, and MySQL.</p>
+          
+          {/* Subscription Plans Display - Bottom Left */}
+          <div className="absolute bottom-12 left-12 z-10 w-80">
+            <h3 className="text-lg font-bold text-white mb-3">Subscription Plans</h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {plans.length === 0 ? (
+                <p className="text-slate-400 text-sm">Loading plans...</p>
+              ) : (
+                plans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`border rounded-lg p-3 transition-all cursor-pointer ${cart.some(item => item.id === plan.id) ? 'border-indigo-400 bg-indigo-500/20' : 'border-slate-600 bg-slate-800/50 hover:bg-slate-700/50'}`}
+                    onClick={() => addToCart(plan)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-white text-sm">{plan.name}</p>
+                        <p className="text-xs text-slate-400 capitalize">{plan.billing_cycle}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-indigo-400 text-sm">৳{parseFloat(plan.price).toFixed(0)}</p>
+                        {cart.some(item => item.id === plan.id) && (
+                          <p className="text-xs text-emerald-400">Added</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {cart.length > 0 && (
+              <div className="mt-3 bg-indigo-600/30 border border-indigo-400/50 rounded-lg p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-white text-sm font-semibold">Cart ({cart.length})</span>
+                  <span className="text-indigo-300 font-bold">৳{getCartTotal().toFixed(0)}</span>
+                </div>
+                <button
+                  onClick={() => setShowSubscriptionModal(true)}
+                  className="w-full py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  View Cart & Checkout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl" />
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-slate-600/20 rounded-full blur-3xl" />
@@ -453,6 +602,183 @@ export default function Login({ onLoginSuccess }) {
           </div>
         </div>
       </div>
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-slate-800">Subscription Plans</h3>
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {cartSuccess && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <p className="text-emerald-700 font-medium">{cartSuccess}</p>
+              </div>
+            )}
+
+            {cartError && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                <p className="text-rose-700 font-medium">{cartError}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Plans Section */}
+              <div className="lg:col-span-2">
+                <h4 className="font-semibold text-slate-800 mb-4">Available Plans</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {plans.map((plan) => (
+                    <div
+                      key={plan.id}
+                      className={`border-2 rounded-xl p-4 transition-all ${cart.some(item => item.id === plan.id) ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-slate-800">{plan.name}</h4>
+                          <p className="text-2xl font-extrabold text-indigo-600 mt-1">৳{parseFloat(plan.price).toFixed(0)}</p>
+                          <p className="text-xs text-slate-500 capitalize">{plan.billing_cycle}</p>
+                        </div>
+                        <button
+                          onClick={() => addToCart(plan)}
+                          disabled={cart.some(item => item.id === plan.id)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${cart.some(item => item.id === plan.id) ? 'bg-emerald-100 text-emerald-700 cursor-default' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
+                        >
+                          {cart.some(item => item.id === plan.id) ? 'Added' : 'Add to Cart'}
+                        </button>
+                      </div>
+                      {(plan.features || []).length > 0 && (
+                        <ul className="mt-3 space-y-1">
+                          {plan.features.slice(0, 3).map((feature, idx) => (
+                            <li key={idx} className="text-xs text-slate-600 flex items-center gap-1">
+                              <svg className="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cart Section */}
+              <div className="lg:col-span-1">
+                <h4 className="font-semibold text-slate-800 mb-4">Your Cart ({cart.length})</h4>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  {cart.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-4">Your cart is empty</p>
+                  ) : (
+                    <>
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {cart.map((item) => (
+                          <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-lg">
+                            <div>
+                              <p className="font-medium text-slate-800 text-sm">{item.name}</p>
+                              <p className="text-xs text-slate-500 capitalize">{item.billing_cycle}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-indigo-600 text-sm">৳{parseFloat(item.price).toFixed(0)}</p>
+                              <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="text-rose-500 hover:text-rose-700 transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-slate-200 mt-4 pt-4">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-slate-800">Total</span>
+                          <span className="font-bold text-xl text-indigo-600">৳{getCartTotal().toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Contact Information */}
+                {cart.length > 0 && (
+                  <form onSubmit={handleCartSubmit} className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Your Name *</label>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        required
+                        placeholder="Full Name"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+                      <input
+                        type="email"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        required
+                        placeholder="your@email.com"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone *</label>
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        required
+                        placeholder="01XXXXXXXXX"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSubscriptionModal(false);
+                          setCartError('');
+                          setCartSuccess('');
+                          setCart([]);
+                          setCustomerName('');
+                          setCustomerEmail('');
+                          setCustomerPhone('');
+                        }}
+                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={cartLoading}
+                        className="flex-1 py-2.5 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white font-semibold rounded-xl text-sm shadow transition-colors"
+                      >
+                        {cartLoading ? 'Submitting...' : 'Submit Cart'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

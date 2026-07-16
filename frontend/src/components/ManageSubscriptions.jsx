@@ -4,6 +4,7 @@ import API_BASE_URL from '../config';
 export default function ManageSubscriptions() {
   const [plans, setPlans] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [carts, setCarts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('plans');
   const [filterStatus, setFilterStatus] = useState('');
@@ -13,6 +14,7 @@ export default function ManageSubscriptions() {
   const [savingPlan, setSavingPlan] = useState(false);
   const [planMessage, setPlanMessage] = useState('');
   const [viewingSubscription, setViewingSubscription] = useState(null);
+  const [viewingCart, setViewingCart] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -22,17 +24,21 @@ export default function ManageSubscriptions() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const [plansRes, subsRes] = await Promise.all([
+      const [plansRes, subsRes, cartsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/subscription-plans/all`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
         fetch(`${API_BASE_URL}/subscriptions${filterStatus ? '?status=' + filterStatus : ''}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/subscription-carts`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
       if (plansRes.ok) setPlans(await plansRes.json());
       if (subsRes.ok) setSubscriptions(await subsRes.json());
+      if (cartsRes.ok) setCarts(await cartsRes.json());
     } catch (err) {
       console.error('Failed to fetch subscription data:', err);
     } finally {
@@ -161,6 +167,29 @@ export default function ManageSubscriptions() {
     }
   };
 
+  const handleCartAction = async (cartId, action) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/subscription-carts/${cartId}/${action}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed to ${action} cart.`);
+
+      fetchData();
+      if (viewingCart?.id === cartId) {
+        setViewingCart(null);
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const openEditPlan = (plan) => {
     setEditingPlan(plan);
     setPlanForm({
@@ -179,7 +208,8 @@ export default function ManageSubscriptions() {
       active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       expired: 'bg-rose-50 text-rose-700 border-rose-200',
       cancelled: 'bg-slate-50 text-slate-700 border-slate-200',
-      rejected: 'bg-rose-50 text-rose-700 border-rose-200'
+      rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+      completed: 'bg-emerald-50 text-emerald-700 border-emerald-200'
     };
     return colors[status] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
@@ -214,6 +244,12 @@ export default function ManageSubscriptions() {
           className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'subscriptions' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
         >
           Subscriptions ({subscriptions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('carts')}
+          className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'carts' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Carts ({carts.length})
         </button>
       </div>
 
@@ -388,6 +424,98 @@ export default function ManageSubscriptions() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'carts' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-slate-800">Subscription Carts</h3>
+            <p className="text-sm text-slate-500">Review and manage subscription cart requests from login page</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="p-4">Customer</th>
+                  <th className="p-4">Contact</th>
+                  <th className="p-4">Plans</th>
+                  <th className="p-4">Total</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">Date</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 text-sm">
+                {carts.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-slate-400">
+                      No cart requests found.
+                    </td>
+                  </tr>
+                ) : (
+                  carts.map((cart) => (
+                    <tr key={cart.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4">
+                        <div>
+                          <p className="font-semibold text-slate-800">{cart.customer_name}</p>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div>
+                          <p className="text-slate-700">{cart.customer_email}</p>
+                          <p className="text-xs text-slate-500">{cart.customer_phone}</p>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="space-y-1">
+                          {(cart.plans || []).map((plan, idx) => (
+                            <p key={idx} className="text-slate-700 text-xs">
+                              {plan.name} ({plan.billing_cycle})
+                            </p>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-4 font-bold text-slate-800">৳{parseFloat(cart.total_amount).toFixed(2)}</td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(cart.status)}`}>
+                          {cart.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-500 text-xs">{cart.created_at}</td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {cart.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleCartAction(cart.id, 'approved')}
+                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition-colors"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleCartAction(cart.id, 'rejected')}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => setViewingCart(cart)}
+                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors"
+                          >
+                            View Details
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -571,6 +699,85 @@ export default function ManageSubscriptions() {
                     Reject
                   </button>
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cart Details Modal */}
+      {viewingCart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Cart Details</h3>
+              <button
+                onClick={() => setViewingCart(null)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h4 className="font-semibold text-slate-800 mb-2">Customer Information</h4>
+                <p className="text-sm text-slate-700"><strong>Name:</strong> {viewingCart.customer_name}</p>
+                <p className="text-sm text-slate-700"><strong>Email:</strong> {viewingCart.customer_email}</p>
+                <p className="text-sm text-slate-700"><strong>Phone:</strong> {viewingCart.customer_phone}</p>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h4 className="font-semibold text-slate-800 mb-2">Selected Plans</h4>
+                <div className="space-y-2">
+                  {(viewingCart.plans || []).map((plan, idx) => (
+                    <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg">
+                      <div>
+                        <p className="font-medium text-slate-800 text-sm">{plan.name}</p>
+                        <p className="text-xs text-slate-500 capitalize">{plan.billing_cycle}</p>
+                      </div>
+                      <p className="font-bold text-indigo-600 text-sm">৳{parseFloat(plan.price).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-semibold text-slate-800">Total Amount</h4>
+                  <p className="font-bold text-xl text-indigo-600">৳{parseFloat(viewingCart.total_amount).toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h4 className="font-semibold text-slate-800 mb-2">Status</h4>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(viewingCart.status)}`}>
+                  {viewingCart.status}
+                </span>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h4 className="font-semibold text-slate-800 mb-2">Submitted On</h4>
+                <p className="text-sm text-slate-700">{viewingCart.created_at}</p>
+              </div>
+
+              {viewingCart.status === 'pending' && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleCartAction(viewingCart.id, 'approved')}
+                    className="flex-1 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-xl text-sm transition-colors"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleCartAction(viewingCart.id, 'rejected')}
+                    className="flex-1 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl text-sm transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
               )}
             </div>
           </div>

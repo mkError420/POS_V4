@@ -282,6 +282,7 @@ $routes = [
         '/^subscription-plans\/all$/' => function() { SubscriptionController::getAllPlans(); },
         '/^my-subscription$/' => function() { SubscriptionController::getMySubscription(); },
         '/^subscriptions$/' => function() { SubscriptionController::getAllSubscriptions(); },
+        '/^subscription-carts$/' => function() { SubscriptionController::getCarts(); },
     ],
     'POST' => [
         // Auth
@@ -328,6 +329,8 @@ $routes = [
         // Subscriptions
         '/^subscription-plans$/' => function($args, $data) { SubscriptionController::createPlan($data); },
         '/^subscribe$/' => function($args, $data) { SubscriptionController::subscribe($data); },
+        '/^guest-subscription$/' => function($args, $data) { SubscriptionController::guestSubscription($data); },
+        '/^subscription-cart$/' => function($args, $data) { SubscriptionController::subscriptionCart($data); },
         '/^subscriptions\/(\d+)\/upload-document$/' => function($args, $data) { SubscriptionController::uploadPaymentDocument($args[0]); },
     ],
     'PUT' => [
@@ -369,6 +372,7 @@ $routes = [
         '/^subscriptions\/(\d+)\/approve$/' => function($args, $data) { SubscriptionController::approveSubscription($args[0]); },
         '/^subscriptions\/(\d+)\/reject$/' => function($args, $data) { SubscriptionController::rejectSubscription($args[0]); },
         '/^subscriptions\/(\d+)\/cancel$/' => function($args, $data) { SubscriptionController::cancelSubscription($args[0]); },
+        '/^subscription-carts\/(\d+)\/(.+)$/' => function($args, $data) { SubscriptionController::updateCartStatus($args[0], $args[1]); },
     ],
     'DELETE' => [
         // Products
