@@ -22,262 +22,128 @@ export default function Login({ onLoginSuccess }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    let animationFrameId;
+    let animationFrameId;    
 
-    let textCoordinates = [];
-    const text = 'CODEXAA';
-    const fontFamily = 'bold 100px Arial';
+    // --- New Particle Constellation Effect ---
 
-    const resizeCanvas = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        prepareTextCoordinates();
-    };
+    let particlesArray;
 
-    window.addEventListener('resize', resizeCanvas);
-
-    // Mouse tracking setup
     const mouse = {
         x: null,
         y: null,
-        isActive: false,
-        isMoving: false
+        radius: (canvas.height / 110) * (canvas.width / 110)
     };
-    let mouseMoveTimeout;
 
     window.addEventListener('mousemove', (e) => {
         mouse.x = e.clientX;
         mouse.y = e.clientY;
-        mouse.isActive = true;
-        mouse.isMoving = true;
-        clearTimeout(mouseMoveTimeout);
-        mouseMoveTimeout = setTimeout(() => {
-            mouse.isMoving = false;
-        }, 150); // Mouse is considered idle after 150ms
     });
-
-    window.addEventListener('mouseleave', () => {
-        mouse.isActive = false;
-        mouse.isMoving = false;
+    window.addEventListener('mouseout', () => {
+        mouse.x = null;
+        mouse.y = null;
     });
-
-    // Touch support for mobile devices
     window.addEventListener('touchmove', (e) => {
         if (e.touches.length > 0) {
             mouse.x = e.touches[0].clientX;
             mouse.y = e.touches[0].clientY;
-            mouse.isActive = true;
-            mouse.isMoving = true;
-            clearTimeout(mouseMoveTimeout);
-            mouseMoveTimeout = setTimeout(() => {
-                mouse.isMoving = false;
-            }, 150);
         }
-    });
-
+    }, { passive: true });
     window.addEventListener('touchend', () => {
-        mouse.isActive = false;
-        mouse.isMoving = false;
+        mouse.x = null;
+        mouse.y = null;
     });
 
-    // New class for background ghost scenery particles
-    class GhostParticle {
-        constructor() {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.size = Math.random() * 1.5 + 0.5;
-            this.speedX = (Math.random() - 0.5) * 0.1;
-            this.speedY = (Math.random() - 0.5) * 0.1;
-            this.color = `rgba(255, 255, 255, ${Math.random() * 0.2})`;
-        }
-
-        update() {
-            this.x += this.speedX;
-            this.y += this.speedY;
-
-            if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
-            if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+    class Particle {
+        constructor(x, y, directionX, directionY, size, color) {
+            this.x = x;
+            this.y = y;
+            this.directionX = directionX;
+            this.directionY = directionY;
+            this.size = size;
+            this.color = color;
         }
 
         draw() {
-            ctx.fillStyle = this.color;
-            ctx.fillRect(this.x, this.y, this.size, this.size);
-        }
-    }
-
-    function prepareTextCoordinates() {
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-
-        tempCtx.fillStyle = 'white';
-        tempCtx.font = fontFamily;
-        tempCtx.textAlign = 'center';
-        tempCtx.textBaseline = 'middle';
-        tempCtx.fillText(text, canvas.width / 2, canvas.height / 2);
-
-        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        const data = imageData.data;
-        textCoordinates = [];
-
-        for (let y = 0; y < tempCanvas.height; y += 6) { // Scan every 6 pixels for performance
-            for (let x = 0; x < tempCanvas.width; x += 6) {
-                const alpha = data[(y * tempCanvas.width + x) * 4 + 3];
-                if (alpha > 128) { // If pixel is not transparent
-                    textCoordinates.push({ x: x, y: y });
-                }
-            }
-        }
-    }
-
-    // Bird (Boid) Element Construction
-    class Bird {
-        constructor() {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.size = Math.random() * 15 + 15; // Further increased bird size
-            this.speedX = Math.random() * 4 - 2;
-            this.speedY = Math.random() * 4 - 2;
-            this.maxSpeed = Math.random() * 2 + 3;
-            this.wingPhase = Math.random() * Math.PI; 
-            this.color = `hsla(${Math.random() * 360}, 80%, 70%, ${Math.random() * 0.5 + 0.4})`;
-            this.target = null;
-        }
-
-        update() {
-            if (mouse.isActive && mouse.isMoving) {
-                // Follow the cursor when mouse is moving
-                this.target = null; // Clear text target
-                let dx = mouse.x - this.x;
-                let dy = mouse.y - this.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance > 1) {
-                    this.speedX += (dx / distance) * 0.2;
-                    this.speedY += (dy / distance) * 0.2;
-                }
-                this.speedX += (Math.random() - 0.5) * 0.2;
-                this.speedY += (Math.random() - 0.5) * 0.2;
-
-            } else if (mouse.isActive && !mouse.isMoving && this.target) {
-                // Go to text target when mouse is idle on canvas
-                let dx = this.target.x - this.x;
-                let dy = this.target.y - this.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance > 1) {
-                    this.speedX += (dx / distance) * 0.5;
-                    this.speedY += (dy / distance) * 0.5;
-                }
-                this.speedX += (Math.random() - 0.5) * 0.1;
-                this.speedY += (Math.random() - 0.5) * 0.1;
-            } else {
-                // Disperse randomly when mouse is off canvas
-                this.speedX += (Math.random() - 0.5) * 0.2;
-                this.speedY += (Math.random() - 0.5) * 0.2;
-            }
-
-            // Enforce maximum velocity cap
-            const currentSpeed = Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY);
-            const maxSpeed = (mouse.isActive && !mouse.isMoving) ? this.maxSpeed + 4 : this.maxSpeed; // Fly faster to get into shape
-            if (currentSpeed > maxSpeed) {
-                this.speedX = (this.speedX / currentSpeed) * this.maxSpeed;
-                this.speedY = (this.speedY / currentSpeed) * this.maxSpeed;
-            }
-
-            this.x += this.speedX;
-            this.y += this.speedY;
-
-            // Screen boundary wrapping loops
-            if (this.x < -50) this.x = canvas.width + 50;
-            if (this.x > canvas.width + 50) this.x = -50;
-            if (this.y < -50) this.y = canvas.height + 50;
-            if (this.y > canvas.height + 50) this.y = -50;
-
-            // Wing animation cycles matching actual speed acceleration
-            this.wingPhase += Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY) * 0.05 + 0.05;
-        }
-
-        draw() {
-            const angle = Math.atan2(this.speedY, this.speedX);
-            
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.rotate(angle);
-            
-            // Sinewave calculations for the flight mechanics
-            const wingSpread = Math.sin(this.wingPhase) * (this.size * 0.6);
-
             ctx.beginPath();
-            ctx.strokeStyle = this.color;
-            ctx.lineWidth = 1.5; // Slightly thinner line for a more detailed look with higher bird counts
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+            ctx.fillStyle = 'rgba(165, 180, 252, 0.6)'; // Indigo-300 with opacity
+            ctx.fill();
+        }
 
-            // Elegant vector paths representing a flying bird silhouette
-            ctx.moveTo(-this.size * 0.5, -wingSpread); 
-            ctx.quadraticCurveTo(0, -this.size * 0.2, 0, 0); 
-            ctx.quadraticCurveTo(0, -this.size * 0.2, this.size * 0.5, -wingSpread);
+        update() {
+            if (this.x > canvas.width || this.x < 0) {
+                this.directionX = -this.directionX;
+            }
+            if (this.y > canvas.height || this.y < 0) {
+                this.directionY = -this.directionY;
+            }
 
-            ctx.stroke();
-            ctx.restore();
+            this.x += this.directionX;
+            this.y += this.directionY;
+            this.draw();
         }
     }
-
-    // Initialize Flock Setup
-    const flock = [];
-    const scenery = [];
-    const numberOfBirds = 250; // Increased bird count for a dense, massive flock effect
-    const numberOfParticles = 100;
-    
-    let lastMouseMoveState = false;
 
     function init() {
-        resizeCanvas(); // This will also call prepareTextCoordinates
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        mouse.radius = (canvas.height / 110) * (canvas.width / 110);
+
+        particlesArray = [];
+        let numberOfParticles = (canvas.height * canvas.width) / 9000;
         for (let i = 0; i < numberOfParticles; i++) {
-            scenery.push(new GhostParticle());
-        }
-        for (let i = 0; i < numberOfBirds; i++) {
-            flock.push(new Bird());
+            let size = (Math.random() * 2) + 1;
+            let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
+            let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
+            let directionX = (Math.random() * .4) - 0.2;
+            let directionY = (Math.random() * .4) - 0.2;
+            let color = 'rgba(199, 210, 254, 0.8)';
+
+            particlesArray.push(new Particle(x, y, directionX, directionY, size, color));
         }
     }
 
-    // Native Render Loop running at peak hardware refresh rates
+    function connect() {
+        let opacityValue = 1;
+        for (let a = 0; a < particlesArray.length; a++) {
+            for (let b = a; b < particlesArray.length; b++) {
+                let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x))
+                    + ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                if (distance < (canvas.width / 7) * (canvas.height / 7)) {
+                    opacityValue = 1 - (distance / 20000);
+                    ctx.strokeStyle = `rgba(140, 158, 255, ${opacityValue})`; // Indigo-300
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                    ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
     function animate() {
-        // Check if mouse has stopped moving to assign targets
-        if (!mouse.isMoving && lastMouseMoveState) {
-            flock.forEach((bird, i) => {
-                bird.target = textCoordinates[i % textCoordinates.length];
-            });
-        }
-        lastMouseMoveState = mouse.isMoving;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        scenery.forEach(particle => {
-            particle.update();
-            particle.draw();
-        });
-        
-        flock.forEach(bird => {
-            bird.update();
-            bird.draw();
-        });
-
         animationFrameId = requestAnimationFrame(animate);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < particlesArray.length; i++) {
+            particlesArray[i].update();
+        }
+        connect();
     }
+
+    window.addEventListener('resize', () => {
+        init();
+    });
 
     init();
     animate();
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      window.removeEventListener('mousemove', mouse.moveHandler);
-      window.removeEventListener('mouseleave', mouse.leaveHandler);
-      window.removeEventListener('touchmove', mouse.touchMoveHandler);
-      window.removeEventListener('touchend', mouse.touchEndHandler);
-      clearTimeout(mouseMoveTimeout);
+      window.removeEventListener('resize', init);
+      window.removeEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+      window.removeEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+      window.removeEventListener('touchmove', (e) => { if (e.touches.length > 0) { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; } });
+      window.removeEventListener('touchend', () => { mouse.x = null; mouse.y = null; });
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
