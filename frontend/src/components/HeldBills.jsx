@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../config';
 
-export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () => {} }) {
+export default function HeldBills({ onResume = () => { }, onHeldBillsChange = () => { } }) {
   const [heldBills, setHeldBills] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -9,6 +9,8 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
   const [search, setSearch] = useState('');
   const [searchFocusedIndex, setSearchFocusedIndex] = useState(-1);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [chartType, setChartType] = useState('due'); // 'due' or 'count'
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [error, setError] = useState(null);
@@ -17,7 +19,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, startDate, endDate]);
 
   // Due Payment Modal State
   const [showPayDueModal, setShowPayDueModal] = useState(false);
@@ -70,9 +72,9 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
       if (!response.ok) throw new Error(resData.error || 'Failed to update status.');
 
       triggerAlert('success', `Status updated to ${newStatus}!`);
-      
+
       // Update locally
-      const updatedList = heldBills.map(bill => 
+      const updatedList = heldBills.map(bill =>
         bill.id === billId ? { ...bill, status: newStatus } : bill
       );
       setHeldBills(updatedList);
@@ -199,7 +201,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
   };
   // Filter and search computation
   const filteredBills = heldBills.filter(bill => {
-    const matchesSearch = 
+    const matchesSearch =
       (bill.notes && bill.notes.toLowerCase().includes(search.toLowerCase())) ||
       (bill.customer_name && bill.customer_name.toLowerCase().includes(search.toLowerCase())) ||
       (bill.customer_phone && bill.customer_phone.includes(search)) ||
@@ -207,7 +209,26 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
 
     const matchesStatus = statusFilter === 'all' || bill.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    let matchesDate = true;
+    if (startDate || endDate) {
+      if (bill.created_at) {
+        try {
+          const billDateStr = new Date(bill.created_at).toBDISODateString();
+          if (startDate && billDateStr < startDate) {
+            matchesDate = false;
+          }
+          if (endDate && billDateStr > endDate) {
+            matchesDate = false;
+          }
+        } catch (e) {
+          console.error("Error formatting date for bill", bill.id, e);
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesDate;
   });
   const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
   const indexOfLastBill = currentPage * itemsPerPage;
@@ -224,19 +245,18 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
 
   return (
     <div className="space-y-6">
-      
+
       {/* Alerts Banner */}
       {alert && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${
-          alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-        }`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg flex items-center transition-all ${alert.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+          }`}>
           <span className="text-sm font-semibold">{alert.message}</span>
         </div>
       )}
 
       {/* Title Header */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-800">Held Bills</h2>
+        <h2 className="text-2xl font-bold text-slate-800">Due Bills</h2>
         <p className="text-sm text-slate-500">Manage suspended carts, collect due payments, and monitor bill status</p>
       </div>
 
@@ -250,7 +270,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
             </svg>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Held</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Due</p>
             <h3 className="text-xl font-extrabold text-slate-800">{totalHeld}</h3>
           </div>
         </div>
@@ -299,18 +319,42 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
       {(() => {
         // Calculate dynamic trend data from the current filtered list
         const trendMap = {};
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const dateStr = d.toBDISODateString();
-          trendMap[dateStr] = { date: dateStr, due: 0, count: 0 };
+        const dates = [];
+
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+
+          let current = new Date(start);
+          let count = 0;
+          while (current <= end && count <= 31) {
+            const dateStr = current.toBDISODateString();
+            dates.push(dateStr);
+            trendMap[dateStr] = { date: dateStr, due: 0, count: 0 };
+            current.setDate(current.getDate() + 1);
+            count++;
+          }
+        } else {
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toBDISODateString();
+            dates.push(dateStr);
+            trendMap[dateStr] = { date: dateStr, due: 0, count: 0 };
+          }
         }
 
         filteredBills.forEach(bill => {
-          const dateStr = new Date(bill.created_at).toBDISODateString();
-          if (trendMap[dateStr]) {
-            trendMap[dateStr].due += parseFloat(bill.due_amount || 0);
-            trendMap[dateStr].count += 1;
+          if (bill.created_at) {
+            try {
+              const dateStr = new Date(bill.created_at).toBDISODateString();
+              if (trendMap[dateStr]) {
+                trendMap[dateStr].due += parseFloat(bill.due_amount || 0);
+                trendMap[dateStr].count += 1;
+              }
+            } catch (e) {
+              console.error("Error parsing date in trend chart for bill", bill.id, e);
+            }
           }
         });
 
@@ -322,28 +366,26 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs relative">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
-                <h3 className="text-lg font-bold text-slate-800">Held Bills Activity</h3>
+                <h3 className="text-lg font-bold text-slate-800">Due Bills Activity</h3>
                 <p className="text-xs text-slate-500">Real-time breakdown of suspended transactions and outstanding balances</p>
               </div>
-              
+
               <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/60 self-end sm:self-auto">
                 <button
                   onClick={() => setChartType('due')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    chartType === 'due'
-                      ? 'bg-white text-indigo-650 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'due'
+                    ? 'bg-white text-indigo-650 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                    }`}
                 >
                   Due Amount (৳)
                 </button>
                 <button
                   onClick={() => setChartType('count')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    chartType === 'count'
-                      ? 'bg-white text-indigo-650 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === 'count'
+                    ? 'bg-white text-indigo-650 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                    }`}
                 >
                   Carts Volume
                 </button>
@@ -352,8 +394,8 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
 
             <div className="relative w-full h-[180px]">
               {/* SVG Plot */}
-              <svg 
-                viewBox="0 0 600 180" 
+              <svg
+                viewBox="0 0 600 180"
                 className="w-full h-full overflow-visible"
                 preserveAspectRatio="none"
               >
@@ -370,18 +412,18 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                   const labelVal = ratio * maxVal;
                   return (
                     <g key={idx}>
-                      <line 
-                        x1={55} 
-                        y1={y} 
-                        x2={575} 
-                        y2={y} 
-                        stroke="#f1f5f9" 
+                      <line
+                        x1={55}
+                        y1={y}
+                        x2={575}
+                        y2={y}
+                        stroke="#f1f5f9"
                         strokeWidth="1.5"
                       />
-                      <text 
-                        x={43} 
-                        y={y + 4} 
-                        textAnchor="end" 
+                      <text
+                        x={43}
+                        y={y + 4}
+                        textAnchor="end"
                         className="text-[10px] font-bold text-slate-400 fill-current font-sans"
                       >
                         {chartType === 'due' ? `৳${Math.round(labelVal)}` : Math.round(labelVal)}
@@ -394,7 +436,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                 {(() => {
                   const chartPoints = chartData.map((d, index) => {
                     const val = chartType === 'due' ? d.due : d.count;
-                    const x = 55 + (index * (600 - 55 - 25) / 6);
+                    const x = 55 + (index * (600 - 55 - 25) / (chartData.length - 1 || 1));
                     const y = 140 - ((val / maxVal) * 125);
                     return { x, y, val, date: d.date };
                   });
@@ -403,19 +445,23 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                     return path + (i === 0 ? `M ${pt.x} ${pt.y}` : ` L ${pt.x} ${pt.y}`);
                   }, '');
 
-                  const areaPath = `${linePath} L ${chartPoints[chartPoints.length - 1].x} 140 L ${chartPoints[0].x} 140 Z`;
+                  const areaPath = chartPoints.length > 0
+                    ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} 140 L ${chartPoints[0].x} 140 Z`
+                    : '';
 
                   return (
                     <>
-                      <path d={areaPath} fill="url(#heldAreaGradient)" />
-                      <path 
-                        d={linePath} 
-                        fill="none" 
-                        stroke="#6366f1" 
-                        strokeWidth="2.5" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                      />
+                      {chartPoints.length > 0 && <path d={areaPath} fill="url(#heldAreaGradient)" />}
+                      {chartPoints.length > 0 && (
+                        <path
+                          d={linePath}
+                          fill="none"
+                          stroke="#6366f1"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
 
                       {chartPoints.map((pt, idx) => (
                         <g key={idx}>
@@ -441,6 +487,11 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                       ))}
 
                       {chartPoints.map((pt, idx) => {
+                        // Skip some labels if there are too many points to avoid overlapping
+                        const step = Math.ceil(chartPoints.length / 10);
+                        if (idx % step !== 0 && idx !== chartPoints.length - 1) {
+                          return null;
+                        }
                         const dateObj = new Date(pt.date);
                         const label = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                         return (
@@ -484,58 +535,95 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
       })()}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
-        
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search by note, customer, phone, or cashier..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSearchFocusedIndex(prev => (prev < currentBills.length - 1 ? prev + 1 : prev));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
-              } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (searchFocusedIndex >= 0 && currentBills[searchFocusedIndex]) {
-                  setExpandedBillId(expandedBillId === currentBills[searchFocusedIndex].id ? null : currentBills[searchFocusedIndex].id);
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-4 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md w-full">
+            <input
+              type="text"
+              placeholder="Search by note, customer, phone, or cashier..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSearchFocusedIndex(-1); }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSearchFocusedIndex(prev => (prev < currentBills.length - 1 ? prev + 1 : prev));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSearchFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (searchFocusedIndex >= 0 && currentBills[searchFocusedIndex]) {
+                    setExpandedBillId(expandedBillId === currentBills[searchFocusedIndex].id ? null : currentBills[searchFocusedIndex].id);
+                  }
                 }
-              }
-            }}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-
-        {/* Status Filter Selector */}
-        <div className="flex items-center space-x-3">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-white border border-slate-200 rounded-xl p-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="all">All Statuses</option>
-            <option value="held">Held (Active)</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <button
-            onClick={exportHeldBillsToCSV}
-            className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-2 px-4 border border-slate-200 rounded-xl text-xs shadow-xs transition-colors flex items-center space-x-2"
-          >
-            <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              }}
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <svg className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <span>Export CSV</span>
-          </button>
+          </div>
+
+          {/* Quick Preset / Custom Date & Status Filters */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            {/* Date Filters */}
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-white border border-slate-200 rounded-xl p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-white border border-slate-200 rounded-xl p-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <button
+                onClick={() => { setStartDate(''); setEndDate(''); }}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100/70 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-colors"
+              >
+                Clear Dates
+              </button>
+            )}
+
+            {/* Divider */}
+            <div className="hidden sm:block h-6 w-px bg-slate-200 mx-1"></div>
+
+            {/* Status Filter */}
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-white border border-slate-200 rounded-xl p-1.5 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="all">All Statuses</option>
+                <option value="held">Due (Active)</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            {/* Export CSV */}
+            <button
+              onClick={exportHeldBillsToCSV}
+              className="bg-white hover:bg-slate-50 text-slate-700 font-semibold py-1.5 px-3 border border-slate-200 rounded-xl text-xs shadow-xs transition-colors flex items-center space-x-1.5"
+            >
+              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>Export CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -546,7 +634,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
             <thead>
               <tr className="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
                 <th className="p-4 w-8"></th>
-                <th className="p-4">Hold ID / Time</th>
+                <th className="p-4">Due ID / Time</th>
                 <th className="p-4">Notes / Reference</th>
                 <th className="p-4">Cashier</th>
                 <th className="p-4">Customer Info</th>
@@ -567,7 +655,7 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
               ) : filteredBills.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="p-12 text-center text-slate-400">
-                    No held bills matched current filters.
+                    No due bills matched current filters.
                   </td>
                 </tr>
               ) : (
@@ -624,22 +712,21 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                           ) : (
                             <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-lg border border-emerald-100">
                               Paid ✓
-                        </span>
+                            </span>
                           )}
                         </td>
                         <td className="p-4">
                           <select
                             value={bill.status}
                             onChange={(e) => handleStatusChange(bill.id, e.target.value)}
-                            className={`text-xs font-bold rounded-lg border p-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                              bill.status === 'held'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : bill.status === 'completed'
+                            className={`text-xs font-bold rounded-lg border p-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${bill.status === 'held'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : bill.status === 'completed'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : 'bg-rose-50 text-rose-700 border-rose-200'
-                            }`}
+                              }`}
                           >
-                            <option value="held">Held (Active)</option>
+                            <option value="held">Due (Active)</option>
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
                           </select>
@@ -794,16 +881,15 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
             >
               Previous
             </button>
-            
+
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                  currentPage === page
-                    ? 'bg-slate-600 text-white shadow-xs'
-                    : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
-                }`}
+                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${currentPage === page
+                  ? 'bg-slate-600 text-white shadow-xs'
+                  : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                  }`}
               >
                 {page}
               </button>
@@ -904,11 +990,10 @@ export default function HeldBills({ onResume = () => {}, onHeldBillsChange = () 
                       key={method}
                       type="button"
                       onClick={() => setPayMethod(method)}
-                      className={`py-2 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${
-                        payMethod === method
-                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`py-2 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${payMethod === method
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
                       {method === 'mobile_pay' ? 'Mobile' : method.charAt(0).toUpperCase() + method.slice(1)}
                     </button>

@@ -24,7 +24,7 @@ export default function Inventory() {
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 100;
+  const itemsPerPage = 60;
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -476,6 +476,28 @@ export default function Inventory() {
             <div>
               <h2 className="text-2xl font-bold text-slate-800">Inventory Catalog</h2>
               <p className="text-sm text-slate-500">Manage shop items, monitor levels, and set restock alerts</p>
+              {/* Product Count Summary */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1 rounded-lg text-xs font-bold">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 3H8a1 1 0 00-1 1v3h10V4a1 1 0 00-1-1z" />
+                  </svg>
+                  Total: {products.length} products
+                </span>
+                {filteredProducts.length !== products.length && (
+                  <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 px-3 py-1 rounded-lg text-xs font-bold">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+                    </svg>
+                    Filtered: {filteredProducts.length} products
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-600 border border-rose-100 px-3 py-1 rounded-lg text-xs font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                  Low Stock: {products.filter(p => p.stock_quantity <= p.low_stock_threshold).length}
+                </span>
+              </div>
             </div>
             <div className="flex items-center space-x-3 w-full sm:w-auto">
               {!isSuperAdmin && (
@@ -545,10 +567,10 @@ export default function Inventory() {
                     if (searchFocusedIndex >= 0 && currentProducts[searchFocusedIndex]) {
                       const product = currentProducts[searchFocusedIndex];
                       if (!isSuperAdmin) {
-                         openEdit(product);
+                        openEdit(product);
                       } else {
-                         setSelectedHistoryProductId(product.id);
-                         setActiveTab('history');
+                        setSelectedHistoryProductId(product.id);
+                        setActiveTab('history');
                       }
                     }
                   }

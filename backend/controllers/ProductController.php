@@ -830,6 +830,7 @@ class ProductController {
                     SELECT COALESCE(poi.quantity_received, poi.quantity_ordered) AS qty_change, COALESCE(po.received_date, po.created_at) AS event_date 
                     FROM purchase_order_items poi JOIN purchase_orders po ON poi.purchase_order_id = po.id 
                     WHERE poi.product_id = ? AND poi.shop_id = ? AND po.status = 'received'
+                      AND COALESCE(poi.quantity_received, poi.quantity_ordered) > 0
                     UNION ALL
                     -- Customer Returns
                     SELECT cr.quantity AS qty_change, cr.created_at AS event_date 
@@ -877,12 +878,18 @@ class ProductController {
                 UNION ALL
                 
                 -- Purchases
-                SELECT COALESCE(po.received_date, po.created_at) AS event_date, COALESCE(poi.quantity_received, poi.quantity_ordered) AS qty_change, 0 AS qty_sold,
+                -- Always use quantity_received (the current, possibly-edited value) as the
+                -- authoritative qty for history. original_quantity_received is an audit field only
+                -- and must NOT be used here, otherwise an edited purchase would show stale numbers
+                -- while the stock walk would disagree with products.stock_quantity.
+                SELECT COALESCE(po.received_date, po.created_at) AS event_date,
+                       COALESCE(poi.quantity_received, poi.quantity_ordered) AS qty_change, 0 AS qty_sold,
                        'purchase' AS type, poi.cost_price AS cost_price, NULL AS sold_price, poi.subtotal AS subtotal, 0 AS discount,
                        po.id AS reference_id, CONCAT('PO-', po.id) AS reference_number
                 FROM purchase_order_items poi
                 JOIN purchase_orders po ON poi.purchase_order_id = po.id
                 WHERE poi.product_id = ? AND poi.shop_id = ? AND po.status = 'received'
+                  AND COALESCE(poi.quantity_received, poi.quantity_ordered) > 0
                 
                 UNION ALL
                 

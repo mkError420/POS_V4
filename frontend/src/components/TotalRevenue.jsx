@@ -429,8 +429,7 @@ export default function TotalRevenue() {
                 <span className="block text-2xl font-black text-slate-800">{formatCurrency(revenueData.inventory_purchasing_cost)}</span>
                 <span className="text-xs font-bold text-rose-600 mt-1 block">Cash Paid: {formatCurrency(revenueData.inventory_purchasing_cash_paid)}</span>
                 <span className="text-xs font-bold text-amber-600 mt-1 block">Credit (Owed): {formatCurrency(revenueData.supplier_due)}</span>
-                <span className="text-xs text-slate-450 mt-1 block">Value of active purchase orders</span>
-              </div>
+                <span className="text-xs text-slate-450 mt-1 block">Total cost of POs in selected period</span>              </div>
             </div>
 
             {/* Other Cost Card */}

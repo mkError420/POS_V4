@@ -389,6 +389,15 @@ class OtherController {
                 $cStmt = DB::query('SELECT due_balance FROM customers WHERE id = ? AND shop_id = ?', [$customerId, $shopId]);
                 $customer = $cStmt->fetch();
                 if ($customer) {
+                // Check if the customer has any due balance from previous sales
+                $dueBalance = (float)$customer['due_balance'];
+                if ($dueBalance > 0) {
+                    // If the customer has a due balance, deduct the refund from it
+                    $deductAmount = min($refundAmount, $dueBalance);
+                }
+            }
+            
+            if ($customer) {
                     $dueBalance = (float)$customer['due_balance'];
                     if ($deductFromDue === 1) {
                         // User explicitly selected to deduct from due balance

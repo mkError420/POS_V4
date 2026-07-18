@@ -269,7 +269,15 @@ export default function SalesHistory() {
   const fetchHeldBills = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/held-bills`, {
+      let url = `${API_BASE_URL}/held-bills`;
+      const params = [];
+      if (startDate && endDate) {
+        params.push(`start_date=${startDate}&end_date=${endDate}`);
+      }
+      if (params.length > 0) {
+        url += `?${params.join('&')}`;
+      }
+      const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -367,6 +375,10 @@ export default function SalesHistory() {
   };
 
   const openEditSale = async (sale) => {
+    if (!isAdmin) {
+      triggerAlert('error', 'Only shop admin can edit sales history.');
+      return;
+    }
     setDetailsLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -556,6 +568,10 @@ export default function SalesHistory() {
   };
 
   const handleDeleteSale = async (saleId) => {
+    if (!isAdmin) {
+      triggerAlert('error', 'Only shop admin can delete sales history.');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete Sale #${saleId}?\n\nThis will:\n• Restore all product stock quantities\n• Reverse any customer due balance\n• Remove this transaction from all reports\n\nThis action cannot be undone.`)) {
       return;
     }
@@ -608,6 +624,10 @@ export default function SalesHistory() {
   };
 
   const handleBulkDelete = async () => {
+    if (!isAdmin) {
+      triggerAlert('error', 'Only shop admin can delete sales history.');
+      return;
+    }
     if (selectedSaleIds.length === 0) return;
 
     if (!window.confirm(`Are you sure you want to delete the ${selectedSaleIds.length} selected sales?\n\nThis will:\n• Restore all product stock quantities for these transactions\n• Reverse any customer due balances associated with them\n• Remove these transactions from all reports\n\nThis action cannot be undone.`)) {
@@ -691,6 +711,10 @@ export default function SalesHistory() {
   };
 
   const handleCSVUpload = async (event) => {
+    if (!isAdmin) {
+      triggerAlert('error', 'Only shop admin can import sales CSV.');
+      return;
+    }
     const file = event.target.files[0];
     if (!file) return;
 
@@ -812,15 +836,12 @@ export default function SalesHistory() {
     );
   }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0) || (b.id || 0) - (a.id || 0));
 
+  // Total due is summed only from sales records. Held bills with status='held' are
+  // automatically created as a mirror whenever a sale has due_amount > 0, so
+  // including both would double-count every due amount.
+  const totalDue = filteredSales.reduce((sum, s) => sum + parseFloat(s.due_amount || 0), 0);
   const totalSalesCount = filteredSales.length;
   const totalRevenue = filteredSales.reduce((sum, s) => sum + parseFloat(s.final_amount || 0), 0);
-  const totalPaid = filteredSales.reduce((sum, s) => {
-    const val = s.paid_amount !== null && s.paid_amount !== undefined ? s.paid_amount : (s.final_amount || 0);
-    return sum + parseFloat(val || 0);
-  }, 0);
-  const totalDue = heldBills
-    .filter(b => b.status === 'held' && parseFloat(b.due_amount || 0) > 0)
-    .reduce((sum, b) => sum + parseFloat(b.due_amount || 0), 0);
 
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
   const indexOfLastSale = currentPage * itemsPerPage;
@@ -1108,30 +1129,34 @@ export default function SalesHistory() {
           <p className="text-sm text-slate-500">Search and audit invoice histories, payment logs, and totals</p>
         </div>
         <div className="flex items-center space-x-3 w-full sm:w-auto">
-          <input
-            type="file"
-            accept=".csv"
-            ref={fileInputRef}
-            onChange={handleCSVUpload}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            disabled={isImporting}
-            className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2 disabled:opacity-50"
-          >
-            {isImporting ? (
-              <svg className="animate-spin w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-            )}
-            <span>{isImporting ? 'Importing...' : 'Import CSV'}</span>
-          </button>
+          {isAdmin && (
+            <>
+              <input
+                type="file"
+                accept=".csv"
+                ref={fileInputRef}
+                onChange={handleCSVUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                disabled={isImporting}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2 disabled:opacity-50"
+              >
+                {isImporting ? (
+                  <svg className="animate-spin w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                )}
+                <span>{isImporting ? 'Importing...' : 'Import CSV'}</span>
+              </button>
+            </>
+          )}
           <button
             onClick={exportToCSV}
             className="bg-gray-700 hover:bg-slate-50 text-white hover:text-black font-semibold py-2.5 px-5 border border-slate-200 rounded-xl text-sm shadow-xs transition-colors flex items-center space-x-2"
@@ -1200,7 +1225,7 @@ export default function SalesHistory() {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Collected</p>
-            <h3 className="text-xl font-extrabold text-emerald-600"><span className="text-sm">BDT:</span> {totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</h3>
+            <h3 className="text-xl font-extrabold text-emerald-600"><span className="text-sm">BDT:</span> {totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</h3>
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex items-center space-x-3">
@@ -1628,12 +1653,14 @@ export default function SalesHistory() {
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center space-x-1.5">
-                        <button
-                          onClick={() => openEditSale(sale)}
-                          className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors"
-                        >
-                          Edit
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => openEditSale(sale)}
+                            className="text-amber-600 hover:text-amber-900 font-semibold text-xs border border-amber-100 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition-colors"
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={() => openReceipt(sale)}
                           className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs border border-indigo-100 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
@@ -1652,15 +1679,17 @@ export default function SalesHistory() {
                             <span>Details</span>
                           </button>
                         )}
-                        <button
-                          onClick={() => handleDeleteSale(sale.id)}
-                          className="text-rose-500 hover:text-rose-800 border border-rose-100 hover:bg-rose-50 p-1 rounded-lg transition-colors"
-                          title="Delete this sale (Admin Only)"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteSale(sale.id)}
+                            className="text-rose-500 hover:text-rose-800 border border-rose-100 hover:bg-rose-50 p-1 rounded-lg transition-colors"
+                            title="Delete this sale (Admin Only)"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -905,7 +905,7 @@ class SaleController {
     public static function importCsv() {
         Auth::authenticate();
         Auth::enforceTenant();
-        Auth::authorize(['shop_admin', 'shop_staff']);
+        Auth::authorize(['shop_admin']);
         
         $shopId = Auth::$shopId;
         $userId = Auth::$user['id'];

@@ -618,7 +618,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
   };
 
   // --- SUBMIT CHECKOUT ---
-  const handleCheckout = async () => {
+  const handleCheckout = async (overridePaidAmount = null) => {
     if (!activeTab) {
       triggerAlert('error', 'No active tab selected.');
       return;
@@ -636,8 +636,18 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     }
 
     const finalTotal = getFinalTotal();
-    const parsedPaid = activeTab.paidAmount !== '' ? parseFloat(activeTab.paidAmount) : finalTotal;
-    const dueAmount = finalTotal - parsedPaid;
+    // If cashier manually touched the field: empty string means they cleared it → treat as 0.
+    // Guard NaN in case of non-numeric input.
+    const parsedPaid = overridePaidAmount !== null
+      ? overridePaidAmount
+      : (() => {
+        if (activeTab.paidAmount === '' || activeTab.paidAmount === null || activeTab.paidAmount === undefined) {
+          return activeTab.isPaidTouched ? 0 : finalTotal;
+        }
+        const v = parseFloat(activeTab.paidAmount);
+        return isNaN(v) ? 0 : v;
+      })();
+    const dueAmount = Math.max(0, finalTotal - parsedPaid);
 
     if (parsedPaid < 0) {
       triggerAlert('error', 'Amount Paid cannot be negative.');
@@ -742,8 +752,16 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
       // Calculate paid and outstanding due amounts
       const finalTotal = getFinalTotal();
-      const paid = activeTab.paidAmount !== '' ? parseFloat(activeTab.paidAmount) : finalTotal;
-      const outstandingDue = finalTotal - paid;
+      const paid = overridePaidAmount !== null
+        ? overridePaidAmount
+        : (() => {
+          if (activeTab.paidAmount === '' || activeTab.paidAmount === null || activeTab.paidAmount === undefined) {
+            return activeTab.isPaidTouched ? 0 : finalTotal;
+          }
+          const v = parseFloat(activeTab.paidAmount);
+          return isNaN(v) ? 0 : v;
+        })();
+      const outstandingDue = Math.max(0, finalTotal - paid);
 
       // Successful Checkout routine
       setReceipt({
@@ -805,6 +823,29 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // --- DUE CHECKOUT (save sale with full amount as due, paid_amount = 0) ---
+  const handleDueCheckout = () => {
+    if (!activeTab) {
+      triggerAlert('error', 'No active tab selected.');
+      return;
+    }
+    if (activeTab.cart.length === 0) {
+      triggerAlert('error', 'Cart is empty. Nothing to save as due.');
+      return;
+    }
+
+    const hasCustomer = activeTab.selectedCustomerId !== '' ||
+      (activeTab.customerName.trim() !== '' && activeTab.syncToDirectory);
+    if (!hasCustomer) {
+      triggerAlert('error', 'A customer profile is required to save a due sale. Please select or enter a customer.');
+      return;
+    }
+
+    // Pass 0 as override — full final amount becomes due_amount on the sale record.
+    // handleCheckout accepts overridePaidAmount so no state mutation is needed.
+    handleCheckout(0);
   };
 
   // --- DELETE TRANSACTION (SHOP ADMIN ONLY) ---
@@ -1295,7 +1336,7 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
                                 ? 'bg-rose-50 text-rose-600 border border-rose-100'
                                 : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                 }`}>
-                                {remainingQty} left
+                                {remainingQty} {product.unit || 'pcs'} left
                               </span>
                             </td>
                             <td className="p-3 text-center">
@@ -2692,8 +2733,11 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
 
             {activeTab && (() => {
               const finalTotal = getFinalTotal();
-              const parsedPaid = activeTab.paidAmount !== '' ? parseFloat(activeTab.paidAmount) : finalTotal;
-              const dueAmount = finalTotal - parsedPaid;
+              const rawPaid = activeTab.paidAmount;
+              const parsedPaid = (rawPaid === '' || rawPaid === null || rawPaid === undefined)
+                ? (activeTab.isPaidTouched ? 0 : finalTotal)
+                : (isNaN(parseFloat(rawPaid)) ? 0 : parseFloat(rawPaid));
+              const dueAmount = Math.max(0, finalTotal - parsedPaid);
               if (dueAmount > 0) {
                 return (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-1 space-y-0.5 text-[11px] text-amber-800">
@@ -2715,18 +2759,18 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
           <div className="grid grid-cols-3 gap-1.5 mt-2">
             <button
               type="button"
-              onClick={() => { if (activeTab?.cart?.length > 0) setShowHoldBillModal(true); }}
-              disabled={activeTab?.cart?.length === 0}
-              className="col-span-1 bg-amber-50 hover:bg-amber-100 disabled:bg-slate-100 disabled:text-slate-400 text-amber-700 border border-amber-200 disabled:border-slate-200 font-bold py-2 px-1.5 rounded-xl transition-colors flex justify-center items-center space-x-1"
-              title="Hold Cart"
+              onClick={handleDueCheckout}
+              disabled={activeTab?.cart?.length === 0 || submitting}
+              className="col-span-1 bg-rose-50 hover:bg-rose-100 disabled:bg-slate-100 disabled:text-slate-400 text-rose-700 border border-rose-200 disabled:border-slate-200 font-bold py-2 px-1.5 rounded-xl transition-colors flex justify-center items-center space-x-1"
+              title="Save as Due (paid later)"
             >
-              <svg className="w-3.5 h-3.5 text-amber-600 disabled:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-xs">Hold</span>
+              <span className="text-xs">Due</span>
             </button>
             <button
-              onClick={handleCheckout}
+              onClick={() => handleCheckout()}
               disabled={activeTab?.cart?.length === 0 || submitting}
               className="col-span-2 bg-slate-600 hover:bg-gray-700 disabled:bg-slate-300 text-white font-bold py-2 px-3 rounded-xl shadow-md transition-colors flex justify-center items-center space-x-1.5"
             >
