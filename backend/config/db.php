@@ -515,6 +515,41 @@ class DB {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
+            // Create subscription_carts table if not exists (full schema incl. payment fields)
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `subscription_carts` (
+                    `id`              INT AUTO_INCREMENT,
+                    `customer_name`   VARCHAR(100)  NOT NULL,
+                    `customer_email`  VARCHAR(100)  NOT NULL,
+                    `customer_phone`  VARCHAR(20)   NOT NULL,
+                    `plans`           JSON          NOT NULL,
+                    `total_amount`    DECIMAL(10,2) NOT NULL,
+                    `status`          ENUM('pending','approved','rejected','completed') NOT NULL DEFAULT 'pending',
+                    `payment_method`  VARCHAR(30)   NULL,
+                    `transaction_id`  VARCHAR(100)  NULL,
+                    `amount_paid`     DECIMAL(10,2) NULL,
+                    `notes`           TEXT          NULL,
+                    `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    INDEX `idx_subscription_carts_status` (`status`),
+                    INDEX `idx_subscription_carts_email`  (`customer_email`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            // Backfill payment columns if the carts table predates the payment migration
+            if ($tableExists('subscription_carts')) {
+                if (!$columnExists('subscription_carts', 'payment_method')) {
+                    $pdo->exec("ALTER TABLE `subscription_carts` ADD COLUMN `payment_method` VARCHAR(30) NULL AFTER `status`");
+                }
+                if (!$columnExists('subscription_carts', 'transaction_id')) {
+                    $pdo->exec("ALTER TABLE `subscription_carts` ADD COLUMN `transaction_id` VARCHAR(100) NULL AFTER `payment_method`");
+                }
+                if (!$columnExists('subscription_carts', 'amount_paid')) {
+                    $pdo->exec("ALTER TABLE `subscription_carts` ADD COLUMN `amount_paid` DECIMAL(10,2) NULL AFTER `transaction_id`");
+                }
+            }
+
             // Seed default subscription plans if none exist
             $stmt = $pdo->query("SELECT COUNT(*) FROM `subscription_plans`");
             if ($stmt->fetchColumn() == 0) {
@@ -546,7 +581,7 @@ class DB {
                 ");
             }
 
-        } catch (\PDOException $e) {
+        } catch (\Throwable $e) {
             error_log("Migration error: " . $e->getMessage());
             file_put_contents(__DIR__ . '/migration_error.txt', "Migration error: " . $e->getMessage());
         }

@@ -520,11 +520,14 @@ class SubscriptionController {
 
     public static function subscriptionCart($requestData) {
         // No authentication required for cart submissions
-        $plans = $requestData['plans'] ?? [];
-        $totalAmount = $requestData['total_amount'] ?? 0;
-        $customerName = trim($requestData['customer_name'] ?? '');
+        $plans         = $requestData['plans'] ?? [];
+        $totalAmount   = $requestData['total_amount'] ?? 0;
+        $customerName  = trim($requestData['customer_name']  ?? '');
         $customerEmail = trim($requestData['customer_email'] ?? '');
         $customerPhone = trim($requestData['customer_phone'] ?? '');
+        $paymentMethod = trim($requestData['payment_method'] ?? '');
+        $transactionId = trim($requestData['transaction_id'] ?? '');
+        $amountPaid    = $requestData['amount_paid'] ?? null;
 
         if (empty($plans) || !is_array($plans) || empty($customerName) || empty($customerEmail) || empty($customerPhone)) {
             header('Content-Type: application/json');
@@ -537,6 +540,14 @@ class SubscriptionController {
             header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode(['error' => 'Invalid email address.']);
+            return;
+        }
+
+        $allowedMethods = ['bkash', 'nagad', 'rocket', 'banking', ''];
+        if (!empty($paymentMethod) && !in_array($paymentMethod, $allowedMethods)) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid payment method.']);
             return;
         }
 
@@ -559,17 +570,34 @@ class SubscriptionController {
                 $calculatedTotal += (float)$plan['price'];
             }
 
-            if (abs($calculatedTotal - (float)$totalAmount) > 0.01) {
+            // Tolerate tiny floating-point differences and an empty/missing total
+            if ($totalAmount === 0 || $totalAmount === null) {
+                $totalAmount = $calculatedTotal;
+            } elseif (abs($calculatedTotal - (float)$totalAmount) > 0.01) {
                 header('Content-Type: application/json');
                 http_response_code(400);
                 echo json_encode(['error' => 'Total amount mismatch.']);
                 return;
             }
 
-            // Create cart entry in subscription_carts table
+            $paidAmount = $amountPaid !== null ? (float)$amountPaid : $calculatedTotal;
+
+            // Persist the selected plan ids (not the full plan objects) so the column
+            // stays a valid, concise JSON array regardless of JSON column strictness.
+            $planIds = array_map(function ($p) { return (int)$p['id']; }, $validPlans);
+
+            // Create cart entry — includes payment fields
             DB::query(
-                'INSERT INTO subscription_carts (customer_name, customer_email, customer_phone, plans, total_amount, status) VALUES (?, ?, ?, ?, ?, "pending")',
-                [$customerName, $customerEmail, $customerPhone, json_encode($validPlans), $totalAmount]
+                'INSERT INTO subscription_carts
+                    (customer_name, customer_email, customer_phone, plans, total_amount, payment_method, transaction_id, amount_paid, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, "pending")',
+                [
+                    $customerName, $customerEmail, $customerPhone,
+                    json_encode($planIds), $totalAmount,
+                    $paymentMethod ?: null,
+                    $transactionId ?: null,
+                    $paidAmount
+                ]
             );
 
             $cartId = DB::lastInsertId();
@@ -577,7 +605,7 @@ class SubscriptionController {
             header('Content-Type: application/json');
             http_response_code(201);
             echo json_encode([
-                'message' => 'Cart submitted successfully! The superadmin will review your subscription request and contact you at ' . $customerEmail,
+                'message' => 'Subscription request submitted! The superadmin will review your payment and contact you at ' . $customerEmail,
                 'cart_id' => (int)$cartId
             ]);
         } catch (\Exception $e) {
@@ -597,9 +625,10 @@ class SubscriptionController {
             $carts = $stmt->fetchAll();
 
             foreach ($carts as &$cart) {
-                $cart['id'] = (int)$cart['id'];
+                $cart['id']           = (int)$cart['id'];
                 $cart['total_amount'] = (float)$cart['total_amount'];
-                $cart['plans'] = $cart['plans'] ? json_decode($cart['plans'], true) : [];
+                $cart['amount_paid']  = isset($cart['amount_paid']) ? (float)$cart['amount_paid'] : null;
+                $cart['plans']        = $cart['plans'] ? json_decode($cart['plans'], true) : [];
             }
 
             header('Content-Type: application/json');
@@ -661,18 +690,39 @@ class SubscriptionController {
                     $shopId = $existingShop['id'];
                 }
 
-                // Create subscriptions for each plan
-                foreach ($plans as $plan) {
-                    $planId = $plan['id'];
+                // Create subscriptions for each plan — carry through payment info from cart
+                $cartPaymentMethod = $cart['payment_method'] ?? 'cart';
+                $cartTransactionId = $cart['transaction_id'] ?? ('CART-' . $cartId);
+                $cartAmountPaid    = (float)($cart['amount_paid'] ?? 0);
+
+                foreach ($plans as $planRef) {
+                    $planId = is_array($planRef) ? (int)($planRef['id'] ?? 0) : (int)$planRef;
+                    if ($planId <= 0) continue;
+
+                    $stmt = DB::query('SELECT billing_cycle, price FROM subscription_plans WHERE id = ?', [$planId]);
+                    $plan = $stmt->fetch();
+                    if (!$plan) continue;
+
                     $billingCycle = $plan['billing_cycle'];
-                    $price = (float)$plan['price'];
+                    $price        = (float)$plan['price'];
 
                     $startDate = date('Y-m-d');
-                    $endDate = date('Y-m-d', strtotime($billingCycle === 'monthly' ? '+1 month' : ($billingCycle === 'quarterly' ? '+3 months' : '+1 year')));
+                    $endDate   = date('Y-m-d', strtotime(
+                        $billingCycle === 'monthly'   ? '+1 month' :
+                        ($billingCycle === 'quarterly' ? '+3 months' : '+1 year')
+                    ));
+
+                    // Use actual amount_paid from cart (split evenly if multiple plans)
+                    $perPlanPaid = count($plans) > 1
+                        ? round($cartAmountPaid / count($plans), 2)
+                        : ($cartAmountPaid ?: $price);
 
                     DB::query(
-                        'INSERT INTO shop_subscriptions (shop_id, plan_id, start_date, end_date, status, payment_method, transaction_id, amount_paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                        [$shopId, $planId, $startDate, $endDate, 'active', 'cart', 'CART-' . $cartId, $price]
+                        'INSERT INTO shop_subscriptions
+                            (shop_id, plan_id, start_date, end_date, status, payment_method, transaction_id, amount_paid)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [$shopId, $planId, $startDate, $endDate, 'active',
+                         $cartPaymentMethod, $cartTransactionId, $perPlanPaid]
                     );
                 }
             }

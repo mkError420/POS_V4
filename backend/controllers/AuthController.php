@@ -84,7 +84,7 @@ class AuthController {
 
         } catch (\Exception $e) {
             error_log('Login error: ' . $e->getMessage());
-            Auth::jsonError('Server error during login.', 500);
+            Auth::jsonError('Server error during login: ' . $e->getMessage(), 500);
         }
     }
 

@@ -4,23 +4,18 @@
     Deny from all
 </FilesMatch>
 
-# 1. Force Global CORS Permissions
-Header always set Access-Control-Allow-Origin "*"
-Header always set Access-Control-Allow-Methods "POST, GET, OPTIONS, DELETE, PUT"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-Auth-Token"
-Header always set Access-Control-Allow-Credentials "true"
-
-# 2. Automatically bypass preflight checks
+# Enable URL rewriting
 RewriteEngine On
 
-# Pass Authorization Header to PHP CGI/FastCGI
+# Pass Authorization Header through to PHP (CGI/FastCGI mode)
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# Handle OPTIONS preflight requests
 RewriteCond %{REQUEST_METHOD} OPTIONS
 RewriteRule ^(.*)$ - [R=204,L]
 
-# 3. Handle Standard Application Routing
+# Route all non-file, non-directory requests to index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
