@@ -262,7 +262,7 @@ export default function Login({ onLoginSuccess }) {
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">Codexaa‑POS++</h1>
-              <p className="text-slate-400 text-sm mt-1 max-w-xs leading-relaxed">Full-stack multi-tenant POS — React · PHP · MySQL</p>
+              <p className="text-slate-400 text-sm mt-1 max-w-xs leading-relaxed"> Incrementing your business potential</p>
             </div>
           </div>
 
