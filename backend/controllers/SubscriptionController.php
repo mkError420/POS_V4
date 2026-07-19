@@ -479,8 +479,8 @@ class SubscriptionController {
                 $passwordHash = password_hash($generatedPassword, PASSWORD_DEFAULT);
 
                 DB::query(
-                    'INSERT INTO shops (name, email, password, status) VALUES (?, ?, ?, "pending")',
-                    [$shopName, $shopEmail, $passwordHash]
+                    'INSERT INTO shops (name, email, status) VALUES (?, ?, "pending")',
+                    [$shopName, $shopEmail]
                 );
 
                 $shopId = DB::lastInsertId();
@@ -628,7 +628,28 @@ class SubscriptionController {
                 $cart['id']           = (int)$cart['id'];
                 $cart['total_amount'] = (float)$cart['total_amount'];
                 $cart['amount_paid']  = isset($cart['amount_paid']) ? (float)$cart['amount_paid'] : null;
-                $cart['plans']        = $cart['plans'] ? json_decode($cart['plans'], true) : [];
+
+                // Plans are stored as a JSON array of IDs — expand into full plan objects
+                $planIds = $cart['plans'] ? json_decode($cart['plans'], true) : [];
+                $planIds = array_filter(array_map(function ($p) {
+                    return is_array($p) ? (int)($p['id'] ?? 0) : (int)$p;
+                }, $planIds), function ($id) { return $id > 0; });
+
+                $expandedPlans = [];
+                if (!empty($planIds)) {
+                    $placeholders = implode(',', array_fill(0, count($planIds), '?'));
+                    $stmt = DB::query(
+                        "SELECT id, name, billing_cycle, price, features FROM subscription_plans WHERE id IN ($placeholders)",
+                        array_values($planIds)
+                    );
+                    while ($plan = $stmt->fetch()) {
+                        $plan['id']    = (int)$plan['id'];
+                        $plan['price'] = (float)$plan['price'];
+                        $plan['features'] = $plan['features'] ? json_decode($plan['features'], true) : [];
+                        $expandedPlans[] = $plan;
+                    }
+                }
+                $cart['plans'] = $expandedPlans;
             }
 
             header('Content-Type: application/json');
@@ -676,8 +697,8 @@ class SubscriptionController {
                     $passwordHash = password_hash($generatedPassword, PASSWORD_DEFAULT);
 
                     DB::query(
-                        'INSERT INTO shops (name, email, password, status) VALUES (?, ?, ?, "active")',
-                        [$shopName, $shopEmail, $passwordHash]
+                        'INSERT INTO shops (name, email, status) VALUES (?, ?, "active")',
+                        [$shopName, $shopEmail]
                     );
 
                     $shopId = DB::lastInsertId();
@@ -731,7 +752,7 @@ class SubscriptionController {
             echo json_encode(['message' => 'Cart status updated successfully.']);
         } catch (\Exception $e) {
             error_log('Update cart status error: ' . $e->getMessage());
-            Auth::jsonError('Server error updating cart status.', 500);
+            Auth::jsonError('Server error updating cart status: ' . $e->getMessage(), 500);
         }
     }
 }
