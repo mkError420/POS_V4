@@ -283,6 +283,10 @@ $routes = [
         '/^my-subscription$/' => function() { SubscriptionController::getMySubscription(); },
         '/^subscriptions$/' => function() { SubscriptionController::getAllSubscriptions(); },
         '/^subscription-carts$/' => function() { SubscriptionController::getCarts(); },
+        '/^subscription-options$/' => function() { SubscriptionController::getSubscriptionOptions(); },
+        '/^subscription-options\/all$/' => function() { SubscriptionController::getAllSubscriptionOptions(); },
+        '/^payment-methods$/' => function() { SubscriptionController::getPaymentMethods(); },
+        '/^payment-methods\/all$/' => function() { SubscriptionController::getAllPaymentMethods(); },
     ],
     'POST' => [
         // Auth
@@ -332,6 +336,8 @@ $routes = [
         '/^guest-subscription$/' => function($args, $data) { SubscriptionController::guestSubscription($data); },
         '/^subscription-cart$/' => function($args, $data) { SubscriptionController::subscriptionCart($data); },
         '/^subscriptions\/(\d+)\/upload-document$/' => function($args, $data) { SubscriptionController::uploadPaymentDocument($args[0]); },
+        '/^subscription-options$/' => function($args, $data) { SubscriptionController::createSubscriptionOption($data); },
+        '/^payment-methods$/' => function($args, $data) { SubscriptionController::createPaymentMethod($data); },
     ],
     'PUT' => [
         // Auth
@@ -373,6 +379,8 @@ $routes = [
         '/^subscriptions\/(\d+)\/reject$/' => function($args, $data) { SubscriptionController::rejectSubscription($args[0]); },
         '/^subscriptions\/(\d+)\/cancel$/' => function($args, $data) { SubscriptionController::cancelSubscription($args[0]); },
         '/^subscription-carts\/(\d+)\/(.+)$/' => function($args, $data) { SubscriptionController::updateCartStatus($args[0], $args[1]); },
+        '/^subscription-options\/(\d+)$/' => function($args, $data) { SubscriptionController::updateSubscriptionOption($args[0], $data); },
+        '/^payment-methods\/(\d+)$/' => function($args, $data) { SubscriptionController::updatePaymentMethod($args[0], $data); },
     ],
     'DELETE' => [
         // Products
@@ -408,6 +416,9 @@ $routes = [
         '/^users\/staff\/(\d+)$/' => function($args) { OtherController::deleteStaff($args[0]); },
         // Subscriptions
         '/^subscription-plans\/(\d+)$/' => function($args) { SubscriptionController::deletePlan($args[0]); },
+        '/^subscription-options\/(\d+)$/' => function($args) { SubscriptionController::deleteSubscriptionOption($args[0]); },
+        '/^payment-methods\/(\d+)$/' => function($args) { SubscriptionController::deletePaymentMethod($args[0]); },
+        '/^subscription-carts\/(\d+)$/' => function($args) { SubscriptionController::deleteCart($args[0]); },
     ]
 ];
 

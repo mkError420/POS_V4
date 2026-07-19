@@ -174,7 +174,7 @@ class SubscriptionController {
             Auth::jsonError('Plan ID and payment method are required.', 400);
         }
 
-        if (!in_array($paymentMethod, ['bkash', 'nogod', 'rocket', 'banking', 'cash', 'card', 'other'])) {
+        if (!in_array($paymentMethod, ['bkash', 'nagad', 'rocket', 'banking', 'cash', 'card', 'other'])) {
             Auth::jsonError('Invalid payment method.', 400);
         }
 
@@ -429,7 +429,7 @@ class SubscriptionController {
             return;
         }
 
-        if (!in_array($paymentMethod, ['bkash', 'nogod', 'rocket', 'banking'])) {
+        if (!in_array($paymentMethod, ['bkash', 'nagad', 'rocket', 'banking'])) {
             header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode(['error' => 'Invalid payment method.']);
@@ -660,6 +660,264 @@ class SubscriptionController {
         }
     }
 
+    // Subscription Options Management
+    public static function getSubscriptionOptions() {
+        try {
+            $stmt = DB::query('SELECT id, title, description, icon, display_order, status FROM subscription_options WHERE status = "active" ORDER BY display_order ASC');
+            $options = $stmt->fetchAll();
+
+            foreach ($options as &$option) {
+                $option['id'] = (int)$option['id'];
+                $option['display_order'] = (int)$option['display_order'];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($options);
+        } catch (\Exception $e) {
+            error_log('Get subscription options error: ' . $e->getMessage());
+            Auth::jsonError('Server error fetching subscription options.', 500);
+        }
+    }
+
+    public static function getAllSubscriptionOptions() {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        try {
+            $stmt = DB::query('SELECT id, title, description, icon, display_order, status, created_at, updated_at FROM subscription_options ORDER BY display_order ASC');
+            $options = $stmt->fetchAll();
+
+            foreach ($options as &$option) {
+                $option['id'] = (int)$option['id'];
+                $option['display_order'] = (int)$option['display_order'];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($options);
+        } catch (\Exception $e) {
+            error_log('Get all subscription options error: ' . $e->getMessage());
+            Auth::jsonError('Server error fetching subscription options.', 500);
+        }
+    }
+
+    public static function createSubscriptionOption($requestData) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        $title = trim($requestData['title'] ?? '');
+        $description = trim($requestData['description'] ?? '');
+        $icon = trim($requestData['icon'] ?? '');
+        $displayOrder = (int)($requestData['display_order'] ?? 0);
+        $status = $requestData['status'] ?? 'active';
+
+        if (empty($title)) {
+            Auth::jsonError('Title is required.', 400);
+        }
+
+        try {
+            DB::query(
+                'INSERT INTO subscription_options (title, description, icon, display_order, status) VALUES (?, ?, ?, ?, ?)',
+                [$title, $description, $icon, $displayOrder, $status]
+            );
+
+            $optionId = DB::lastInsertId();
+
+            header('Content-Type: application/json');
+            http_response_code(201);
+            echo json_encode([
+                'message' => 'Subscription option created successfully.',
+                'option_id' => (int)$optionId
+            ]);
+        } catch (\Exception $e) {
+            error_log('Create subscription option error: ' . $e->getMessage());
+            Auth::jsonError('Server error creating subscription option.', 500);
+        }
+    }
+
+    public static function updateSubscriptionOption($optionId, $requestData) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        $title = trim($requestData['title'] ?? '');
+        $description = trim($requestData['description'] ?? '');
+        $icon = trim($requestData['icon'] ?? '');
+        $displayOrder = (int)($requestData['display_order'] ?? 0);
+        $status = $requestData['status'] ?? 'active';
+
+        if (empty($title)) {
+            Auth::jsonError('Title is required.', 400);
+        }
+
+        try {
+            $stmt = DB::query('SELECT id FROM subscription_options WHERE id = ?', [$optionId]);
+            if (!$stmt->fetch()) {
+                Auth::jsonError('Subscription option not found.', 404);
+            }
+
+            DB::query(
+                'UPDATE subscription_options SET title = ?, description = ?, icon = ?, display_order = ?, status = ? WHERE id = ?',
+                [$title, $description, $icon, $displayOrder, $status, $optionId]
+            );
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Subscription option updated successfully.']);
+        } catch (\Exception $e) {
+            error_log('Update subscription option error: ' . $e->getMessage());
+            Auth::jsonError('Server error updating subscription option.', 500);
+        }
+    }
+
+    public static function deleteSubscriptionOption($optionId) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        try {
+            $stmt = DB::query('SELECT id FROM subscription_options WHERE id = ?', [$optionId]);
+            if (!$stmt->fetch()) {
+                Auth::jsonError('Subscription option not found.', 404);
+            }
+
+            DB::query('DELETE FROM subscription_options WHERE id = ?', [$optionId]);
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Subscription option deleted successfully.']);
+        } catch (\Exception $e) {
+            error_log('Delete subscription option error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting subscription option.', 500);
+        }
+    }
+
+    // Payment Methods Management
+    public static function getPaymentMethods() {
+        try {
+            $stmt = DB::query('SELECT id, name, method_id, account_number, color, instructions, display_order FROM payment_methods WHERE status = "active" ORDER BY display_order ASC');
+            $methods = $stmt->fetchAll();
+
+            foreach ($methods as &$method) {
+                $method['id'] = (int)$method['id'];
+                $method['display_order'] = (int)$method['display_order'];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($methods);
+        } catch (\Exception $e) {
+            error_log('Get payment methods error: ' . $e->getMessage());
+            Auth::jsonError('Server error fetching payment methods.', 500);
+        }
+    }
+
+    public static function getAllPaymentMethods() {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        try {
+            $stmt = DB::query('SELECT id, name, method_id, account_number, color, instructions, status, display_order, created_at, updated_at FROM payment_methods ORDER BY display_order ASC');
+            $methods = $stmt->fetchAll();
+
+            foreach ($methods as &$method) {
+                $method['id'] = (int)$method['id'];
+                $method['display_order'] = (int)$method['display_order'];
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($methods);
+        } catch (\Exception $e) {
+            error_log('Get all payment methods error: ' . $e->getMessage());
+            Auth::jsonError('Server error fetching payment methods.', 500);
+        }
+    }
+
+    public static function createPaymentMethod($requestData) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        $name = trim($requestData['name'] ?? '');
+        $methodId = trim($requestData['method_id'] ?? '');
+        $accountNumber = trim($requestData['account_number'] ?? '');
+        $color = trim($requestData['color'] ?? 'blue');
+        $instructions = trim($requestData['instructions'] ?? '');
+        $displayOrder = (int)($requestData['display_order'] ?? 0);
+        $status = $requestData['status'] ?? 'active';
+
+        if (empty($name) || empty($methodId) || empty($accountNumber)) {
+            Auth::jsonError('Name, method ID, and account number are required.', 400);
+        }
+
+        try {
+            DB::query(
+                'INSERT INTO payment_methods (name, method_id, account_number, color, instructions, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$name, $methodId, $accountNumber, $color, $instructions, $displayOrder, $status]
+            );
+
+            $newMethodId = DB::lastInsertId();
+
+            header('Content-Type: application/json');
+            http_response_code(201);
+            echo json_encode([
+                'message' => 'Payment method created successfully.',
+                'method_id' => (int)$newMethodId
+            ]);
+        } catch (\Exception $e) {
+            error_log('Create payment method error: ' . $e->getMessage());
+            Auth::jsonError('Server error creating payment method.', 500);
+        }
+    }
+
+    public static function updatePaymentMethod($methodId, $requestData) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        $name = trim($requestData['name'] ?? '');
+        $newMethodId = trim($requestData['method_id'] ?? '');
+        $accountNumber = trim($requestData['account_number'] ?? '');
+        $color = trim($requestData['color'] ?? 'blue');
+        $instructions = trim($requestData['instructions'] ?? '');
+        $displayOrder = (int)($requestData['display_order'] ?? 0);
+        $status = $requestData['status'] ?? 'active';
+
+        if (empty($name) || empty($newMethodId) || empty($accountNumber)) {
+            Auth::jsonError('Name, method ID, and account number are required.', 400);
+        }
+
+        try {
+            $stmt = DB::query('SELECT id FROM payment_methods WHERE id = ?', [$methodId]);
+            if (!$stmt->fetch()) {
+                Auth::jsonError('Payment method not found.', 404);
+            }
+
+            DB::query(
+                'UPDATE payment_methods SET name = ?, method_id = ?, account_number = ?, color = ?, instructions = ?, display_order = ?, status = ? WHERE id = ?',
+                [$name, $newMethodId, $accountNumber, $color, $instructions, $displayOrder, $status, $methodId]
+            );
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Payment method updated successfully.']);
+        } catch (\Exception $e) {
+            error_log('Update payment method error: ' . $e->getMessage());
+            Auth::jsonError('Server error updating payment method.', 500);
+        }
+    }
+
+    public static function deletePaymentMethod($methodId) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        try {
+            $stmt = DB::query('SELECT id FROM payment_methods WHERE id = ?', [$methodId]);
+            if (!$stmt->fetch()) {
+                Auth::jsonError('Payment method not found.', 404);
+            }
+
+            DB::query('DELETE FROM payment_methods WHERE id = ?', [$methodId]);
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Payment method deleted successfully.']);
+        } catch (\Exception $e) {
+            error_log('Delete payment method error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting payment method.', 500);
+        }
+    }
+
     public static function updateCartStatus($cartId, $status) {
         Auth::authenticate();
         Auth::authorize(['super_admin']);
@@ -753,6 +1011,26 @@ class SubscriptionController {
         } catch (\Exception $e) {
             error_log('Update cart status error: ' . $e->getMessage());
             Auth::jsonError('Server error updating cart status: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public static function deleteCart($cartId) {
+        Auth::authenticate();
+        Auth::authorize(['super_admin']);
+
+        try {
+            $stmt = DB::query('SELECT id FROM subscription_carts WHERE id = ?', [$cartId]);
+            if (!$stmt->fetch()) {
+                Auth::jsonError('Cart not found.', 404);
+            }
+
+            DB::query('DELETE FROM subscription_carts WHERE id = ?', [$cartId]);
+
+            header('Content-Type: application/json');
+            echo json_encode(['message' => 'Cart deleted successfully.']);
+        } catch (\Exception $e) {
+            error_log('Delete cart error: ' . $e->getMessage());
+            Auth::jsonError('Server error deleting cart.', 500);
         }
     }
 }

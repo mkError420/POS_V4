@@ -290,7 +290,7 @@ export default function Subscription({ onNavigate }) {
                 >
                   <option value="">Select payment method</option>
                   <option value="bkash">bKash</option>
-                  <option value="nogod">Nogod</option>
+                  <option value="nagad">Nagad</option>
                   <option value="rocket">Rocket</option>
                   <option value="banking">Bank Transfer</option>
                 </select>
@@ -339,7 +339,7 @@ export default function Subscription({ onNavigate }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Payment Proof</h3>
-            <p className="text-sm text-slate-500 mb-4">Upload a screenshot or document of your payment (bKash/Nogod/Rocket/Banking).</p>
+            <p className="text-sm text-slate-500 mb-4">Upload a screenshot or document of your payment (bKash/Nagad/Rocket/Banking).</p>
 
             <form onSubmit={handleUploadDocument} className="space-y-4">
               <div>

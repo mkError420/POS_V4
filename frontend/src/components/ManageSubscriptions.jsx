@@ -5,6 +5,8 @@ export default function ManageSubscriptions() {
   const [plans, setPlans] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [carts, setCarts] = useState([]);
+  const [subscriptionOptions, setSubscriptionOptions] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('plans');
   const [filterStatus, setFilterStatus] = useState('');
@@ -15,6 +17,20 @@ export default function ManageSubscriptions() {
   const [planMessage, setPlanMessage] = useState('');
   const [viewingSubscription, setViewingSubscription] = useState(null);
   const [viewingCart, setViewingCart] = useState(null);
+  
+  // Subscription options state
+  const [showOptionModal, setShowOptionModal] = useState(false);
+  const [editingOption, setEditingOption] = useState(null);
+  const [optionForm, setOptionForm] = useState({ title: '', description: '', icon: '', display_order: 0, status: 'active' });
+  const [savingOption, setSavingOption] = useState(false);
+  const [optionMessage, setOptionMessage] = useState('');
+  
+  // Payment methods state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ name: '', method_id: '', account_number: '', color: 'blue', instructions: '', display_order: 0, status: 'active' });
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -24,7 +40,7 @@ export default function ManageSubscriptions() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const [plansRes, subsRes, cartsRes] = await Promise.all([
+      const [plansRes, subsRes, cartsRes, optionsRes, paymentRes] = await Promise.all([
         fetch(`${API_BASE_URL}/subscription-plans/all`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
@@ -33,12 +49,20 @@ export default function ManageSubscriptions() {
         }),
         fetch(`${API_BASE_URL}/subscription-carts`, {
           headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/subscription-options/all`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/payment-methods/all`, {
+          headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
       if (plansRes.ok) setPlans(await plansRes.json());
       if (subsRes.ok) setSubscriptions(await subsRes.json());
       if (cartsRes.ok) setCarts(await cartsRes.json());
+      if (optionsRes.ok) setSubscriptionOptions(await optionsRes.json());
+      if (paymentRes.ok) setPaymentMethods(await paymentRes.json());
     } catch (err) {
       console.error('Failed to fetch subscription data:', err);
     } finally {
@@ -190,6 +214,224 @@ export default function ManageSubscriptions() {
     }
   };
 
+  const handleDeleteCart = async (cartId) => {
+    if (!window.confirm('Are you sure you want to delete this subscription request?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/subscription-carts/${cartId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete cart.');
+
+      fetchData();
+      if (viewingCart?.id === cartId) {
+        setViewingCart(null);
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // Subscription Options Handlers
+  const handleCreateOption = async (e) => {
+    e.preventDefault();
+    setSavingOption(true);
+    setOptionMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/subscription-options`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(optionForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create option.');
+
+      setOptionMessage('Option created successfully!');
+      setShowOptionModal(false);
+      setOptionForm({ title: '', description: '', icon: '', display_order: 0, status: 'active' });
+      fetchData();
+    } catch (err) {
+      setOptionMessage(err.message);
+    } finally {
+      setSavingOption(false);
+    }
+  };
+
+  const handleUpdateOption = async (e) => {
+    e.preventDefault();
+    if (!editingOption) return;
+
+    setSavingOption(true);
+    setOptionMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/subscription-options/${editingOption.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(optionForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update option.');
+
+      setOptionMessage('Option updated successfully!');
+      setShowOptionModal(false);
+      setEditingOption(null);
+      setOptionForm({ title: '', description: '', icon: '', display_order: 0, status: 'active' });
+      fetchData();
+    } catch (err) {
+      setOptionMessage(err.message);
+    } finally {
+      setSavingOption(false);
+    }
+  };
+
+  const handleDeleteOption = async (optionId) => {
+    if (!window.confirm('Are you sure you want to delete this option?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/subscription-options/${optionId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete option.');
+
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const openEditOption = (option) => {
+    setEditingOption(option);
+    setOptionForm({
+      title: option.title,
+      description: option.description,
+      icon: option.icon,
+      display_order: option.display_order,
+      status: option.status
+    });
+    setShowOptionModal(true);
+  };
+
+  // Payment Methods Handlers
+  const handleCreatePayment = async (e) => {
+    e.preventDefault();
+    setSavingPayment(true);
+    setPaymentMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/payment-methods`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(paymentForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create payment method.');
+
+      setPaymentMessage('Payment method created successfully!');
+      setShowPaymentModal(false);
+      setPaymentForm({ name: '', method_id: '', account_number: '', color: 'blue', instructions: '', display_order: 0, status: 'active' });
+      fetchData();
+    } catch (err) {
+      setPaymentMessage(err.message);
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    if (!editingPayment) return;
+
+    setSavingPayment(true);
+    setPaymentMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/payment-methods/${editingPayment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(paymentForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update payment method.');
+
+      setPaymentMessage('Payment method updated successfully!');
+      setShowPaymentModal(false);
+      setEditingPayment(null);
+      setPaymentForm({ name: '', method_id: '', account_number: '', color: 'blue', instructions: '', display_order: 0, status: 'active' });
+      fetchData();
+    } catch (err) {
+      setPaymentMessage(err.message);
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm('Are you sure you want to delete this payment method?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/payment-methods/${paymentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete payment method.');
+
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const openEditPayment = (payment) => {
+    setEditingPayment(payment);
+    setPaymentForm({
+      name: payment.name,
+      method_id: payment.method_id,
+      account_number: payment.account_number,
+      color: payment.color,
+      instructions: payment.instructions,
+      display_order: payment.display_order,
+      status: payment.status
+    });
+    setShowPaymentModal(true);
+  };
+
   const openEditPlan = (plan) => {
     setEditingPlan(plan);
     setPlanForm({
@@ -250,6 +492,18 @@ export default function ManageSubscriptions() {
           className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'carts' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
         >
           Carts ({carts.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('options')}
+          className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'options' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Options ({subscriptionOptions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'payments' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Payment Methods ({paymentMethods.length})
         </button>
       </div>
 
@@ -538,6 +792,160 @@ export default function ManageSubscriptions() {
                                 </button>
                               </>
                             )}
+                            <button
+                              onClick={() => handleDeleteCart(cart.id)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'options' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-slate-800">Subscription Options</h3>
+            <button
+              onClick={() => { setEditingOption(null); setOptionForm({ title: '', description: '', icon: '', display_order: 0, status: 'active' }); setShowOptionModal(true); }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition-colors"
+            >
+              + Add Option
+            </button>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    <th className="p-4">Title</th>
+                    <th className="p-4">Description</th>
+                    <th className="p-4">Icon</th>
+                    <th className="p-4">Order</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-sm">
+                  {subscriptionOptions.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-slate-400">
+                        No subscription options found.
+                      </td>
+                    </tr>
+                  ) : (
+                    subscriptionOptions.map((option) => (
+                      <tr key={option.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 font-semibold text-slate-800">{option.title}</td>
+                        <td className="p-4 text-slate-600 truncate max-w-xs">{option.description}</td>
+                        <td className="p-4">
+                          <span className="capitalize px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            {option.icon || 'default'}
+                          </span>
+                        </td>
+                        <td className="p-4 text-slate-600">{option.display_order}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${option.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-700'}`}>
+                            {option.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditOption(option)}
+                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOption(option.id)}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'payments' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-slate-800">Payment Methods</h3>
+            <button
+              onClick={() => { setEditingPayment(null); setPaymentForm({ name: '', method_id: '', account_number: '', color: 'blue', instructions: '', display_order: 0, status: 'active' }); setShowPaymentModal(true); }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow transition-colors"
+            >
+              + Add Payment Method
+            </button>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    <th className="p-4">Name</th>
+                    <th className="p-4">Method ID</th>
+                    <th className="p-4">Account Number</th>
+                    <th className="p-4">Color</th>
+                    <th className="p-4">Order</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-sm">
+                  {paymentMethods.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="p-8 text-center text-slate-400">
+                        No payment methods found.
+                      </td>
+                    </tr>
+                  ) : (
+                    paymentMethods.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 font-semibold text-slate-800">{payment.name}</td>
+                        <td className="p-4 text-slate-600">{payment.method_id}</td>
+                        <td className="p-4 text-slate-600 font-mono text-xs">{payment.account_number}</td>
+                        <td className="p-4">
+                          <span className={`w-4 h-4 rounded-full inline-block ${payment.color === 'rose' ? 'bg-rose-500' : payment.color === 'orange' ? 'bg-orange-500' : payment.color === 'violet' ? 'bg-violet-500' : payment.color === 'blue' ? 'bg-blue-500' : 'bg-slate-500'}`}></span>
+                        </td>
+                        <td className="p-4 text-slate-600">{payment.display_order}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-700'}`}>
+                            {payment.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditPayment(payment)}
+                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeletePayment(payment.id)}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg transition-colors"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -636,6 +1044,210 @@ export default function ManageSubscriptions() {
             {planMessage && (
               <div className={`mt-4 p-3 rounded-xl text-sm ${planMessage.includes('successfully') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
                 {planMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Option Modal */}
+      {showOptionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">{editingOption ? 'Edit Option' : 'Create New Option'}</h3>
+
+            <form onSubmit={editingOption ? handleUpdateOption : handleCreateOption} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={optionForm.title}
+                  onChange={(e) => setOptionForm({ ...optionForm, title: e.target.value })}
+                  required
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea
+                  value={optionForm.description}
+                  onChange={(e) => setOptionForm({ ...optionForm, description: e.target.value })}
+                  rows="3"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Icon (support, cloud, devices, etc.)</label>
+                <input
+                  type="text"
+                  value={optionForm.icon}
+                  onChange={(e) => setOptionForm({ ...optionForm, icon: e.target.value })}
+                  placeholder="support"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                <input
+                  type="number"
+                  value={optionForm.display_order}
+                  onChange={(e) => setOptionForm({ ...optionForm, display_order: parseInt(e.target.value) })}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <select
+                  value={optionForm.status}
+                  onChange={(e) => setOptionForm({ ...optionForm, status: e.target.value })}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowOptionModal(false); setEditingOption(null); setOptionMessage(''); }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingOption}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-xl text-sm shadow transition-colors"
+                >
+                  {savingOption ? 'Saving...' : (editingOption ? 'Update' : 'Create')}
+                </button>
+              </div>
+            </form>
+
+            {optionMessage && (
+              <div className={`mt-4 p-3 rounded-xl text-sm ${optionMessage.includes('successfully') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                {optionMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Method Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">{editingPayment ? 'Edit Payment Method' : 'Create New Payment Method'}</h3>
+
+            <form onSubmit={editingPayment ? handleUpdatePayment : handleCreatePayment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={paymentForm.name}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, name: e.target.value })}
+                  required
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Method ID (unique)</label>
+                <input
+                  type="text"
+                  value={paymentForm.method_id}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, method_id: e.target.value })}
+                  required
+                  placeholder="bkash, nagad, etc."
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label>
+                <input
+                  type="text"
+                  value={paymentForm.account_number}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, account_number: e.target.value })}
+                  required
+                  placeholder="017XXXXXXXX"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Color</label>
+                <select
+                  value={paymentForm.color}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, color: e.target.value })}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="rose">Rose</option>
+                  <option value="orange">Orange</option>
+                  <option value="violet">Violet</option>
+                  <option value="blue">Blue</option>
+                  <option value="slate">Slate</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Instructions</label>
+                <textarea
+                  value={paymentForm.instructions}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, instructions: e.target.value })}
+                  rows="3"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                <input
+                  type="number"
+                  value={paymentForm.display_order}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, display_order: parseInt(e.target.value) })}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <select
+                  value={paymentForm.status}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, status: e.target.value })}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowPaymentModal(false); setEditingPayment(null); setPaymentMessage(''); }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-xl text-sm shadow transition-colors"
+                >
+                  {savingPayment ? 'Saving...' : (editingPayment ? 'Update' : 'Create')}
+                </button>
+              </div>
+            </form>
+
+            {paymentMessage && (
+              <div className={`mt-4 p-3 rounded-xl text-sm ${paymentMessage.includes('successfully') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                {paymentMessage}
               </div>
             )}
           </div>
@@ -876,6 +1488,11 @@ export default function ManageSubscriptions() {
                     </button>
                   </>
                 )}
+                <button
+                  onClick={() => handleDeleteCart(viewingCart.id)}
+                  className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm shadow transition-colors">
+                  Delete
+                </button>
               </div>
             </div>
           </div>

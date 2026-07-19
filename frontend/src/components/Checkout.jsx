@@ -2741,12 +2741,25 @@ export default function Checkout({ onHeldBillsChange = () => { }, resumedHeldBil
               if (dueAmount > 0) {
                 return (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-1 space-y-0.5 text-[11px] text-amber-800">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="font-medium">Due ammount:</span>
                       <span className="font-bold">৳{dueAmount.toFixed(3)}</span>
                     </div>
                     <div className="text-[9px] text-amber-600 font-semibold text-right">
                       * Customer Profile Required
+                    </div>
+                    <div className="flex justify-end mt-1 pt-1 border-t border-amber-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateActiveTabState('paidAmount', finalTotal.toFixed(3));
+                          updateActiveTabState('isPaidTouched', true);
+                        }}
+                        className="text-[10px] font-bold text-amber-700 hover:text-amber-900 underline"
+                        title="Clear due amount and pay in full"
+                      >
+                        Clear Due (Pay Full)
+                      </button>
                     </div>
                   </div>
                 );

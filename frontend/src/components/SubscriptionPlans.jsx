@@ -10,11 +10,11 @@ const PaymentMethodIcon = ({ method }) => {
           <span className="text-xs font-bold">bKash</span>
         </div>
       );
-    case 'nogod':
+    case 'nagad':
       return (
         <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-lg border border-purple-200">
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-          <span className="text-xs font-bold">Nogod</span>
+          <span className="text-xs font-bold">Nagad</span>
         </div>
       );
     case 'rocket':
@@ -319,7 +319,7 @@ export default function SubscriptionPlans({ onLoginClick = null }) {
                 >
                   <option value="">Select payment method</option>
                   <option value="bkash">bKash</option>
-                  <option value="nogod">Nogod</option>
+                  <option value="nagad">Nagad</option>
                   <option value="rocket">Rocket</option>
                   <option value="banking">Bank Transfer</option>
                 </select>
@@ -368,7 +368,7 @@ export default function SubscriptionPlans({ onLoginClick = null }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-lg font-bold text-slate-800 mb-2">Upload Payment Proof</h3>
-            <p className="text-sm text-slate-500 mb-4">Upload a screenshot or document of your payment (bKash/Nogod/Rocket/Banking).</p>
+            <p className="text-sm text-slate-500 mb-4">Upload a screenshot or document of your payment (bKash/Nagad/Rocket/Banking).</p>
 
             <form onSubmit={handleUploadDocument} className="space-y-4">
               <div>

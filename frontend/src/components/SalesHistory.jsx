@@ -839,7 +839,11 @@ export default function SalesHistory() {
   // Total due is summed only from sales records. Held bills with status='held' are
   // automatically created as a mirror whenever a sale has due_amount > 0, so
   // including both would double-count every due amount.
-  const totalDue = filteredSales.reduce((sum, s) => sum + parseFloat(s.due_amount || 0), 0);
+  // Ensure we only count positive due amounts to avoid negative values skewing the total
+  const totalDue = filteredSales.reduce((sum, s) => {
+    const dueAmount = parseFloat(s.due_amount || 0);
+    return sum + (dueAmount > 0 ? dueAmount : 0);
+  }, 0);
   const totalSalesCount = filteredSales.length;
   const totalRevenue = filteredSales.reduce((sum, s) => sum + parseFloat(s.final_amount || 0), 0);
 

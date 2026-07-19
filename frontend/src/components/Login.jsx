@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import API_BASE_URL from '../config';
 
-// Payment method config
-const PAYMENT_METHODS = [
-  { id: 'bkash',   label: 'bKash',         color: 'rose',   number: '017XXXXXXXX' },
-  { id: 'nagad',   label: 'Nagad',          color: 'orange', number: '018XXXXXXXX' },
-  { id: 'rocket',  label: 'Rocket',         color: 'violet', number: '019XXXXXXXX' },
-  { id: 'banking', label: 'Bank Transfer',  color: 'blue',   number: 'ACC: XXXX-XXXX' },
-];
-
 const CYCLE_LABEL = { monthly: '/mo', quarterly: '/qtr', yearly: '/yr' };
 const CYCLE_BADGE = {
   monthly:   'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
@@ -29,6 +21,14 @@ export default function Login({ onLoginSuccess }) {
   const [plansLoading, setPlansLoading] = useState(true);
   const [plansError, setPlansError] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+
+  // Subscription options
+  const [subscriptionOptions, setSubscriptionOptions] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  // Payment methods
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
 
   // Checkout modal (3 steps: info → payment → confirm)
   const [showCheckout, setShowCheckout] = useState(false);
@@ -128,7 +128,12 @@ export default function Login({ onLoginSuccess }) {
   }, []);
 
   // ── Fetch plans ────────────────────────────────────────────────────────────
-  useEffect(() => { fetchPlans(); }, []);
+  useEffect(() => {
+    fetchPlans();
+    fetchSubscriptionOptions();
+    fetchPaymentMethods();
+  }, []);
+
   const fetchPlans = async () => {
     setPlansLoading(true);
     setPlansError(false);
@@ -144,6 +149,36 @@ export default function Login({ onLoginSuccess }) {
       setPlansError(true);
     } finally {
       setPlansLoading(false);
+    }
+  };
+
+  const fetchSubscriptionOptions = async () => {
+    setOptionsLoading(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/subscription-options`);
+      if (r.ok) {
+        const data = await r.json();
+        setSubscriptionOptions(data);
+      }
+    } catch {
+      console.error('Failed to fetch subscription options');
+    } finally {
+      setOptionsLoading(false);
+    }
+  };
+
+  const fetchPaymentMethods = async () => {
+    setPaymentMethodsLoading(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/payment-methods`);
+      if (r.ok) {
+        const data = await r.json();
+        setPaymentMethods(data);
+      }
+    } catch {
+      console.error('Failed to fetch payment methods');
+    } finally {
+      setPaymentMethodsLoading(false);
     }
   };
 
@@ -265,6 +300,44 @@ export default function Login({ onLoginSuccess }) {
               <p className="text-slate-400 text-sm mt-1 max-w-xs leading-relaxed"> Incrementing your business potential</p>
             </div>
           </div>
+
+          {/* ── Subscription options section ───────────────────────────────── */}
+          {!optionsLoading && subscriptionOptions.length > 0 && (
+            <div className="w-full mb-6">
+              <div className="grid grid-cols-1 gap-2">
+                {subscriptionOptions.map((option) => (
+                  <div key={option.id} className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/50 rounded-xl p-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0">
+                      {option.icon === 'support' && (
+                        <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 3.536l3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                      {option.icon === 'cloud' && (
+                        <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                        </svg>
+                      )}
+                      {option.icon === 'devices' && (
+                        <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                      {!option.icon && (
+                        <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white">{option.title}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{option.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Subscription plans section ───────────────────────────────── */}
           <div className="w-full">
@@ -542,33 +615,44 @@ export default function Login({ onLoginSuccess }) {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">Payment Method *</label>
                   <div className="grid grid-cols-2 gap-2.5">
-                    {PAYMENT_METHODS.map(m => (
-                      <button key={m.id} type="button" onClick={() => setPaymentMethod(m.id)}
-                        className={`relative flex items-center gap-2.5 border-2 rounded-xl px-3 py-2.5 text-left transition-all ${
-                          paymentMethod === m.id
-                            ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
-                        }`}>
-                        {paymentMethod === m.id && (
-                          <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/>
-                            </svg>
+                    {paymentMethodsLoading ? (
+                      <div className="col-span-2 flex items-center justify-center py-4">
+                        <div className="animate-spin w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                      </div>
+                    ) : paymentMethods.length === 0 ? (
+                      <div className="col-span-2 text-center text-slate-400 text-xs py-4">
+                        No payment methods available
+                      </div>
+                    ) : (
+                      paymentMethods.map(m => (
+                        <button key={m.id} type="button" onClick={() => setPaymentMethod(m.method_id)}
+                          className={`relative flex items-center gap-2.5 border-2 rounded-xl px-3 py-2.5 text-left transition-all ${
+                            paymentMethod === m.method_id
+                              ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
+                          }`}>
+                          {paymentMethod === m.method_id && (
+                            <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/>
+                              </svg>
+                            </div>
+                          )}
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0
+                            ${m.color === 'rose'   ? 'bg-rose-100 text-rose-600'   :
+                              m.color === 'orange' ? 'bg-orange-100 text-orange-600' :
+                              m.color === 'violet' ? 'bg-violet-100 text-violet-600' :
+                              m.color === 'blue'   ? 'bg-blue-100 text-blue-600' :
+                              'bg-slate-100 text-slate-600'}`}>
+                            {m.name.slice(0, 1)}
                           </div>
-                        )}
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0
-                          ${m.id === 'bkash'   ? 'bg-rose-100 text-rose-600'   :
-                            m.id === 'nagad'   ? 'bg-orange-100 text-orange-600' :
-                            m.id === 'rocket'  ? 'bg-violet-100 text-violet-600' :
-                            'bg-blue-100 text-blue-600'}`}>
-                          {m.label.slice(0, 1)}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">{m.label}</p>
-                          <p className="text-[10px] text-slate-400">{m.number}</p>
-                        </div>
-                      </button>
-                    ))}
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">{m.name}</p>
+                            <p className="text-[10px] text-slate-400">{m.account_number}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -578,7 +662,7 @@ export default function Login({ onLoginSuccess }) {
                     <p className="text-xs font-bold text-amber-700 mb-1">Payment Instructions</p>
                     <p className="text-xs text-amber-600 leading-relaxed">
                       Send <strong>৳{parseFloat(selectedPlan.price).toFixed(0)}</strong> to the{' '}
-                      <strong>{PAYMENT_METHODS.find(m => m.id === paymentMethod)?.label}</strong> number above,
+                      <strong>{paymentMethods.find(m => m.method_id === paymentMethod)?.name}</strong> number above,
                       then fill in your transaction details below.
                     </p>
                   </div>
