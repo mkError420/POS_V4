@@ -3,9 +3,9 @@ import API_BASE_URL from '../config';
 
 const CYCLE_LABEL = { monthly: '/mo', quarterly: '/qtr', yearly: '/yr' };
 const CYCLE_BADGE = {
-  monthly:   'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+  monthly: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
   quarterly: 'bg-amber-500/20  text-amber-300  border-amber-500/30',
-  yearly:    'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  yearly: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
 };
 
 export default function Login({ onLoginSuccess }) {
@@ -37,14 +37,14 @@ export default function Login({ onLoginSuccess }) {
   const [checkoutError, setCheckoutError] = useState('');
 
   // Step 1 – Contact info
-  const [customerName, setCustomerName]   = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
   // Step 2 – Payment
-  const [paymentMethod, setPaymentMethod]   = useState('');
-  const [transactionId, setTransactionId]   = useState('');
-  const [amountPaid, setAmountPaid]         = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [transactionId, setTransactionId] = useState('');
+  const [amountPaid, setAmountPaid] = useState('');
 
   // ── Canvas particle animation ──────────────────────────────────────────────
   useEffect(() => {
@@ -55,8 +55,8 @@ export default function Login({ onLoginSuccess }) {
     let particles = [];
     const mouse = { x: null, y: null };
 
-    const onMove  = (e) => { mouse.x = e.clientX; mouse.y = e.clientY; };
-    const onOut   = ()  => { mouse.x = null; mouse.y = null; };
+    const onMove = (e) => { mouse.x = e.clientX; mouse.y = e.clientY; };
+    const onOut = () => { mouse.x = null; mouse.y = null; };
     const onTouch = (e) => { if (e.touches.length) { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; } };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseout', onOut);
@@ -83,7 +83,7 @@ export default function Login({ onLoginSuccess }) {
     }
 
     const init = () => {
-      canvas.width  = canvas.offsetWidth;
+      canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
       const n = Math.floor((canvas.width * canvas.height) / 9000);
       particles = Array.from({ length: n }, () => new Particle());
@@ -472,10 +472,10 @@ export default function Login({ onLoginSuccess }) {
             </div>
 
             <button type="submit" disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 text-sm transition-all shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 active:translate-y-0">
+              className="w-full flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-500/50 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 text-sm transition-all shadow-lg shadow-gray-600/30 hover:-translate-y-0.5 active:translate-y-0">
               {loading
-                ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Signing in…</>
-                : <>Sign In<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg></>
+                ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Signing in…</>
+                : <>Sign In<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg></>
               }
             </button>
           </form>
@@ -601,7 +601,7 @@ export default function Login({ onLoginSuccess }) {
                   </button>
                   <button type="submit"
                     className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow transition-colors flex items-center justify-center gap-2">
-                    Continue <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                    Continue <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
               </form>
@@ -626,24 +626,23 @@ export default function Login({ onLoginSuccess }) {
                     ) : (
                       paymentMethods.map(m => (
                         <button key={m.id} type="button" onClick={() => setPaymentMethod(m.method_id)}
-                          className={`relative flex items-center gap-2.5 border-2 rounded-xl px-3 py-2.5 text-left transition-all ${
-                            paymentMethod === m.method_id
-                              ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
-                              : 'border-slate-200 hover:border-slate-300 bg-white'
-                          }`}>
+                          className={`relative flex items-center gap-2.5 border-2 rounded-xl px-3 py-2.5 text-left transition-all ${paymentMethod === m.method_id
+                            ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                            }`}>
                           {paymentMethod === m.method_id && (
                             <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center">
                               <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                               </svg>
                             </div>
                           )}
                           <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0
-                            ${m.color === 'rose'   ? 'bg-rose-100 text-rose-600'   :
+                            ${m.color === 'rose' ? 'bg-rose-100 text-rose-600' :
                               m.color === 'orange' ? 'bg-orange-100 text-orange-600' :
-                              m.color === 'violet' ? 'bg-violet-100 text-violet-600' :
-                              m.color === 'blue'   ? 'bg-blue-100 text-blue-600' :
-                              'bg-slate-100 text-slate-600'}`}>
+                                m.color === 'violet' ? 'bg-violet-100 text-violet-600' :
+                                  m.color === 'blue' ? 'bg-blue-100 text-blue-600' :
+                                    'bg-slate-100 text-slate-600'}`}>
                             {m.name.slice(0, 1)}
                           </div>
                           <div>
@@ -693,13 +692,13 @@ export default function Login({ onLoginSuccess }) {
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => { setCheckoutStep(1); setCheckoutError(''); }}
                     className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors flex items-center justify-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg> Back
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg> Back
                   </button>
                   <button type="submit" disabled={checkoutLoading}
                     className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold rounded-xl text-sm shadow transition-colors flex items-center justify-center gap-2">
                     {checkoutLoading
-                      ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Submitting…</>
-                      : <>Submit Request <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg></>
+                      ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Submitting…</>
+                      : <>Submit Request <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg></>
                     }
                   </button>
                 </div>
